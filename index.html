@@ -29,6 +29,7 @@
     </a>
     <nav class="nav" aria-label="Primary">
       <a href="#features">Features</a>
+      <a href="manual.html">Manual</a>
       <a href="#learn">What you'll learn</a>
       <a href="#stack">Stack</a>
       <a href="#author">Author</a>
@@ -68,6 +69,20 @@
         </p>
       </div>
     </section>
+
+    <aside class="ollama-notice" role="note" aria-label="Ollama install requirement">
+      <div class="section-inner">
+        <div class="ollama-notice-inner">
+          <span class="ollama-notice-icon" aria-hidden="true">🤖</span>
+          <div>
+            <strong>AI Supervisor requires Ollama.</strong>
+            The lab runs fully without it — the hint ladder still works — but the
+            AI supervisor only responds if Ollama is running locally.
+            <a href="manual.html#ollama-setup">Setup guide →</a>
+          </div>
+        </div>
+      </div>
+    </aside>
 
     <section class="preview" id="preview">
       <div class="section-inner">
@@ -232,7 +247,7 @@
           <p class="eyebrow">Created by</p>
           <h2>Erick Omari</h2>
           <p>
-            Erick built this lab because learning IAM &amp; SSO from slides doesn't
+            I built this lab because learning IAM &amp; SSO from slides doesn't
             make you ready for an incident at 2am. The lab favors realistic failure
             over scripted success — every step has a mistake path, every mistake
             has a log line, and every log line is something you can quote in an

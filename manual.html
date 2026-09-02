@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1116">
+  <meta name="color-scheme" content="dark">
+  <title>Lab Manual · IAM &amp; SSO 3D Lab</title>
+  <meta name="description" content="How to use the IAM &amp; SSO 3D Lab: install Ollama for the AI supervisor, walk the 3D campus, work tickets, and read the hint ladder.">
+  <meta property="og:title" content="Lab Manual · IAM &amp; SSO 3D Lab">
+  <meta property="og:description" content="How to use the lab and how the AI instructor intervenes.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="IAM and SSO 3D Lab — home">
+      <img src="./favicon.svg" alt="" width="32" height="32" aria-hidden="true">
+      <span class="brand-text">
+        <strong>IAM &amp; SSO</strong>
+        <em>3D Lab</em>
+      </span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html#features">Features</a>
+      <a href="manual.html" aria-current="page">Manual</a>
+      <a href="index.html#learn">What you'll learn</a>
+      <a href="index.html#stack">Stack</a>
+      <a href="index.html#author">Author</a>
+      <a class="nav-cta" href="https://github.com/pitchiluxe/iam-sso-3d-lab/releases/latest">Download</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="manual-hero">
+      <div class="section-inner">
+        <p class="eyebrow">
+          <span class="dot" aria-hidden="true"></span>
+          v0.1.0 · Lab manual
+        </p>
+        <h1>How to use the lab<br>(and how the AI instructor intervenes).</h1>
+        <p>
+          A five-step walkthrough: install Ollama, enter a scenario, open the consoles,
+          ask the AI supervisor for help, and read the four-level hint ladder when
+          you're stuck.
+        </p>
+      </div>
+    </section>
+
+    <section class="manual-section">
+      <div class="section-inner">
+        <h2>Table of contents</h2>
+        <p class="section-lede">Each step takes two to three minutes.</p>
+        <div class="toc">
+          <a class="toc-card" href="#step-1">
+            <span class="toc-card-num">1</span>
+            <span class="toc-card-title">Install Ollama<small>Required for the AI supervisor</small></span>
+          </a>
+          <a class="toc-card" href="#step-2">
+            <span class="toc-card-num">2</span>
+            <span class="toc-card-title">Enter the lab<small>Pick a scenario &amp; walk in</small></span>
+          </a>
+          <a class="toc-card" href="#step-3">
+            <span class="toc-card-num">3</span>
+            <span class="toc-card-title">AI Supervisor console<small>Ask, score, get unstuck</small></span>
+          </a>
+          <a class="toc-card" href="#step-4">
+            <span class="toc-card-num">4</span>
+            <span class="toc-card-title">Hint ladder<small>Nudge → question → approach → solution</small></span>
+          </a>
+          <a class="toc-card" href="#step-5">
+            <span class="toc-card-num">5</span>
+            <span class="toc-card-title">Troubleshooting<small>When things don't respond</small></span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="step-1">
+      <div class="section-inner">
+        <h2>Before you start</h2>
+        <p class="section-lede">
+          The lab works without Ollama — the in-app hint ladder still nudges you
+          in the right direction. But to talk to the <strong>AI Supervisor</strong>
+          you need Ollama running locally.
+        </p>
+
+        <div class="step-block" id="ollama-setup">
+          <div class="step-block-header">
+            <span class="step-num">1</span>
+            <div>
+              <h3>Install Ollama &amp; pull the model</h3>
+              <small>~ 2 minutes</small>
+            </div>
+          </div>
+          <div class="step-block-body">
+            <p>
+              <strong>1.</strong> Download Ollama for your platform from
+              <a href="https://ollama.com" rel="noopener" style="color:var(--teal);">ollama.com</a>
+              and install it like any other app. Ollama runs in the background and
+              listens on <code style="font-family:var(--mono);color:var(--teal);">http://localhost:11434</code>.
+            </p>
+            <p>
+              <strong>2.</strong> Pull the model the lab expects. Open a terminal:
+            </p>
+            <div class="code-block">ollama pull llama3.2</div>
+            <p>
+              The first pull downloads a few gigabytes. After that, Ollama starts
+              instantly. The lab talks to it on every step — no further config needed.
+            </p>
+            <div class="callout">
+              <strong>What the lab uses:</strong> default base URL
+              <code style="font-family:var(--mono);color:var(--teal);">http://localhost:11434</code>,
+              default model <code style="font-family:var(--mono);color:var(--teal);">llama3.2</code>.
+              Override at runtime with <code style="font-family:var(--mono);color:var(--teal);">window.env.OLLAMA_BASE_URL</code>
+              and <code style="font-family:var(--mono);color:var(--teal);">window.env.OLLAMA_MODEL</code>.
+              Set <code style="font-family:var(--mono);color:var(--teal);">window.env.OLLAMA_DISABLED = "true"</code>
+              to force local-only mode (no network calls).
+            </div>
+            <p>
+              <strong>3.</strong> The lab auto-detects Ollama on launch. The status
+              dot in the AI Supervisor console turns green when it's online.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="step-2">
+      <div class="section-inner">
+        <h2>Enter the lab</h2>
+        <p class="section-lede">Pick a scenario, walk in, open a console.</p>
+
+        <div class="step-block">
+          <div class="step-block-header">
+            <span class="step-num">2</span>
+            <div>
+              <h3>Pick a scenario &amp; walk the campus</h3>
+              <small>~ 1 minute</small>
+            </div>
+          </div>
+          <div class="step-block-body">
+            <p>
+              <strong>1.</strong> Launch the app. The start screen lists all
+              scenarios as cards. Click one to enter.
+            </p>
+            <p>
+              <strong>2.</strong> You're now in a first-person 3D view of the
+              enterprise campus. Move with <strong>WASD</strong> or the
+              <strong>arrow keys</strong>; look with the <strong>mouse</strong>.
+              Open the in-game <strong>briefing panel</strong> (press
+              <code style="font-family:var(--mono);color:var(--teal);">Tab</code>)
+              to read the objectives for the current step.
+            </p>
+            <p>
+              <strong>3.</strong> Walk to any of the consoles marked in the
+              world. Each opens an overlay with its own UI:
+            </p>
+            <ul style="margin:0.5rem 0 1rem 1.4rem;color:var(--muted);line-height:1.8;">
+              <li><strong style="color:var(--text);">IAM Console</strong> — provision users, create groups, manage group membership, enable MFA.</li>
+              <li><strong style="color:var(--text);">Ticket Console</strong> — read incoming tickets, triage, resolve, escalate.</li>
+              <li><strong style="color:var(--text);">SecOps Dashboard</strong> — alerts, audit log, session revocation, fault indicators.</li>
+              <li><strong style="color:var(--text);">AI Supervisor</strong> — chat with the local Ollama model. This is where the AI instructor lives.</li>
+            </ul>
+            <p>
+              <strong>4.</strong> Complete each step's objectives in order. The
+              conductor watches your audit log; when a step's validators pass, it
+              advances automatically.
+            </p>
+            <div class="callout">
+              <strong>Tip:</strong> You can reset a lab at any time from the start
+              screen. Reset wipes the audit log, the score, and the evidence
+              collected so far.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="step-3">
+      <div class="section-inner">
+        <h2>AI Supervisor console</h2>
+        <p class="section-lede">
+          The AI instructor lives in its own console. Open it any time to ask a
+          question, score your current step, or request a hint.
+        </p>
+
+        <div class="step-block">
+          <div class="step-block-header">
+            <span class="step-num">3</span>
+            <div>
+              <h3>Open the console &amp; send your first message</h3>
+              <small>~ 1 minute</small>
+            </div>
+          </div>
+          <div class="step-block-body">
+            <p>
+              The console header shows the supervisor's <strong>status dot</strong>,
+              the model name, and a <strong>"Check status"</strong> button you can
+              press to ping Ollama and confirm the connection.
+            </p>
+
+            <div class="console-mock">
+              <div class="console-mock-title">
+                <span class="console-mock-title-dot"></span>
+                <strong>AI Supervisor</strong>
+                <span style="color:var(--muted);font-weight:500;">Ollama • llama3.2</span>
+                <span style="margin-left:auto;color:var(--muted);font-weight:500;font-size:0.72rem;">Check status</span>
+              </div>
+              <div class="console-mock-body">
+                <div class="msg">
+                  <div class="msg-meta">Lab 01: IAM Foundation — Step 2/5: Create a group</div>
+                </div>
+                <div class="msg">
+                  <div class="msg-meta msg-user">You · 14:02</div>
+                  <div class="msg-text msg-user">Where am I stuck?</div>
+                </div>
+                <div class="msg">
+                  <div class="msg-meta msg-sup">🤖 Supervisor · 14:02</div>
+                  <div class="msg-text msg-sup">What is the smallest verifiable change you can make right now? Check the audit log — did your last action appear there? If yes, what's the next field the system needs from you?</div>
+                </div>
+                <div class="msg">
+                  <div class="msg-meta msg-user">You · 14:03</div>
+                  <div class="msg-text msg-user">Score my step</div>
+                </div>
+                <div class="msg">
+                  <div class="msg-meta msg-sup">🤖 Supervisor · 14:03</div>
+                  <div class="msg-text msg-sup">Good work on exec. The least-privilege category is light — your group name doesn't follow the grp-&lt;dept&gt;-&lt;role&gt; convention. Naming is how auditors find your group next quarter.</div>
+                  <div class="score-card">
+                    <div class="verdict">✓ PASS · 78/100</div>
+                    <div>exec: 20/25 · troubleshoot: 16/20 · least-priv: 9/15</div>
+                    <div>docs: 12/15 · evidence: 13/15 · comms: 8/10</div>
+                  </div>
+                </div>
+                <div class="input-bar">
+                  <span>Ask: what should I check next?</span>
+                  <span class="send-btn">Send</span>
+                </div>
+                <div class="btn-row-mock">
+                  <span class="accent">📊 Score my step</span>
+                  <span>🧭 Where am I stuck?</span>
+                  <span>Clear</span>
+                </div>
+              </div>
+            </div>
+
+            <p>
+              <strong>Three ways to use the console:</strong>
+            </p>
+            <ul style="margin:0.5rem 0 1rem 1.4rem;color:var(--muted);line-height:1.85;">
+              <li><strong style="color:var(--text);">📊 Score my step</strong> — sends the last 20 audit events to Ollama and returns a six-category breakdown (exec, troubleshoot, least-privilege, docs, evidence, comms) plus a coaching note.</li>
+              <li><strong style="color:var(--text);">🧭 Where am I stuck?</strong> — asks Ollama for a Socratic nudge based on the current step's hint ladder.</li>
+              <li><strong style="color:var(--text);">Free-text input</strong> — ask anything about the current step. The supervisor will not give you the answer; it will ask you the next question.</li>
+            </ul>
+
+            <div class="callout callout-warn">
+              <strong>If Ollama is offline:</strong> the console shows
+              <em>"Ollama offline — using local hint"</em> and falls back to the
+              built-in hint ladder. Your progress is not blocked — the lab still
+              scores your steps, just without AI coaching.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="step-4">
+      <div class="section-inner">
+        <h2>How the AI instructor intervenes</h2>
+        <p class="section-lede">
+          The instructor never gives you the answer. It reveals progressively
+          stronger hints, one rung at a time, until you find the path yourself.
+        </p>
+
+        <div class="step-block">
+          <div class="step-block-header">
+            <span class="step-num">4</span>
+            <div>
+              <h3>The four-level hint ladder</h3>
+              <small>Real example · Lab 01, Step 1</small>
+            </div>
+          </div>
+          <div class="step-block-body">
+            <p>
+              Every step has a <strong>hint ladder</strong> — four messages, ordered
+              from a gentle steer to the actual answer. The instructor picks the
+              right level based on how stuck you are. You can also ask for each
+              level directly from the AI Supervisor console.
+            </p>
+
+            <div class="hint-ladder">
+              <div class="lvl">1<small>nudge</small></div>
+              <div class="lvl-text">
+                <strong>Names the territory, not the action.</strong><br>
+                <em>"Identities are how the directory knows who a person is. What
+                three things does a directory need to know about every person?"</em>
+              </div>
+            </div>
+            <div class="hint-ladder">
+              <div class="lvl">2<small>question</small></div>
+              <div class="lvl-text">
+                <strong>A diagnostic question that steers your reasoning.</strong><br>
+                <em>"If you had to introduce a new employee to the system, what
+                fields would you fill in?"</em>
+              </div>
+            </div>
+            <div class="hint-ladder">
+              <div class="lvl">3<small>approach</small></div>
+              <div class="lvl-text">
+                <strong>Names the action and where to look, but not the values.</strong><br>
+                <em>"Use the IAM Console 'Provision User' form. Username, display
+                name, and email are the minimum."</em>
+              </div>
+            </div>
+            <div class="hint-ladder">
+              <div class="lvl">4<small>solution</small></div>
+              <div class="lvl-text">
+                <strong>The actual answer — reserved for explanation mode.</strong><br>
+                <em>"Open the IAM Console, fill in username/display/email/dept/title,
+                click 'Create User'."</em>
+              </div>
+            </div>
+
+            <div class="callout">
+              <strong>Why four levels?</strong> Because an interview doesn't ask
+              you to read the manual — it asks you to defend the path you took.
+              The hint ladder trains that defense. The earlier you find the answer,
+              the more it counts.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="step-5">
+      <div class="section-inner">
+        <h2>Troubleshooting</h2>
+        <p class="section-lede">If something doesn't respond, walk down this list.</p>
+
+        <div class="step-block">
+          <div class="step-block-header">
+            <span class="step-num">5</span>
+            <div>
+              <h3>Common issues &amp; fixes</h3>
+              <small>~ 2 minutes</small>
+            </div>
+          </div>
+          <div class="step-block-body">
+            <p>
+              <strong>"AI Supervisor offline" in the console.</strong>
+              Ollama isn't running, or it's listening on a non-default port. Start
+              it with <code style="font-family:var(--mono);color:var(--teal);">ollama serve</code>,
+              then click <strong>Check status</strong> in the console header. If
+              you changed the port, set
+              <code style="font-family:var(--mono);color:var(--teal);">window.env.OLLAMA_BASE_URL</code>
+              before launching.
+            </p>
+            <p>
+              <strong>"Model not found" error.</strong>
+              The supervisor expects <code style="font-family:var(--mono);color:var(--teal);">llama3.2</code>.
+              Pull it: <code style="font-family:var(--mono);color:var(--teal);">ollama pull llama3.2</code>.
+              To use a different model, set
+              <code style="font-family:var(--mono);color:var(--teal);">window.env.OLLAMA_MODEL</code>
+              (e.g. <code style="font-family:var(--mono);color:var(--teal);">mistral</code>,
+              <code style="font-family:var(--mono);color:var(--teal);">phi3</code>).
+            </p>
+            <p>
+              <strong>"No active lab" in the console.</strong>
+              The AI supervisor only responds during an active scenario. Return to
+              the start screen and pick a lab card.
+            </p>
+            <p>
+              <strong>Supervisor is responding but never converges.</strong>
+              Small local models (under 7B parameters) can drift off-format. Either
+              upgrade to <code style="font-family:var(--mono);color:var(--teal);">llama3.2</code>
+              or larger, or set
+              <code style="font-family:var(--mono);color:var(--teal);">window.env.OLLAMA_DISABLED = "true"</code>
+              to fall back to the deterministic local scorer.
+            </p>
+            <p>
+              <strong>3D scene won't load / black canvas.</strong>
+              Your GPU may have WebGL disabled, or the Electron build is running on
+              an unsupported driver. Use the browser build as a fallback — it
+              serves the same lab from <code style="font-family:var(--mono);color:var(--teal);">npm run dev</code>.
+            </p>
+            <p>
+              <strong>Score isn't updating.</strong>
+              The conductor scores each step on advance, not on save. Complete all
+              the step's validators (visible in the briefing panel), then the
+              conductor will record your score and move to the next step.
+            </p>
+
+            <div class="btn-row">
+              <a class="btn btn-primary" href="https://github.com/pitchiluxe/iam-sso-3d-lab/releases/latest" rel="noopener">
+                Download the lab
+              </a>
+              <a class="btn btn-ghost" href="index.html#top">
+                Back to the landing page
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="section-inner footer-inner">
+      <p>© 2026 Erick Omari · All credentials and entities in this lab are fictional.</p>
+      <p>
+        <a href="https://github.com/pitchiluxe/iam-sso-3d-lab" rel="noopener">github.com/pitchiluxe/iam-sso-3d-lab</a>
+        ·
+        <a href="index.html#top">Back to top ↑</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
