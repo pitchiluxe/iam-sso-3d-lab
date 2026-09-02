@@ -10,7 +10,8 @@ Created by **Erick Omari**.
 - `styles.css` — single stylesheet
 - `favicon.svg` — shield + padlock monogram
 - `assets/Erick.jpg` — author portrait
-- `assets/screenshot.png` — preview of the running 3D lab
+- `assets/screenshot-start.png` — preview of the lab's start screen
+- `assets/screenshot-lab.png` — preview of an active 3D lab scene
 - `404.html` — fallback for any bad path on GitHub Pages
 
 ## Local preview

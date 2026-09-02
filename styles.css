@@ -256,8 +256,13 @@ h2 {
   padding: 6rem 0;
 }
 .preview h2 { margin-bottom: 0; }
-.preview-img-wrap {
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
   margin-top: 2.5rem;
+}
+.preview-img-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -276,6 +281,18 @@ h2 {
   display: block;
   width: 100%;
   height: auto;
+}
+.preview-caption {
+  padding: 0.85rem 1.1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+  margin: 0;
+}
+@media (max-width: 880px) {
+  .preview-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Features ─────────────────────────────────────────────────── */
