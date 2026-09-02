@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="18" fill="#0e1116"/>
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#4ec9b0" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#2a7a6a" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(50,50)">
+    <path d="M -38,-38 L 38,-38 L 38,-8 Q 38,35 0,50 Q -38,35 -38,-8 Z"
+          fill="url(#g)" stroke="#4ec9b0" stroke-width="2.5"/>
+    <path d="M -10,5 L 10,5 Q 13,5 13,8 L 13,28 Q 13,31 10,31 L -10,31 Q -13,31 -13,28 L -13,8 Q -13,5 -10,5 Z"
+          fill="#e6e6e6"/>
+    <path d="M -10,5 L -10,-12 Q -10,-22 0,-22 Q 10,-22 10,-12 L 10,5"
+          fill="none" stroke="#e6e6e6" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="0" cy="14" r="3" fill="#0e1116"/>
+    <rect x="-1.8" y="14" width="3.6" height="6" rx="1" fill="#0e1116"/>
+    <text x="0" y="40" text-anchor="middle"
+          font-family="system-ui, 'Segoe UI', Arial, sans-serif"
+          font-size="10" font-weight="700" letter-spacing="1"
+          fill="#e6e6e6" fill-opacity="0.9">IAM</text>
+  </g>
+</svg>

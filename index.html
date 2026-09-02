@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1116">
+  <meta name="color-scheme" content="dark">
+  <title>IAM & SSO 3D Lab</title>
+  <meta name="description" content="An interactive 3D training environment for Identity & Access Management, SSO, MFA, RBAC, and incident response. Built for IT, IAM, and SecOps learners.">
+  <meta property="og:title" content="IAM & SSO 3D Lab">
+  <meta property="og:description" content="A job-ready 3D lab for IAM and SSO. Walk real enterprise scenarios in your browser or as a desktop app.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="IAM and SSO 3D Lab — home">
+      <img src="./favicon.svg" alt="" width="32" height="32" aria-hidden="true">
+      <span class="brand-text">
+        <strong>IAM &amp; SSO</strong>
+        <em>3D Lab</em>
+      </span>
+    </a>
+    <nav class="nav" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#learn">What you'll learn</a>
+      <a href="#stack">Stack</a>
+      <a href="#author">Author</a>
+      <a class="nav-cta" href="https://github.com/pitchiluxe">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-grid-bg" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <p class="eyebrow">
+          <span class="dot" aria-hidden="true"></span>
+          v0.1.0 · Windows installer ready
+        </p>
+        <h1>
+          Learn IAM &amp; SSO<br>
+          the way the work&nbsp;actually&nbsp;looks.
+        </h1>
+        <p class="lede">
+          A job-ready 3D training lab for Identity &amp; Access Management, SSO, MFA, RBAC,
+          and incident response. Walk real enterprise scenarios — IdP configs, ticket queues,
+          access reviews, break/fix drills — with an Socratic AI tutor that never gives you
+          the answer before you've earned it.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/pitchiluxe" rel="noopener">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
+              <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.04 1.53 1.04.9 1.53 2.36 1.09 2.94.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.99 1.03-2.69-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.6 1.03 2.69 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/>
+            </svg>
+            Download from GitHub
+          </a>
+          <a class="btn btn-ghost" href="#learn">See what you'll learn</a>
+        </div>
+        <p class="micro">
+          Free · MIT-licensed lab content · All credentials and entities are fictional
+        </p>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="section-inner">
+        <h2>Built for the way operators actually learn</h2>
+        <p class="section-lede">
+          Every lab is a real-world scenario you walk through, not a slide deck.
+          You can make mistakes. The system detects them. You fix them. The lab
+          tells you what evidence you produced.
+        </p>
+        <div class="feature-grid">
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">🛡️</div>
+            <h3>13 enterprise scenarios</h3>
+            <p>IAM foundation, lifecycle, RBAC, SSO/SAML/OIDC, MFA, access reviews, break/fix, incident response, and a capstone that gates at 85%.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">🧭</div>
+            <h3>3D enterprise campus</h3>
+            <p>Walk between an IAM Ops floor, a SOC, a ticket queue, and a workstation. Interact with consoles that respond to your actions.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">🤖</div>
+            <h3>Socratic AI tutor</h3>
+            <p>Hints that escalate: nudge → question → approach → solution. The tutor never solves the lab for you — it asks the right next question.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">🎫</div>
+            <h3>Real ticket flow</h3>
+            <p>Open, triage, escalate, and close tickets the way an IT or IAM team actually does. Decisions are logged and scored.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">📊</div>
+            <h3>100-point rubric</h3>
+            <p>Execution, troubleshooting, least-privilege, docs, evidence, communication — six categories you can defend in an interview.</p>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">🖥️</div>
+            <h3>Browser or desktop</h3>
+            <p>Run it in your browser, or install the Windows desktop build with full keyboard/mouse and touch support.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="learn" id="learn">
+      <div class="section-inner">
+        <h2>What you'll learn to do</h2>
+        <p class="section-lede">
+          Each row is a skill you can put on a resume and defend in a behavioral interview.
+        </p>
+        <ul class="learn-list">
+          <li>
+            <span class="learn-tag">Foundation</span>
+            <div>
+              <h3>Diagnose authentication vs authorization</h3>
+              <p>Tell the difference in under 60 seconds. Pick the right log. Identify the right console.</p>
+            </div>
+          </li>
+          <li>
+            <span class="learn-tag">Lifecycle</span>
+            <div>
+              <h3>Onboard and offboard cleanly</h3>
+              <p>Create, modify, suspend, and restore accounts. Apply least-privilege from day one — and prove it.</p>
+            </div>
+          </li>
+          <li>
+            <span class="learn-tag">SSO / SAML / OIDC</span>
+            <div>
+              <h3>Wire federated identity into an app</h3>
+              <p>Read a SAML assertion, validate an OIDC token, and explain the trust chain to a non-engineer.</p>
+            </div>
+          </li>
+          <li>
+            <span class="learn-tag">MFA</span>
+            <div>
+              <h3>Harden a login without breaking it</h3>
+              <p>Pick the right factor for the right risk, roll it out, and recover the users who get locked out.</p>
+            </div>
+          </li>
+          <li>
+            <span class="learn-tag">Access reviews</span>
+            <div>
+              <h3>Run a quarterly review that means something</h3>
+              <p>Detect stale entitlements, separate the signal from the noise, and write the attestation that auditors accept.</p>
+            </div>
+          </li>
+          <li>
+            <span class="learn-tag">Incident response</span>
+            <div>
+              <h3>Contain a credential-stuffing incident</h3>
+              <p>Triage alerts, revoke sessions, force MFA, communicate to stakeholders, and write the post-incident report.</p>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stack" id="stack">
+      <div class="section-inner">
+        <h2>Under the hood</h2>
+        <p class="section-lede">
+          Built with the same tools real enterprise apps use — no toy stack, no proprietary runtime.
+        </p>
+        <div class="stack-grid">
+          <div class="stack-card">
+            <h3>Renderer</h3>
+            <p>Three.js / WebGL with a strict TypeScript build (tsc + Vite). 60 FPS target.</p>
+          </div>
+          <div class="stack-card">
+            <h3>State</h3>
+            <p>Eight Zustand stores wired by an event-bus-driven conductor. Mock services are singletons.</p>
+          </div>
+          <div class="stack-card">
+            <h3>Desktop</h3>
+            <p>Electron + electron-builder. NSIS Windows installer, signed, with multi-resolution .ico.</p>
+          </div>
+          <div class="stack-card">
+            <h3>Tutor</h3>
+            <p>Hint ladder (nudge → question → approach → solution) with Ollama plug-in for the local supervisor.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="author" id="author">
+      <div class="section-inner author-inner">
+        <img class="portrait"
+             src="./assets/Erick.jpg"
+             alt="Portrait of Erick Omari"
+             width="180" height="180"
+             loading="lazy">
+        <div class="author-text">
+          <p class="eyebrow">Created by</p>
+          <h2>Erick Omari</h2>
+          <p>
+            Erick built this lab because learning IAM &amp; SSO from slides doesn't
+            make you ready for an incident at 2am. The lab favors realistic failure
+            over scripted success — every step has a mistake path, every mistake
+            has a log line, and every log line is something you can quote in an
+            interview.
+          </p>
+          <a class="btn btn-ghost btn-small" href="https://github.com/pitchiluxe" rel="noopener">
+            More on GitHub →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-final">
+      <div class="section-inner cta-final-inner">
+        <h2>Get the lab</h2>
+        <p>Free. Fictional. Forkable. The Windows installer lives on GitHub.</p>
+        <a class="btn btn-primary btn-large" href="https://github.com/pitchiluxe" rel="noopener">
+          Download from GitHub
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="section-inner footer-inner">
+      <p>© 2026 Erick Omari · All credentials and entities in this lab are fictional.</p>
+      <p>
+        <a href="https://github.com/pitchiluxe" rel="noopener">github.com/pitchiluxe</a>
+        ·
+        <a href="#top">Back to top ↑</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
