@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IAM & SSO 3D Lab</title>
+    <style>
+      :root {
+        --bg: #0e1116;
+        --fg: #e6e6e6;
+        --muted: #8b95a1;
+        --accent: #4ec9b0;
+        --warn: #d7ba7d;
+        --err: #f48771;
+        --panel: #1b1f24;
+        --panel-2: #232830;
+        --border: #2d343d;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--fg);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 14px;
+        overflow: hidden;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #hud {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: rgba(27, 31, 36, 0.85);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 24px;
+        font-size: 13px;
+        pointer-events: none;
+        z-index: 10;
+      }
+      #hud .pill {
+        background: var(--panel-2);
+        padding: 4px 10px;
+        border-radius: 12px;
+        color: var(--muted);
+      }
+      #hud .pill strong {
+        color: var(--fg);
+      }
+      #fps {
+        position: fixed;
+        bottom: 12px;
+        right: 12px;
+        background: rgba(27, 31, 36, 0.85);
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+        font-size: 12px;
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" role="application" aria-label="IAM and SSO 3D training environment"></div>
+    <div id="hud">
+      <button id="hud-menu"
+              style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--accent);padding:2px 10px;font-size:12px;cursor:pointer;margin-right:8px;">
+        Labs
+      </button>
+      <div class="pill"><strong>Lab:</strong> <span id="hud-lab">—</span></div>
+      <div class="pill"><strong>Step:</strong> <span id="hud-step">—</span></div>
+      <div class="pill"><strong>Zone:</strong> <span id="hud-zone">—</span></div>
+      <div class="pill"><strong>Score:</strong> <span id="hud-score">0</span></div>
+    </div>
+    <div id="fps">0 FPS</div>
+    <div id="crosshair"
+         style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+                width:4px;height:4px;border-radius:50%;background:var(--accent);
+                pointer-events:none;z-index:15;opacity:0.7;"></div>
+    <div id="pointer-lock-hint"
+         style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+                color:var(--accent);font-size:16px;pointer-events:none;z-index:15;
+                text-align:center;line-height:1.6;display:none;">
+      Click to capture mouse<br><span style="font-size:12px;color:var(--muted)">WASD to move &nbsp;|&nbsp; E to interact &nbsp;|&nbsp; ESC to release</span>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
