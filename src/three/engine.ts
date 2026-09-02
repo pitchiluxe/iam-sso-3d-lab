@@ -17,6 +17,7 @@ export interface Engine {
   enterZone(zoneId: ZoneId): void;
   onConsolePrompt: ((c: ConsoleAnchor | null) => void) | null;
   onConsoleActivate: ((c: ConsoleAnchor) => void) | null;
+  onWorkstationActivate: (() => void) | null;
 }
 
 export function initEngine(container: HTMLElement): Engine {
@@ -83,10 +84,33 @@ export function initEngine(container: HTMLElement): Engine {
     },
     onConsolePrompt: null,
     onConsoleActivate: null,
+    onWorkstationActivate: null,
   };
 
   player.onPrompt = (c) => engine.onConsolePrompt?.(c);
   player.onActivate = (c) => engine.onConsoleActivate?.(c);
+
+  // Raycasting — detect clicks on workstation meshes regardless of proximity
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return; // left click only
+    const rect = renderer.domElement.getBoundingClientRect();
+    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(scene.children, true);
+    for (const hit of hits) {
+      let o: THREE.Object3D | null = hit.object;
+      while (o) {
+        if (o.userData?.interactable === 'workstation') {
+          engine.onWorkstationActivate?.();
+          return;
+        }
+        o = o.parent;
+      }
+    }
+  });
 
   // Initial teleport
   player.teleport(ZONE_BLUEPRINTS['iam-ops'].spawnPoint, ZONE_BLUEPRINTS['iam-ops'].spawnLookAt);
@@ -118,17 +142,19 @@ function makeFPSCounter() {
   };
 }
 
-export function startLoop(engine: Engine) {
+export function startLoop(engine: Engine): () => void {
   const fpsTick = makeFPSCounter();
   let prev = performance.now();
+  let rafId = 0;
 
   function animate(now = 0) {
-    requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
     const delta = Math.min(0.1, (now - prev) / 1000); // clamp to 100ms
     prev = now;
     engine.player.update(delta);
     fpsTick(now);
     engine.renderer.render(engine.scene, engine.camera);
   }
-  requestAnimationFrame(animate);
+  rafId = requestAnimationFrame(animate);
+  return () => cancelAnimationFrame(rafId);
 }

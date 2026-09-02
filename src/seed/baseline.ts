@@ -6,10 +6,10 @@
  * mutate the world (move Bob, disable Jane, etc.) without breaking this baseline.
  */
 import {
-  COMPANY, GROUP_NAMES, DEPARTMENTS, OU_NAMES, SERVICE_ACCOUNT_NAMES,
+  COMPANY, GROUP_NAMES, SERVICE_ACCOUNT_NAMES,
   SEED_USERS, SEED_ADMINS, seedEmail,
 } from '@/config';
-import { mkUserId, mkGroupId, mkRoleId, mkAppId, mkAuditId } from '@/domain';
+import { mkRoleId, mkAppId } from '@/domain';
 import type { Application, MfaMethod, RoleId, GroupId, AppId, UserId } from '@/domain';
 import type { MockDirectory } from '@/services';
 import type { MockIdP } from '@/services';

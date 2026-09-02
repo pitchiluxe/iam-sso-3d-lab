@@ -12,6 +12,9 @@ import { LAB_07 } from './lab07';
 import { LAB_08 } from './lab08';
 import { LAB_09 } from './lab09';
 import { LAB_10 } from './lab10';
+import { LAB_11 } from './lab11';
+import { LAB_12 } from './lab12';
+import { LAB_13 } from './lab13';
 
 import type { Lab } from '@/domain';
 
@@ -26,6 +29,9 @@ export const LAB_REGISTRY: ReadonlyArray<Lab> = [
   LAB_08,
   LAB_09,
   LAB_10,
+  LAB_11,
+  LAB_12,
+  LAB_13,
 ] as const;
 
 export const findLab = (id: string): Lab | undefined =>

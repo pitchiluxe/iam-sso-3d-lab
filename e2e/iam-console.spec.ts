@@ -13,8 +13,15 @@ test('IAM Console overlay opens via dev hook and renders user list', async ({ pa
   });
 
   await page.goto('/');
+  // Dismiss the start screen by starting a lab through it.
   await page.locator('.lab-card[data-id="lab01"]').click();
-  await expect(page.locator('#hud-zone')).toContainText('IAM Operations');
+  // Wait for the fade-out + start to actually complete.
+  await expect.poll(async () =>
+    page.evaluate(() => !!(window as unknown as { __lab?: { conductor?: { dir?: unknown } } }).__lab?.conductor?.dir),
+    { timeout: 5000 },
+  ).toBe(true);
+  // Make sure the start screen is gone before opening the console.
+  await expect(page.locator('#start-screen')).toHaveCount(0);
 
   // Trigger the IAM Console via the global hook
   await page.evaluate(() => {
@@ -43,4 +50,7 @@ test('IAM Console overlay opens via dev hook and renders user list', async ({ pa
   await expect(page.locator('#console-overlay')).not.toBeVisible();
 
   expect(consoleErrors.filter((e) => !e.includes('favicon'))).toHaveLength(0);
+
+  // Stop the render loop so the browser can tear down without GPU timeout.
+  await page.evaluate(() => (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.());
 });

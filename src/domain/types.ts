@@ -39,7 +39,8 @@ export type FaultKind =
   | 'wrong-redirect-uri' | 'expired-cert' | 'wrong-issuer'
   | 'wrong-client-secret' | 'wrong-claim-mapping' | 'missing-role'
   | 'clock-skew' | 'dns-resolution' | 'mfa-prompt-loop'
-  | 'suspicious-signin' | 'excessive-permissions' | 'dormant-account';
+  | 'suspicious-signin' | 'excessive-permissions' | 'dormant-account'
+  | 'legacy-auth-misconfiguration' | 'sync-soft-match-conflict' | 'idp-mfa-outage';
 
 export type AuthProtocol = 'SAML' | 'OIDC';
 
@@ -173,8 +174,8 @@ export interface AuditEvent {
   at: number;
   actorId: UserId;
   action:
-    | 'user.created' | 'user.disabled' | 'user.unlocked'
-    | 'group.add' | 'group.remove'
+    | 'user.created' | 'user.disabled' | 'user.unlocked' | 'user.updated' | 'user.deleted'
+    | 'group.add' | 'group.remove' | 'group.updated' | 'group.deleted'
     | 'role.grant' | 'role.revoke'
     | 'app.config.changed'
     | 'signin.success' | 'signin.failure' | 'signout'

@@ -3,7 +3,7 @@
  */
 import { nanoid } from 'nanoid';
 import type {
-  Application, MfaMethod, Session, SessionId, SignInResult, MfaResult, User, UserId, AppId, RoleId,
+  MfaMethod, Session, SessionId, SignInResult, MfaResult, User, UserId, AppId, RoleId,
 } from '@/domain';
 import { mkSessionId } from '@/domain';
 import type { MockAuditLog } from './mockAuditLog';

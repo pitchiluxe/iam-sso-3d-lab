@@ -32,7 +32,6 @@ export function initDebriefScreen() {
 
     const passed = score.total >= 85;
     const bannerColor = passed ? '#4ec9b0' : '#d7ba7d';
-    const bannerBg = passed ? 'rgba(78,201,176,0.1)' : 'rgba(215,186,125,0.1)';
 
     overlay.style.display = 'flex';
     overlay.innerHTML = `

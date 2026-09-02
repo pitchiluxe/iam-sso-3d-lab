@@ -7,7 +7,6 @@ import type { MockIdP } from '@/services';
 import type { MockAppServer } from '@/services';
 import type { MockIncidents } from '@/services';
 import { applyBaseline } from '../baseline';
-import { SYSTEM_ACTOR, type UserId } from '@/domain';
 
 export function applyLab07Seed(
   dir: MockDirectory,

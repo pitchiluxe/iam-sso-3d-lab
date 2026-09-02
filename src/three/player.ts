@@ -78,6 +78,30 @@ export class PlayerController {
     this.updateProximity();
   }
 
+  /**
+   * Public API for touch / programmatic input. Push a key down or up to
+   * drive movement; the same effect as a keyboard event.
+   */
+  setKey(code: string, down: boolean): void {
+    if (down) this.keys.add(code);
+    else      this.keys.delete(code);
+  }
+
+  /**
+   * Public API for touch / programmatic look. Applies a mouse-delta
+   * equivalent to the pointer-lock mouse-move handler.
+   */
+  setLookDelta(dx: number, dy: number, sensitivity = 0.0025): void {
+    this.yaw   -= dx * sensitivity;
+    this.pitch -= dy * sensitivity;
+    this.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, this.pitch));
+  }
+
+  /** Activate the currently near console (e.g., from a touch button). */
+  activate(): void {
+    if (this.nearConsole) this.onActivate?.(this.nearConsole);
+  }
+
   /* ------------------------------------------------------------------ */
   /* Internals                                                          */
   /* ------------------------------------------------------------------ */

@@ -5,10 +5,29 @@
  */
 import type { Conductor } from '@/conductor/conductor';
 import { evidenceStore } from '@/stores';
-import { mkUserId, mkGroupId, mkEvidenceId } from '@/domain';
-import type { GroupId, UserId, Evidence, MfaMethod } from '@/domain';
+import { mkEvidenceId } from '@/domain';
+import type { UserId, Evidence, MfaMethod } from '@/domain';
 
 export function renderIAMConsole(body: HTMLElement, conductor: Conductor) {
+  body.innerHTML = '';
+  // Guard: conductor services are initialized when a lab is started.
+  // If the user opens a console before starting a lab, show a clear message
+  // instead of crashing on undefined.dir / .idp / .apps / .audit.
+  if (!conductor.dir || !conductor.idp || !conductor.apps || !conductor.audit) {
+    body.style.cssText = 'padding:24px;color:var(--muted);font-size:13px;line-height:1.6;';
+    body.innerHTML = `
+      <div style="text-align:center;">
+        <div style="font-size:32px;margin-bottom:8px;">🖥️</div>
+        <div style="color:var(--accent);font-size:14px;font-weight:600;margin-bottom:6px;">IAM Console</div>
+        <div>No active lab session.</div>
+        <div style="margin-top:12px;font-size:12px;line-height:1.5;">
+          Press <strong>Esc</strong> to return to the menu, then choose a lab<br/>
+          to provision users, manage groups, and enforce MFA.
+        </div>
+      </div>
+    `;
+    return;
+  }
   const dir = conductor.dir;
   const idp = conductor.idp;
   const apps = conductor.apps;
@@ -91,6 +110,88 @@ export function renderIAMConsole(body: HTMLElement, conductor: Conductor) {
       }),
     ]));
 
+    /* Edit User form */
+    body.appendChild(h2('Edit User'));
+    const editUserSelect = sel('euser', users.map((u) => ({ v: u.username, t: u.username })));
+    body.appendChild(formRow([
+      editUserSelect,
+      btn('Load', () => {
+        const username = (body.querySelector<HTMLSelectElement>('[data-k="euser"]')!).value;
+        const u = dir.getUserByUsername(username);
+        if (!u) return;
+        (body.querySelector<HTMLInputElement>('[data-k="edisplay"]')!).value = u.displayName;
+        (body.querySelector<HTMLInputElement>('[data-k="eemail"]')!).value   = u.email;
+        (body.querySelector<HTMLInputElement>('[data-k="edept"]')!).value    = u.department;
+        (body.querySelector<HTMLInputElement>('[data-k="etitle"]')!).value   = u.title;
+      }),
+    ]));
+    body.appendChild(formRow([
+      inp('edisplay', 'display name'),
+      inp('eemail',   'email'),
+      inp('edept',    'department'),
+      inp('etitle',   'title'),
+      btn('Save Changes', () => {
+        const username = (body.querySelector<HTMLSelectElement>('[data-k="euser"]')!).value;
+        const u = dir.getUserByUsername(username);
+        if (!u) return;
+        try {
+          dir.updateUser(u.id, {
+            displayName: (body.querySelector<HTMLInputElement>('[data-k="edisplay"]')!).value || u.displayName,
+            email:       (body.querySelector<HTMLInputElement>('[data-k="eemail"]')!).value   || u.email,
+            department:  (body.querySelector<HTMLInputElement>('[data-k="edept"]')!).value    || u.department,
+            title:       (body.querySelector<HTMLInputElement>('[data-k="etitle"]')!).value   || u.title,
+          });
+          addEvidence('s-edit', 'snapshot', `Updated user: ${u.username}`);
+        } catch (e) { showError(body, String(e)); }
+        refresh();
+      }),
+    ]));
+
+    /* Disable / Enable User */
+    body.appendChild(h2('Disable / Enable User'));
+    body.appendChild(formRow([
+      sel('tuser', users.map((u) => ({ v: u.username, t: `${u.username} (${u.status})` }))),
+      btn('Disable', () => {
+        const username = (body.querySelector<HTMLSelectElement>('[data-k="tuser"]')!).value;
+        const u = dir.getUserByUsername(username);
+        if (!u) return;
+        if (u.status === 'disabled') { showError(body, 'User is already disabled.'); return; }
+        try {
+          dir.disableUser(u.id, 'system' as UserId);
+          addEvidence('s-edit', 'snapshot', `Disabled user: ${u.username}`);
+        } catch (e) { showError(body, String(e)); }
+        refresh();
+      }),
+      btn('Enable', () => {
+        const username = (body.querySelector<HTMLSelectElement>('[data-k="tuser"]')!).value;
+        const u = dir.getUserByUsername(username);
+        if (!u) return;
+        if (u.status !== 'disabled') { showError(body, 'User is already active.'); return; }
+        try {
+          dir.enableUser(u.id, 'system' as UserId);
+          addEvidence('s-edit', 'snapshot', `Enabled user: ${u.username}`);
+        } catch (e) { showError(body, String(e)); }
+        refresh();
+      }),
+    ]));
+
+    /* Delete User form */
+    body.appendChild(h2('Delete User'));
+    body.appendChild(formRow([
+      sel('duser', users.map((u) => ({ v: u.username, t: `${u.username} (${u.status})` }))),
+      btn('🗑 Delete', () => {
+        const username = (body.querySelector<HTMLSelectElement>('[data-k="duser"]')!).value;
+        const u = dir.getUserByUsername(username);
+        if (!u) return;
+        if (!confirm(`Delete user "${username}"? This removes them from all groups and cannot be undone.`)) return;
+        try {
+          dir.deleteUser(u.id, 'system' as UserId);
+          addEvidence('s-del', 'snapshot', `Deleted user: ${username}`);
+        } catch (e) { showError(body, String(e)); }
+        refresh();
+      }),
+    ]));
+
     /* Groups */
     body.appendChild(h2('Groups'));
     const groupList = document.createElement('div');
@@ -117,6 +218,48 @@ export function renderIAMConsole(body: HTMLElement, conductor: Conductor) {
         try {
           const g = dir.createGroup(name, desc);
           addEvidence('s2', 'snapshot', `Created group: ${g.name}`);
+        } catch (e) { showError(body, String(e)); }
+        refresh();
+      }),
+    ]));
+
+    /* Edit Group form */
+    body.appendChild(h2('Edit Group'));
+    body.appendChild(formRow([
+      sel('egroup', groups.map((g) => ({ v: g.name, t: g.name }))),
+      btn('Load', () => {
+        const gname = (body.querySelector<HTMLSelectElement>('[data-k="egroup"]')!).value;
+        const g = dir.getGroupByName(gname);
+        if (!g) return;
+        (body.querySelector<HTMLInputElement>('[data-k="egdesc"]')!).value = g.description;
+      }),
+    ]));
+    body.appendChild(formRow([
+      inp('egdesc', 'description'),
+      btn('Save Changes', () => {
+        const gname = (body.querySelector<HTMLSelectElement>('[data-k="egroup"]')!).value;
+        const g = dir.getGroupByName(gname);
+        if (!g) return;
+        try {
+          dir.updateGroup(g.id, { description: (body.querySelector<HTMLInputElement>('[data-k="egdesc"]')!).value });
+          addEvidence('s-gedit', 'snapshot', `Updated group: ${gname}`);
+        } catch (e) { showError(body, String(e)); }
+        refresh();
+      }),
+    ]));
+
+    /* Delete Group form */
+    body.appendChild(h2('Delete Group'));
+    body.appendChild(formRow([
+      sel('dgroup', groups.map((g) => ({ v: g.name, t: `${g.name} (${g.memberIds.length} members)` }))),
+      btn('🗑 Delete', () => {
+        const gname = (body.querySelector<HTMLSelectElement>('[data-k="dgroup"]')!).value;
+        const g = dir.getGroupByName(gname);
+        if (!g) return;
+        if (!confirm(`Delete group "${gname}"? All members will be removed from this group.`)) return;
+        try {
+          dir.deleteGroup(g.id, 'system' as UserId);
+          addEvidence('s-gdel', 'snapshot', `Deleted group: ${gname}`);
         } catch (e) { showError(body, String(e)); }
         refresh();
       }),

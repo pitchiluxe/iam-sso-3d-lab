@@ -7,7 +7,7 @@ import type { MockIdP } from '@/services';
 import type { MockAppServer } from '@/services';
 import type { MockTicketQueue } from '@/services';
 import { applyBaseline } from '../baseline';
-import { SYSTEM_ACTOR, type UserId } from '@/domain';
+import { SYSTEM_ACTOR } from '@/domain';
 
 export function applyLab03Seed(
   dir: MockDirectory,

@@ -2,7 +2,7 @@
  * services/faultService.ts — registry of fault mutators.
  */
 import type { FaultKind, AppId, UserId, SessionId } from '@/domain';
-import { SYSTEM_ACTOR, mkGroupId, mkSessionId } from '@/domain';
+import { SYSTEM_ACTOR, mkSessionId } from '@/domain';
 import { COMPANY } from '@/config';
 import type { MockDirectory } from './mockDirectory';
 import type { MockIdP } from './mockIdP';
@@ -112,6 +112,29 @@ const faultRegistry: Record<FaultKind, FaultMutator> = {
     const u = ctx.dir.getUser(ctx.targetUserId);
     if (!u) return;
     u.lastSignInAt = Date.now() - 200 * 24 * 60 * 60 * 1000;
+  },
+  // Stub mutators for the lab11–lab13 fault kinds. The lab validators
+  // advance on the user's remediation action; these mutators currently
+  // only record the fault presence in the audit log so the SecOps
+  // Dashboard can surface them. Real implementations would change
+  // IdP/sync behavior to match the scenario.
+  'legacy-auth-misconfiguration': (ctx) => {
+    if (!ctx.targetUserId) return;
+    const u = ctx.dir.getUser(ctx.targetUserId);
+    if (!u) return;
+    ctx.audit.record({ actorId: u.id, action: 'app.config.changed', targetId: u.id, diff: { fault: 'legacy-auth-misconfiguration' } });
+  },
+  'sync-soft-match-conflict': (ctx) => {
+    if (!ctx.targetUserId) return;
+    const u = ctx.dir.getUser(ctx.targetUserId);
+    if (!u) return;
+    ctx.audit.record({ actorId: u.id, action: 'app.config.changed', targetId: u.id, diff: { fault: 'sync-soft-match-conflict' } });
+  },
+  'idp-mfa-outage': (ctx) => {
+    if (!ctx.targetUserId) return;
+    const u = ctx.dir.getUser(ctx.targetUserId);
+    if (!u) return;
+    ctx.audit.record({ actorId: u.id, action: 'app.config.changed', targetId: u.id, diff: { fault: 'idp-mfa-outage' } });
   },
 };
 

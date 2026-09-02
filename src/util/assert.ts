@@ -11,6 +11,6 @@ export function assertNever(x: never, message = 'Unexpected value'): never {
 
 /** Assert a value is not null or undefined. */
 export function assertDefined<T>(val: T | null | undefined, message = 'Value is null/undefined'): T {
-  if (val == null) throw new Error(`[assert] ${message}`);
+  if (val === null || val === undefined) throw new Error(`[assert] ${message}`);
   return val;
 }

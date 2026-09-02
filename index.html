@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>IAM & SSO 3D Lab</title>
     <style>
       :root {
@@ -78,13 +78,51 @@
         z-index: 10;
         pointer-events: none;
       }
+
+      /* Touch-friendly tap targets — 44x44px minimum. */
+      .touch-target,
+      #hud button,
+      #nav-rail button,
+      .tc-interact,
+      .tc-menu {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px 14px;
+      }
+      /* Ensure button inside pointer-events:none parent can still receive clicks */
+      #hud button,
+      #hud .touch-target {
+        pointer-events: auto;
+      }
+
+      /* In touch mode: crosshair is hidden (mouse-look is replaced by joystick). */
+      body.touch-mode #crosshair { display: none; }
+      /* In touch mode: briefing panel slides up from bottom as a full-width sheet. */
+      body.touch-mode #briefing-panel {
+        position: fixed;
+        bottom: 160px;
+        left: 0;
+        right: 0;
+        top: auto;
+        width: 100%;
+        max-height: 40vh;
+        border-radius: 12px 12px 0 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      /* Touch mode: make inputs 16px+ to prevent iOS auto-zoom. */
+      body.touch-mode input,
+      body.touch-mode select,
+      body.touch-mode textarea {
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
     <div id="app" role="application" aria-label="IAM and SSO 3D training environment"></div>
     <div id="hud">
-      <button id="hud-menu"
-              style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--accent);padding:2px 10px;font-size:12px;cursor:pointer;margin-right:8px;">
+      <button id="hud-menu" class="touch-target"
+              style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--accent);font-size:12px;cursor:pointer;margin-right:8px;">
         Labs
       </button>
       <div class="pill"><strong>Lab:</strong> <span id="hud-lab">—</span></div>

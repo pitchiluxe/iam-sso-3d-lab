@@ -5,9 +5,25 @@
 import type { Conductor } from '@/conductor/conductor';
 import { evidenceStore } from '@/stores';
 import { mkEvidenceId } from '@/domain';
-import type { Evidence, TicketId, UserId } from '@/domain';
+import type { Evidence, UserId } from '@/domain';
 
 export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
+  body.innerHTML = '';
+  if (!conductor.tickets || !conductor.audit) {
+    body.style.cssText = 'padding:24px;color:var(--muted);font-size:13px;line-height:1.6;';
+    body.innerHTML = `
+      <div style="text-align:center;">
+        <div style="font-size:32px;margin-bottom:8px;">🎫</div>
+        <div style="color:var(--accent);font-size:14px;font-weight:600;margin-bottom:6px;">Ticket Queue</div>
+        <div>No active lab session.</div>
+        <div style="margin-top:12px;font-size:12px;line-height:1.5;">
+          Press <strong>Esc</strong> to return to the menu, then choose a lab<br/>
+          to manage tickets, access requests, and escalations.
+        </div>
+      </div>
+    `;
+    return;
+  }
   const queue = conductor.tickets;
   const audit = conductor.audit;
 

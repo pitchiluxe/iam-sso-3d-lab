@@ -15,8 +15,15 @@ test('progress persists across page reload via localStorage', async ({ page, con
   await page.reload();
   await page.locator('.lab-card[data-id="lab03"]').click();
 
-  // Wait for HUD to reflect Lab 3
-  await expect(page.locator('#hud-lab')).toContainText(/3:/);
+  // Wait for HUD to reflect Lab 3 (click handler has 300ms fade-out).
+  await expect(page.locator('#hud-lab')).toContainText(/3:/, { timeout: 5000 });
+  // Wait until the conductor's current lab is actually set.
+  await expect.poll(async () =>
+    page.evaluate(() => !!(window as unknown as { __lab?: { conductor?: { currentLab?: unknown } } }).__lab?.conductor?.currentLab),
+    { timeout: 5000 },
+  ).toBe(true);
+  // Start screen must be gone after the lab starts.
+  await expect(page.locator('#start-screen')).toHaveCount(0);
 
   // Verify the v2 envelope key exists
   const stored = await page.evaluate(() => localStorage.getItem('iam-lab-state-v2'));
@@ -29,4 +36,7 @@ test('progress persists across page reload via localStorage', async ({ page, con
 
   // The start screen should NOT be showing because a lab is in progress
   await expect(page.locator('#hud-lab')).toContainText(/3:/);
+
+  // Stop the render loop so the browser can tear down without GPU timeout.
+  await page.evaluate(() => (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.());
 });

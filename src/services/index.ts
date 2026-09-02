@@ -13,3 +13,5 @@ export { MockAccessReviews } from './mockAccessReviews';
 export { MockIncidents } from './mockIncidents';
 export { FaultService, faultRegistry } from './faultService';
 export type { FaultContext, FaultMutator } from './faultService';
+export { OllamaSupervisor } from './ollamaSupervisor';
+export type { OllamaConfig, StepScore } from './ollamaSupervisor';

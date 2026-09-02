@@ -6,9 +6,6 @@ import { labStore } from '@/stores';
 import { scoreStore } from '@/stores';
 import { type ZoneId } from '@/three/zones';
 
-let unsubLab: (() => void) | null = null;
-let unsubScore: (() => void) | null = null;
-
 export function initHUD(onMenuClick?: () => void) {
   const labEl   = document.getElementById('hud-lab')!;
   const stepEl  = document.getElementById('hud-step')!;
@@ -39,13 +36,13 @@ export function initHUD(onMenuClick?: () => void) {
   }
 
   // Subscribe to lab store
-  unsubLab = labStore.subscribe(() => {
+  labStore.subscribe(() => {
     sync();
     syncScore();
   });
 
   // Subscribe to score store
-  unsubScore = scoreStore.subscribe(syncScore);
+  scoreStore.subscribe(syncScore);
 
   sync();
   syncScore();
@@ -77,9 +74,10 @@ export function initNavRail(zones: ZoneId[], onSelect: (zoneId: ZoneId) => void)
   for (const z of zones) {
     const btn = document.createElement('button');
     btn.textContent = z.replace(/-/g, ' ');
+    btn.className = 'touch-target';
     btn.style.cssText = `
       background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px;
-      color: var(--muted); padding: 4px 10px; font-size: 12px; cursor: pointer;
+      color: var(--muted); font-size: 12px; cursor: pointer;
     `;
     btn.addEventListener('click', () => onSelect(z));
     rail.appendChild(btn);

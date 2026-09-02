@@ -6,14 +6,18 @@
  *   2. As the learner performs actions, the bus emits events. Validators decide step advance.
  *   3. When all steps are done, build a ScoreBreakdown and a debrief.
  *   4. reset() → teardown, re-seed.
+ *
+ * The AI supervisor (Ollama) runs alongside the conductor: it scores each
+ * completed step and posts coaching into the tutor dialog. The conductor
+ * still owns step progression — the supervisor observes and guides.
  */
 import type {
-  AuditEvent, Lab, LabId, ScoreBreakdown, ValidatorKind, ScorePoints, ScoreCategory,
-  UserId, TicketId, GroupId, RoleId, AppId,
+  AuditEvent, Lab, LabId, ScoreBreakdown, ScorePoints, ScoreCategory,
+  AppId,
 } from '@/domain';
-import { mkEvidenceId, mkLabId } from '@/domain';
 import type { EventBus } from '@/util';
 import { createEventBus } from '@/util';
+import { OllamaSupervisor } from '@/services/ollamaSupervisor';
 import {
   MockAuditLog, MockDirectory, MockIdP, MockAppServer,
   MockTicketQueue, MockAccessReviews, MockIncidents, FaultService,
@@ -29,6 +33,9 @@ import { applyLab07Seed } from '@/seed/perLab/lab07';
 import { applyLab08Seed } from '@/seed/perLab/lab08';
 import { applyLab09Seed } from '@/seed/perLab/lab09';
 import { applyLab10Seed } from '@/seed/perLab/lab10';
+import { applyLab11Seed } from '@/seed/perLab/lab11';
+import { applyLab12Seed } from '@/seed/perLab/lab12';
+import { applyLab13Seed } from '@/seed/perLab/lab13';
 import {
   labStore, ticketStore, auditStore, faultStore, tutorStore,
   evidenceStore, scoreStore, progressStore,
@@ -47,6 +54,9 @@ const SEEDS: Record<string, (ctx: SeedContext) => void> = {
   'lab08':    (ctx) => applyLab08Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents, ctx.audit),
   'lab09':    (ctx) => applyLab09Seed(ctx.dir, ctx.idp, ctx.apps),
   'lab10':    (ctx) => applyLab10Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  'lab11':    (ctx) => applyLab11Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  'lab12':    (ctx) => applyLab12Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  'lab13':    (ctx) => applyLab13Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
 };
 
 export interface SeedContext {
@@ -72,6 +82,8 @@ export class Conductor {
   currentLab: Lab | null = null;
   failCount = 0;
   private _unsubscribers: Array<() => void> = [];
+  /** AI supervisor (Ollama) — scores each step and coaches the learner. */
+  readonly supervisor: OllamaSupervisor = new OllamaSupervisor();
 
   /** Wire all services fresh and return them. */
   private bootstrap() {
@@ -224,14 +236,25 @@ export class Conductor {
   private advanceStep(): void {
     const lab = this.currentLab;
     if (!lab) return;
+    const completedIndex = labStore.getState().stepIndex;
+    const completedStep = lab.steps[completedIndex];
+    const recentEvents = (auditStore.getState().events as AuditEvent[]).slice(-25);
     labStore.getState().advance();
     const next = labStore.getState().stepIndex;
     if (next >= lab.steps.length) {
+      // Score the just-completed step before completing the lab
+      if (completedStep) {
+        void this.supervisor.scoreStep(lab, completedStep, completedIndex, recentEvents);
+      }
       this.complete();
       return;
     }
     // Apply faults scheduled for the next step
     this.applyFaultsFor(lab.steps[next]!.id);
+    // Asynchronously score the step the learner just finished
+    if (completedStep) {
+      void this.supervisor.scoreStep(lab, completedStep, completedIndex, recentEvents);
+    }
   }
 
   private complete(): void {
@@ -242,6 +265,11 @@ export class Conductor {
     tutorStore.getState().addDialog({
       from: 'tutor',
       body: `Lab complete. Total: ${score.total}/100. Open the debrief to review.`,
+    });
+    // AI supervisor generates a final debrief message
+    const allEvents = auditStore.getState().events as AuditEvent[];
+    void this.supervisor.generateDebrief(lab, allEvents).then((msg) => {
+      tutorStore.getState().addDialog({ from: 'tutor', body: `Supervisor: ${msg}` });
     });
   }
 }

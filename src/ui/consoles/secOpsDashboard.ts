@@ -9,6 +9,22 @@ import { mkEvidenceId } from '@/domain';
 import type { Evidence } from '@/domain';
 
 export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
+  body.innerHTML = '';
+  if (!conductor.audit || !conductor.incidents || !conductor.reviews) {
+    body.style.cssText = 'padding:24px;color:var(--muted);font-size:13px;line-height:1.6;';
+    body.innerHTML = `
+      <div style="text-align:center;">
+        <div style="font-size:32px;margin-bottom:8px;">🛡️</div>
+        <div style="color:var(--accent);font-size:14px;font-weight:600;margin-bottom:6px;">SecOps Dashboard</div>
+        <div>No active lab session.</div>
+        <div style="margin-top:12px;font-size:12px;line-height:1.5;">
+          Press <strong>Esc</strong> to return to the menu, then choose a lab<br/>
+          to search the audit log, contain incidents, and run access reviews.
+        </div>
+      </div>
+    `;
+    return;
+  }
   const audit = conductor.audit;
   const incidents = conductor.incidents;
   const reviews = conductor.reviews;

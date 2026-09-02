@@ -2,7 +2,7 @@
  * services/mockTicketQueue.ts — in-memory queue of tickets.
  */
 import { nanoid } from 'nanoid';
-import type { Ticket, TicketId, TicketKind, UserId, TicketId as TId } from '@/domain';
+import type { Ticket, TicketId, TicketKind, UserId } from '@/domain';
 import { mkTicketId } from '@/domain';
 import type { MockAuditLog } from './mockAuditLog';
 

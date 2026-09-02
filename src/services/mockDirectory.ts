@@ -70,6 +70,31 @@ export class MockDirectory {
     this.audit.record({ actorId: by, action: 'user.unlocked', targetId: id });
   }
 
+  updateUser(
+    id: UserId,
+    changes: Partial<Pick<User, 'displayName' | 'email' | 'department' | 'title'>>,
+    actor: UserId = SYSTEM_ACTOR,
+  ): void {
+    const u = this.users.get(id);
+    if (!u) throw new Error(`[directory] updateUser: user ${id} not found`);
+    if (changes.displayName !== undefined) u.displayName = changes.displayName;
+    if (changes.email      !== undefined) u.email       = changes.email;
+    if (changes.department !== undefined) u.department  = changes.department;
+    if (changes.title      !== undefined) u.title       = changes.title;
+    this.audit.record({ actorId: actor, action: 'user.updated', targetId: id });
+  }
+
+  deleteUser(id: UserId, actor: UserId = SYSTEM_ACTOR): void {
+    const u = this.users.get(id);
+    if (!u) throw new Error(`[directory] deleteUser: user ${id} not found`);
+    // Remove from all groups first
+    for (const gid of [...u.groupIds]) {
+      this.removeFromGroup(id, gid, actor);
+    }
+    this.users.delete(id);
+    this.audit.record({ actorId: actor, action: 'user.deleted', targetId: id });
+  }
+
   recordSignIn(id: UserId): void {
     const u = this.users.get(id);
     if (u) u.lastSignInAt = Date.now();
@@ -89,6 +114,29 @@ export class MockDirectory {
     this.groups.set(id, g);
     this.audit.record({ actorId: actor, action: 'group.add', targetId: id, subjectId: actor });
     return g;
+  }
+
+  updateGroup(
+    id: GroupId,
+    changes: Partial<Pick<Group, 'name' | 'description'>>,
+    actor: UserId = SYSTEM_ACTOR,
+  ): void {
+    const g = this.groups.get(id);
+    if (!g) throw new Error(`[directory] updateGroup: group ${id} not found`);
+    if (changes.name !== undefined)        g.name        = changes.name;
+    if (changes.description !== undefined)  g.description = changes.description;
+    this.audit.record({ actorId: actor, action: 'group.updated', targetId: id });
+  }
+
+  deleteGroup(id: GroupId, actor: UserId = SYSTEM_ACTOR): void {
+    const g = this.groups.get(id);
+    if (!g) throw new Error(`[directory] deleteGroup: group ${id} not found`);
+    // Remove all members first
+    for (const uid of [...g.memberIds]) {
+      this.removeFromGroup(uid, id, actor);
+    }
+    this.groups.delete(id);
+    this.audit.record({ actorId: actor, action: 'group.deleted', targetId: id });
   }
 
   addToGroup(userId: UserId, groupId: GroupId, by: UserId): void {
