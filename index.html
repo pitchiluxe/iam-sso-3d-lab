@@ -76,23 +76,23 @@
           A first-person 3D environment — walk the campus, open consoles, handle real tickets.
         </p>
         <div class="preview-grid">
-          <div class="preview-img-wrap">
+          <div class="preview-img-wrap" role="button" tabindex="0" data-lightbox="./assets/screenshot-start.png" data-caption="Start screen — pick a scenario to enter the lab." aria-label="Click to enlarge: Start screen">
             <img
               src="./assets/screenshot-start.png"
               alt="Start screen of the IAM &amp; SSO 3D Lab desktop app"
               width="1280"
               height="800"
               loading="lazy">
-            <p class="preview-caption">Start screen — pick a scenario to enter the lab.</p>
+            <p class="preview-caption">Start screen — pick a scenario to enter the lab. <span class="zoom-hint">🔍 Click to enlarge</span></p>
           </div>
-          <div class="preview-img-wrap">
+          <div class="preview-img-wrap" role="button" tabindex="0" data-lightbox="./assets/screenshot-lab.png" data-caption="In-lab view — walk the campus and work real tickets." aria-label="Click to enlarge: Lab scene">
             <img
               src="./assets/screenshot-lab.png"
               alt="A 3D lab scene inside the IAM &amp; SSO 3D Lab desktop app"
               width="1280"
               height="800"
               loading="lazy">
-            <p class="preview-caption">In-lab view — walk the campus and work real tickets.</p>
+            <p class="preview-caption">In-lab view — walk the campus and work real tickets. <span class="zoom-hint">🔍 Click to enlarge</span></p>
           </div>
         </div>
       </div>
@@ -266,5 +266,21 @@
       </p>
     </div>
   </footer>
+
+  <!-- Lightbox overlay -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Enlarged preview">
+    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close (Esc)">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+        <line x1="6" y1="6" x2="18" y2="18"/>
+        <line x1="18" y1="6" x2="6" y2="18"/>
+      </svg>
+    </button>
+    <figure class="lightbox-figure">
+      <img id="lightbox-img" src="" alt="">
+      <figcaption id="lightbox-caption"></figcaption>
+    </figure>
+  </div>
+
+  <script src="./lightbox.js" defer></script>
 </body>
 </html>
