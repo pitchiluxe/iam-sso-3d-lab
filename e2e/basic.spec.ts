@@ -3,12 +3,12 @@
  *
  * Verifies:
  *  - The Vite app loads without console errors
- *  - The start screen appears with 10 lab cards
+ *  - The start screen appears with all 13 lab cards
  *  - Clicking a lab card starts the lab and the HUD updates
  */
 import { test, expect } from '@playwright/test';
 
-test('app boots, start screen renders 10 lab cards, starting a lab updates the HUD', async ({ page }) => {
+test('app boots, start screen renders 13 lab cards, starting a lab updates the HUD', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -19,9 +19,9 @@ test('app boots, start screen renders 10 lab cards, starting a lab updates the H
   // The HUD pills are always present in index.html
   await expect(page.locator('#hud')).toBeVisible();
 
-  // Start screen shows 10 lab cards
+  // Start screen shows all 13 lab cards
   const cards = page.locator('.lab-card');
-  await expect(cards).toHaveCount(10);
+  await expect(cards).toHaveCount(13);
 
   // Start Lab 01
   await page.locator('.lab-card[data-id="lab01"]').click();
