@@ -115,6 +115,15 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
+      - name: Delete any prior release with the same tag (idempotent)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          # Delete prior release + tag if they exist, so a re-run after
+          # a partial failure doesn't hit "tag_name already_exists".
+          gh release delete v0.3.1 --yes || true
+          git push --delete origin v0.3.1 || true
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
