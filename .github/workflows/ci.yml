@@ -110,28 +110,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.1.0
-          release_name: IAM SSO 3D Lab v0.1.0
+          tag_name: v0.2.0
+          release_name: IAM SSO 3D Lab v0.2.0
           body: |
-            ## IAM & SSO 3D Lab — Interactive Training Environment
+            ## IAM & SSO 3D Lab v0.2.0 — VM Desktop Edition
 
-            A realistic enterprise identity management and SSO training simulation.
+            A realistic enterprise identity management and SSO training simulation. This release introduces a full **Virtual Machine (VM) desktop environment** — instructions, consoles, notes, and objectives are hidden until the learner presses **E** on a workstation in the 3D scene.
 
-            ### What's included
-            - **13 hands-on labs** covering IAM foundations, JML, RBAC, SSO/SAML/OIDC, MFA, access reviews, break/fix, incident response, and more
-            - **3D virtual environment** with interactive IAM, Ticket, and SecOps consoles
-            - **AI Supervisor** — Socratic coaching powered by a local Ollama LLM; guides learners without giving answers
-            - **Full audit trail** — every action recorded with timestamps and actor context
-            - **Evidence collection** — screenshot and log capture for each step
-            - **Scoring rubric** — exec / troubleshoot / least-privilege / docs / evidence / comms
+            ### What's new in v0.2.0
+            - **VM desktop** auto-opens with AI Supervisor + Objectives windows
+            - **Notepad** with line numbers, word count, and auto-save
+            - **Sticky Notes** — draggable, color-coded, persistent
+            - **File Explorer** with C: drive, Documents, Pictures, Downloads
+            - **AIHub Browser** bundled and pre-installed — double-click the icon to launch
+            - All lab instructions live **inside the VM** — nothing visible from the 3D scene until E is pressed
+            - "Open Tutor" button renamed to **"Open VM & Tutor"**
+
+            ### Features
+            - 13 hands-on labs (IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass)
+            - 3D virtual environment with interactive consoles
+            - AI Supervisor (Socratic coaching via local Ollama LLM — never gives answers)
+            - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass)
 
             ### Run the installer
-            Download `IAM-SSO-3D-Lab-Setup-X.X.X.exe` and run it on any Windows 10/11 64-bit machine.
+            Download `IAM-SSO-3D-Lab-Setup-0.2.0.exe` and run it on any Windows 10/11 64-bit machine. Includes AIHub Browser (83MB).
 
             ### AI Supervisor setup
             1. Install [Ollama](https://ollama.com)
             2. Run: `ollama pull llama3.2`
-            3. The AI tutor activates automatically when Ollama is running locally.
+            3. The AI tutor activates automatically when Ollama is reachable at http://localhost:11434
           draft: false
           prerelease: false
 
@@ -161,8 +168,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.1.0.exe
-          asset_name: IAM-SSO-3D-Lab-Setup.exe
+          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.2.0.exe
+          asset_name: IAM-SSO-3D-Lab-Setup-0.2.0.exe
           asset_content_type: application/octet-stream
 
       - name: Upload 7z archive
@@ -171,6 +178,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/iam-sso-3d-lab-0.1.0-x64.nsis.7z
-          asset_name: iam-sso-3d-lab-0.1.0-x64.nsis.7z
+          asset_path: dist-installer/iam-sso-3d-lab-0.2.0-x64.nsis.7z
+          asset_name: iam-sso-3d-lab-0.2.0-x64.nsis.7z
           asset_content_type: application/x-7z-compressed
