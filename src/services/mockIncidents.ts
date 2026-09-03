@@ -8,7 +8,11 @@ import { mkIncidentId } from '@/domain';
 export class MockIncidents {
   private incidents = new Map<IncidentId, Incident>();
 
-  open(input: Omit<Incident, 'id' | 'status' | 'containmentActions' | 'detectedAt'> & { detectedAt?: number }): Incident {
+  open(
+    input: Omit<Incident, 'id' | 'status' | 'containmentActions' | 'detectedAt'> & {
+      detectedAt?: number;
+    },
+  ): Incident {
     const id = mkIncidentId(nanoid(10));
     const inc: Incident = {
       ...input,

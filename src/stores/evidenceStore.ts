@@ -39,8 +39,12 @@ export const evidenceStore = create<EvidenceState>()((set, get) => ({
     });
   },
 
-  byStep(stepId) { return get().items.filter((e) => e.stepId === stepId); },
-  byLab(labId)   { return get().items.filter((e) => e.labId  === labId); },
+  byStep(stepId) {
+    return get().items.filter((e) => e.stepId === stepId);
+  },
+  byLab(labId) {
+    return get().items.filter((e) => e.labId === labId);
+  },
 
   reset() {
     saveEvidence([]);

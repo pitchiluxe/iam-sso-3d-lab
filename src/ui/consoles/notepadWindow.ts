@@ -7,7 +7,8 @@
 const NOTEPAD_KEY = 'notepad_content';
 
 export function renderNotepadWindow(body: HTMLElement): void {
-  body.style.cssText = 'display:flex;flex-direction:column;height:100%;background:#0e1116;font-family:Consolas,Monaco,"Courier New",monospace;';
+  body.style.cssText =
+    'display:flex;flex-direction:column;height:100%;background:#0e1116;font-family:Consolas,Monaco,"Courier New",monospace;';
 
   // Load saved content
   const saved = localStorage.getItem(NOTEPAD_KEY) ?? '';
@@ -76,11 +77,19 @@ export function renderNotepadWindow(body: HTMLElement): void {
     saveTimer = window.setTimeout(() => {
       localStorage.setItem(NOTEPAD_KEY, ta.value);
       const el = document.getElementById('np-autosave');
-      if (el) { el.style.opacity = '1'; setTimeout(() => { el.style.opacity = '0'; }, 1500); }
+      if (el) {
+        el.style.opacity = '1';
+        setTimeout(() => {
+          el.style.opacity = '0';
+        }, 1500);
+      }
     }, 600);
   }
 
-  ta.addEventListener('input', () => { updateMeta(); scheduleSave(); });
+  ta.addEventListener('input', () => {
+    updateMeta();
+    scheduleSave();
+  });
   ta.addEventListener('scroll', () => {
     const lnEl = document.getElementById('np-linenums');
     if (lnEl) lnEl.scrollTop = ta.scrollTop;

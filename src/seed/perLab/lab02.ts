@@ -18,9 +18,9 @@ export function applyLab02Seed(
   const base = applyBaseline(dir, idp, apps);
   // Find the user IDs we need
   const cara = base.userIds['cara.patel']!;
-  const ivy  = base.userIds['ivy.park']!;
+  const ivy = base.userIds['ivy.park']!;
   const jane = base.userIds['jane.doe']!;
-  const bob  = base.userIds['bob.sato']!;
+  const bob = base.userIds['bob.sato']!;
 
   // Onboarding ticket for Alex (in baseline already, but ticket simulates request)
   tickets.create({
@@ -32,7 +32,7 @@ export function applyLab02Seed(
     relatedUserIds: [],
     payload: {
       proposedGroupIds: [base.groupIds['grp-finance-payroll']!],
-      proposedRoleIds:  [base.roleIds['grp-finance-payroll']!],
+      proposedRoleIds: [base.roleIds['grp-finance-payroll']!],
       startDate: Date.now(),
     },
   });

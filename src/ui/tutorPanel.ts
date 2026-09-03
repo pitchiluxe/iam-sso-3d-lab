@@ -22,7 +22,10 @@ export function initTutorPanel() {
   const render = () => {
     const lab = labStore.getState().current;
     const idx = labStore.getState().stepIndex;
-    if (!lab || !lab.steps[idx]) { panel.style.display = 'none'; return; }
+    if (!lab || !lab.steps[idx]) {
+      panel.style.display = 'none';
+      return;
+    }
     panel.style.display = 'block';
 
     const step = lab.steps[idx]!;
@@ -31,9 +34,12 @@ export function initTutorPanel() {
     const text = getHint(lab.id, step.id, explainMode ? 3 : hintLevel);
 
     const levels = ['Nudge', 'Question', 'Approach', 'Solution'];
-    const dots = [0, 1, 2, 3].map((i) =>
-      `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;margin:0 2px;background:${i <= hintLevel ? 'var(--accent)' : 'var(--border)'};"></span>`
-    ).join('');
+    const dots = [0, 1, 2, 3]
+      .map(
+        (i) =>
+          `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;margin:0 2px;background:${i <= hintLevel ? 'var(--accent)' : 'var(--border)'};"></span>`,
+      )
+      .join('');
 
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">

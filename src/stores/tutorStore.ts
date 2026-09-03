@@ -39,9 +39,13 @@ export const tutorStore = create<TutorState>()((set, get) => ({
     set((s) => ({ hintLevel: Math.min(s.hintLevel + 1, 3) as 0 | 1 | 2 | 3 }));
   },
 
-  setHintLevel(level) { set({ hintLevel: level }); },
+  setHintLevel(level) {
+    set({ hintLevel: level });
+  },
 
-  setExplanationMode(on) { set({ explanationMode: on }); },
+  setExplanationMode(on) {
+    set({ explanationMode: on });
+  },
 
   startStuckTimer(onStuck, ms) {
     const existing = get().stuckTimer;

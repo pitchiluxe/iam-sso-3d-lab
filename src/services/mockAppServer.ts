@@ -7,9 +7,7 @@ import type { MockDirectory } from './mockDirectory';
 import type { MockIdP } from './mockIdP';
 import type { MockAuditLog } from './mockAuditLog';
 
-export type AppLoginResult =
-  | { ok: true; appSessionId: string }
-  | { ok: false; reason: string };
+export type AppLoginResult = { ok: true; appSessionId: string } | { ok: false; reason: string };
 
 export class MockAppServer {
   private appMap = new Map<AppId, Application>();
@@ -20,11 +18,17 @@ export class MockAppServer {
     private readonly audit: MockAuditLog,
   ) {}
 
-  registerApp(app: Application): void { this.appMap.set(app.id, app); }
+  registerApp(app: Application): void {
+    this.appMap.set(app.id, app);
+  }
 
-  apps(): Application[] { return Array.from(this.appMap.values()); }
+  apps(): Application[] {
+    return Array.from(this.appMap.values());
+  }
 
-  getApp(id: AppId): Application | undefined { return this.appMap.get(id); }
+  getApp(id: AppId): Application | undefined {
+    return this.appMap.get(id);
+  }
 
   getAppByName(name: string): Application | undefined {
     return Array.from(this.appMap.values()).find((a) => a.name === name);
@@ -49,7 +53,10 @@ export class MockAppServer {
       if (new Date(actual as string) < new Date()) return { ok: false, reason: 'expired-cert' };
     }
     if (diff['issuer']) return { ok: false, reason: 'wrong-issuer' };
-    if (diff['clientSecret.match'] && (diff['clientSecret.match'] as { actual: boolean }).actual === false) {
+    if (
+      diff['clientSecret.match'] &&
+      (diff['clientSecret.match'] as { actual: boolean }).actual === false
+    ) {
       return { ok: false, reason: 'wrong-client-secret' };
     }
     if (diff['claim.role'] && (diff['claim.role'] as { actual: string }).actual === 'group') {
@@ -60,8 +67,9 @@ export class MockAppServer {
 
     // Required role check
     const effectiveRoles = this.dir.effectiveRoleIds(userId);
-    const hasRole = app.requiredRoleIds.length === 0
-      || app.requiredRoleIds.some((r) => effectiveRoles.includes(r));
+    const hasRole =
+      app.requiredRoleIds.length === 0 ||
+      app.requiredRoleIds.some((r) => effectiveRoles.includes(r));
     if (!hasRole) return { ok: false, reason: 'missing-role' };
 
     if (app.mfaRequired && u.mfa === 'none') return { ok: false, reason: 'mfa-required' };
@@ -74,10 +82,18 @@ export class MockAppServer {
     if (!app) throw new Error(`[appserver] fixConfigField: app ${appId} not found`);
     const beforeValue = (app as unknown as Record<string, unknown>)[field];
     switch (field) {
-      case 'redirectUri': app.redirectUri = String(value); break;
-      case 'entityId':   app.entityId   = String(value); break;
-      case 'issuer':      app.issuer      = String(value); break;
-      case 'mfaRequired': app.mfaRequired = Boolean(value); break;
+      case 'redirectUri':
+        app.redirectUri = String(value);
+        break;
+      case 'entityId':
+        app.entityId = String(value);
+        break;
+      case 'issuer':
+        app.issuer = String(value);
+        break;
+      case 'mfaRequired':
+        app.mfaRequired = Boolean(value);
+        break;
       default:
         if (app.configDiffFromBaseline && field in app.configDiffFromBaseline) {
           delete app.configDiffFromBaseline[field];
@@ -99,8 +115,15 @@ export class MockAppServer {
     if (!app) return;
     app.configDiffFromBaseline = undefined;
     app.status = 'configured';
-    this.audit.record({ actorId: by, action: 'app.config.changed', targetId: appId, diff: { cleared: true } });
+    this.audit.record({
+      actorId: by,
+      action: 'app.config.changed',
+      targetId: appId,
+      diff: { cleared: true },
+    });
   }
 
-  reset(): void { this.appMap.clear(); }
+  reset(): void {
+    this.appMap.clear();
+  }
 }

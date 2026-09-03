@@ -71,11 +71,16 @@ export function initConsoleUI(): ConsoleUI {
   let lastConsoleId: string | null = null;
 
   const ui: ConsoleUI = {
-    promptEl, overlayEl,
+    promptEl,
+    overlayEl,
     onRender: null,
     setPrompt(text) {
-      if (text) { promptEl.textContent = text; promptEl.style.display = 'block'; }
-      else      { promptEl.style.display = 'none'; }
+      if (text) {
+        promptEl.textContent = text;
+        promptEl.style.display = 'block';
+      } else {
+        promptEl.style.display = 'none';
+      }
     },
     open(consoleId, title) {
       const titleEl = overlayEl.querySelector('#console-overlay-title')!;
@@ -90,10 +95,13 @@ export function initConsoleUI(): ConsoleUI {
         renderConsoleError(body, consoleId, err, ui);
       }
     },
-    close() { overlayEl.style.display = 'none'; },
+    close() {
+      overlayEl.style.display = 'none';
+    },
     retry() {
       if (!lastConsoleId) return;
-      const title = (overlayEl.querySelector('#console-overlay-title') as HTMLElement).textContent ?? '';
+      const title =
+        (overlayEl.querySelector('#console-overlay-title') as HTMLElement).textContent ?? '';
       ui.open(lastConsoleId, title);
     },
   };
@@ -106,7 +114,12 @@ export function initConsoleUI(): ConsoleUI {
  * app keeps working — the learner can close the console, switch consoles,
  * or hit "Reload console" to try again.
  */
-function renderConsoleError(body: HTMLElement, consoleId: string, err: unknown, ui: ConsoleUI): void {
+function renderConsoleError(
+  body: HTMLElement,
+  consoleId: string,
+  err: unknown,
+  ui: ConsoleUI,
+): void {
   report('console-render-failed', `Console "${consoleId}" failed to render`, {
     context: { consoleId },
     cause: err,

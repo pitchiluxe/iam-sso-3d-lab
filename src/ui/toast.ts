@@ -30,10 +30,13 @@ function getContainer(): HTMLDivElement {
   return container;
 }
 
-const KIND_COLORS: Record<NonNullable<ToastOptions['kind']>, { bg: string; border: string; icon: string }> = {
-  info:    { bg: 'rgba(27,31,36,0.96)', border: '#4ec9b0', icon: 'ℹ' },
-  error:   { bg: 'rgba(36,20,20,0.96)', border: '#f48771', icon: '✕' },
-  warn:    { bg: 'rgba(36,30,20,0.96)', border: '#d7ba7d', icon: '⚠' },
+const KIND_COLORS: Record<
+  NonNullable<ToastOptions['kind']>,
+  { bg: string; border: string; icon: string }
+> = {
+  info: { bg: 'rgba(27,31,36,0.96)', border: '#4ec9b0', icon: 'ℹ' },
+  error: { bg: 'rgba(36,20,20,0.96)', border: '#f48771', icon: '✕' },
+  warn: { bg: 'rgba(36,30,20,0.96)', border: '#d7ba7d', icon: '⚠' },
   success: { bg: 'rgba(20,36,28,0.96)', border: '#4ec9b0', icon: '✓' },
 };
 

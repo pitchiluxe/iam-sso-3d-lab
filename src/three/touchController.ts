@@ -13,8 +13,7 @@ import type { PlayerController } from './player';
 
 export function isTouchDevice(): boolean {
   return (
-    'ontouchstart' in window ||
-    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0)
+    'ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0)
   );
 }
 
@@ -34,7 +33,13 @@ export class TouchController {
   private interactBtn: HTMLButtonElement;
   private menuBtn: HTMLButtonElement;
   private lookZone: HTMLDivElement;
-  private joystickState: JoystickState = { active: false, originX: 0, originY: 0, currentX: 0, currentY: 0 };
+  private joystickState: JoystickState = {
+    active: false,
+    originX: 0,
+    originY: 0,
+    currentX: 0,
+    currentY: 0,
+  };
   private lookLast: { x: number; y: number } | null = null;
   private rafId: number | null = null;
 
@@ -139,16 +144,24 @@ export class TouchController {
       setKey('KeyD', false);
     };
 
-    el.addEventListener('touchstart', (e) => {
-      const t = e.touches[0];
-      if (t) start(t.clientX, t.clientY);
-      e.preventDefault();
-    }, { passive: false });
-    el.addEventListener('touchmove', (e) => {
-      const t = e.touches[0];
-      if (t) handleMove(t.clientX, t.clientY);
-      e.preventDefault();
-    }, { passive: false });
+    el.addEventListener(
+      'touchstart',
+      (e) => {
+        const t = e.touches[0];
+        if (t) start(t.clientX, t.clientY);
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+    el.addEventListener(
+      'touchmove',
+      (e) => {
+        const t = e.touches[0];
+        if (t) handleMove(t.clientX, t.clientY);
+        e.preventDefault();
+      },
+      { passive: false },
+    );
     el.addEventListener('touchend', end);
     el.addEventListener('touchcancel', end);
   }
@@ -159,21 +172,31 @@ export class TouchController {
 
   private bindLook(): void {
     const el = this.lookZone;
-    el.addEventListener('touchstart', (e) => {
-      const t = e.touches[0];
-      if (t) this.lookLast = { x: t.clientX, y: t.clientY };
-      e.preventDefault();
-    }, { passive: false });
-    el.addEventListener('touchmove', (e) => {
-      const t = e.touches[0];
-      if (!t || !this.lookLast) return;
-      const dx = t.clientX - this.lookLast.x;
-      const dy = t.clientY - this.lookLast.y;
-      this.player.setLookDelta(dx, dy);
-      this.lookLast = { x: t.clientX, y: t.clientY };
-      e.preventDefault();
-    }, { passive: false });
-    el.addEventListener('touchend', () => { this.lookLast = null; });
+    el.addEventListener(
+      'touchstart',
+      (e) => {
+        const t = e.touches[0];
+        if (t) this.lookLast = { x: t.clientX, y: t.clientY };
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+    el.addEventListener(
+      'touchmove',
+      (e) => {
+        const t = e.touches[0];
+        if (!t || !this.lookLast) return;
+        const dx = t.clientX - this.lookLast.x;
+        const dy = t.clientY - this.lookLast.y;
+        this.player.setLookDelta(dx, dy);
+        this.lookLast = { x: t.clientX, y: t.clientY };
+        e.preventDefault();
+      },
+      { passive: false },
+    );
+    el.addEventListener('touchend', () => {
+      this.lookLast = null;
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -212,16 +235,15 @@ export class TouchController {
         const clamped = Math.min(len, radius);
         const angle = Math.atan2(dy, dx);
         // Move the knob visually
-        this.joystickKnob.style.transform =
-          `translate(${Math.cos(angle) * clamped}px, ${Math.sin(angle) * clamped}px)`;
+        this.joystickKnob.style.transform = `translate(${Math.cos(angle) * clamped}px, ${Math.sin(angle) * clamped}px)`;
         // Translate to WASD
         const nx = dx / Math.max(len, 1);
         const ny = dy / Math.max(len, 1);
         const threshold = 0.4;
         this.player.setKey('KeyW', ny < -threshold);
-        this.player.setKey('KeyS', ny >  threshold);
+        this.player.setKey('KeyS', ny > threshold);
         this.player.setKey('KeyA', nx < -threshold);
-        this.player.setKey('KeyD', nx >  threshold);
+        this.player.setKey('KeyD', nx > threshold);
       }
       this.rafId = requestAnimationFrame(tick);
     };

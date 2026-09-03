@@ -20,7 +20,8 @@ export function applyLab07Seed(
     severity: 'high',
     affectedUserIds: [],
     affectedAppIds: [apps.getAppByName('Finance Portal')!.id],
-    summary: 'Multiple users report "authentication error" when accessing the Finance Portal starting at 09:05.',
+    summary:
+      'Multiple users report "authentication error" when accessing the Finance Portal starting at 09:05.',
     indicators: ['app-finance-sso-failure'],
   });
 }

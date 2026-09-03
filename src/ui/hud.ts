@@ -7,8 +7,8 @@ import { scoreStore } from '@/stores';
 import { type ZoneId } from '@/three/zones';
 
 export function initHUD(onMenuClick?: () => void) {
-  const labEl   = document.getElementById('hud-lab')!;
-  const stepEl  = document.getElementById('hud-step')!;
+  const labEl = document.getElementById('hud-lab')!;
+  const stepEl = document.getElementById('hud-step')!;
   const scoreEl = document.getElementById('hud-score')!;
   const menuBtn = document.getElementById('hud-menu');
   if (menuBtn && onMenuClick) {
@@ -19,7 +19,7 @@ export function initHUD(onMenuClick?: () => void) {
     const lab = labStore.getState().current;
     const idx = labStore.getState().stepIndex;
     const statuses = labStore.getState().stepStatuses;
-    labEl.textContent  = lab ? `${lab.number}: ${lab.title}` : '—';
+    labEl.textContent = lab ? `${lab.number}: ${lab.title}` : '—';
     if (lab && lab.steps[idx]) {
       const step = lab.steps[idx]!;
       const status = statuses[step.id] ?? 'pending';

@@ -28,8 +28,11 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
   const audit = conductor.audit;
 
   const addEvidence = (stepId: string, label: string) => {
-    const lab = (window as unknown as { __lab?: { get(): import('@/domain').Lab | null } }).__lab?.get?.();
-    const stepIdx = (window as unknown as { __labState?: { stepIndex: number } }).__labState?.stepIndex ?? 0;
+    const lab = (
+      window as unknown as { __lab?: { get(): import('@/domain').Lab | null } }
+    ).__lab?.get?.();
+    const stepIdx =
+      (window as unknown as { __labState?: { stepIndex: number } }).__labState?.stepIndex ?? 0;
     const ev: Evidence = {
       id: mkEvidenceId(),
       labId: lab?.id ?? ('unknown' as never),
@@ -49,7 +52,8 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
 
     /* Summary */
     const sum = document.createElement('div');
-    sum.style.cssText = 'display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:12px;';
+    sum.style.cssText =
+      'display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:12px;';
     sum.innerHTML = `<span style="color:var(--accent)">${open.length} open</span><span>${resolved.length} resolved</span>`;
     body.appendChild(sum);
 
@@ -65,13 +69,13 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
         padding:10px 12px;margin-bottom:8px;font-size:12px;
       `;
       const kindColors: Record<string, string> = {
-        'onboarding': 'var(--accent)',
-        'termination': 'var(--err)',
-        'transfer': 'var(--warn)',
+        onboarding: 'var(--accent)',
+        termination: 'var(--err)',
+        transfer: 'var(--warn)',
         'access-request': '#a78bfa',
         'password-reset': '#60a5fa',
         'mfa-issue': '#fb923c',
-        'incident': 'var(--err)',
+        incident: 'var(--err)',
       };
       const color = kindColors[t.kind] ?? 'var(--muted)';
       card.innerHTML = `
@@ -87,18 +91,24 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       `;
       const actions = document.createElement('div');
       actions.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
-      actions.appendChild(btn('Assign to me', '#60a5fa', () => {
-        // For now, assign to 'player'
-        queue.assign(t.id, 'player' as UserId);
-        refresh();
-      }));
-      actions.appendChild(btn('Resolve', 'var(--accent)', () => {
-        try {
-          queue.resolve(t.id, 'system' as UserId);
-          addEvidence('s1', `Resolved: ${t.subject}`);
-        } catch (e) { alert(String(e)); }
-        refresh();
-      }));
+      actions.appendChild(
+        btn('Assign to me', '#60a5fa', () => {
+          // For now, assign to 'player'
+          queue.assign(t.id, 'player' as UserId);
+          refresh();
+        }),
+      );
+      actions.appendChild(
+        btn('Resolve', 'var(--accent)', () => {
+          try {
+            queue.resolve(t.id, 'system' as UserId);
+            addEvidence('s1', `Resolved: ${t.subject}`);
+          } catch (e) {
+            alert(String(e));
+          }
+          refresh();
+        }),
+      );
       card.appendChild(actions);
       body.appendChild(card);
     }
@@ -106,12 +116,14 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     /* Resolved */
     if (resolved.length > 0) {
       const hdr = document.createElement('h3');
-      hdr.style.cssText = 'color:var(--muted);font-size:12px;text-transform:uppercase;margin:16px 0 6px;letter-spacing:0.05em;';
+      hdr.style.cssText =
+        'color:var(--muted);font-size:12px;text-transform:uppercase;margin:16px 0 6px;letter-spacing:0.05em;';
       hdr.textContent = 'Recently Resolved';
       body.appendChild(hdr);
       for (const t of resolved.slice(-5).reverse()) {
         const r = document.createElement('div');
-        r.style.cssText = 'font-size:12px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--border);';
+        r.style.cssText =
+          'font-size:12px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--border);';
         r.textContent = `✓ ${t.subject}`;
         body.appendChild(r);
       }
@@ -119,18 +131,24 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
 
     /* Audit events for tickets */
     const hdr = document.createElement('h3');
-    hdr.style.cssText = 'color:var(--muted);font-size:12px;text-transform:uppercase;margin:16px 0 6px;letter-spacing:0.05em;';
+    hdr.style.cssText =
+      'color:var(--muted);font-size:12px;text-transform:uppercase;margin:16px 0 6px;letter-spacing:0.05em;';
     hdr.textContent = 'Ticket Audit Events';
     body.appendChild(hdr);
     const auditList = document.createElement('div');
-    auditList.style.cssText = 'max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;';
-    const ticketEvents = audit.events.filter((e) => e.action.startsWith('ticket.')).slice(-15).reverse();
+    auditList.style.cssText =
+      'max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;';
+    const ticketEvents = audit.events
+      .filter((e) => e.action.startsWith('ticket.'))
+      .slice(-15)
+      .reverse();
     if (ticketEvents.length === 0) {
       auditList.appendChild(empty('No ticket audit events yet'));
     } else {
       for (const ev of ticketEvents) {
         const row = document.createElement('div');
-        row.style.cssText = 'padding:4px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);font-family:monospace;';
+        row.style.cssText =
+          'padding:4px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);font-family:monospace;';
         row.textContent = `[${new Date(ev.at).toLocaleTimeString()}] ${ev.action} ${ev.targetId ?? ''}`;
         auditList.appendChild(row);
       }

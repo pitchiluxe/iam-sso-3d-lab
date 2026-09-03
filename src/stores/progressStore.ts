@@ -6,7 +6,13 @@
  */
 import { create } from 'zustand';
 import type { LabId, ScoreBreakdown } from '@/domain';
-import { loadPersistedState, saveEnvelope, exportToFile, importFromFile, type PersistedProgress } from '@/util/persistence';
+import {
+  loadPersistedState,
+  saveEnvelope,
+  exportToFile,
+  importFromFile,
+  type PersistedProgress,
+} from '@/util/persistence';
 
 function loadProgress(): PersistedProgress {
   return loadPersistedState().progress;
@@ -40,7 +46,11 @@ export const progressStore = create<ProgressState>()((set) => {
         const next = s.completedLabIds.includes(labId)
           ? s.completedLabIds
           : [...s.completedLabIds, labId];
-        const snap: PersistedProgress = { completedLabIds: next, bestScores: newScores, startedAt: s.startedAt };
+        const snap: PersistedProgress = {
+          completedLabIds: next,
+          bestScores: newScores,
+          startedAt: s.startedAt,
+        };
         saveProgress(snap);
         return snap;
       });
@@ -48,7 +58,10 @@ export const progressStore = create<ProgressState>()((set) => {
 
     markStarted(labId) {
       set((s) => {
-        const snap: PersistedProgress = { ...s, startedAt: { ...s.startedAt, [labId]: Date.now() } };
+        const snap: PersistedProgress = {
+          ...s,
+          startedAt: { ...s.startedAt, [labId]: Date.now() },
+        };
         saveProgress(snap);
         return snap;
       });

@@ -39,15 +39,19 @@ export class MockAuditLog {
         at: input.at ?? Date.now(),
         actorId: input.actorId,
         action: input.action,
-        ...(input.targetId  ? { targetId:  input.targetId }  : {}),
+        ...(input.targetId ? { targetId: input.targetId } : {}),
         ...(input.subjectId ? { subjectId: input.subjectId } : {}),
         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-        ...(input.ip        ? { ip:        input.ip }        : {}),
-        ...(input.mfaUsed   ? { mfaUsed:   input.mfaUsed }   : {}),
-        ...(input.diff      ? { diff:      input.diff }      : {}),
+        ...(input.ip ? { ip: input.ip } : {}),
+        ...(input.mfaUsed ? { mfaUsed: input.mfaUsed } : {}),
+        ...(input.diff ? { diff: input.diff } : {}),
       };
     } catch (e) {
-      report('service-call-failed', `audit.record() failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      report(
+        'service-call-failed',
+        `audit.record() failed: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e },
+      );
       throw e; // Let the caller handle the failure via their Result type
     }
     try {
@@ -55,7 +59,11 @@ export class MockAuditLog {
       this.bus.emit('audit', event);
     } catch (e) {
       // Bus listeners threw — record the event but don't block on listeners.
-      report('service-call-failed', `audit bus emit failed: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      report(
+        'service-call-failed',
+        `audit bus emit failed: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e },
+      );
     }
     return event;
   }
@@ -66,9 +74,17 @@ export class MockAuditLog {
     );
   }
 
-  since(at: number): AuditEvent[] { return this.events.filter((e) => e.at >= at); }
-  byAction(prefix: string): AuditEvent[] { return this.events.filter((e) => e.action.startsWith(prefix)); }
-  tail(n: number): AuditEvent[] { return this.events.slice(-n).reverse(); }
+  since(at: number): AuditEvent[] {
+    return this.events.filter((e) => e.at >= at);
+  }
+  byAction(prefix: string): AuditEvent[] {
+    return this.events.filter((e) => e.action.startsWith(prefix));
+  }
+  tail(n: number): AuditEvent[] {
+    return this.events.slice(-n).reverse();
+  }
 
-  reset(): void { this.events.length = 0; }
+  reset(): void {
+    this.events.length = 0;
+  }
 }

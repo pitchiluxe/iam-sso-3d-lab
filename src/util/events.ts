@@ -33,7 +33,11 @@ export function createEventBus(): EventBus {
 
     emit(event, payload) {
       handlers.get(event)?.forEach((h) => {
-        try { h(payload); } catch (e) { console.error('[bus]', event, e); }
+        try {
+          h(payload);
+        } catch (e) {
+          console.error('[bus]', event, e);
+        }
       });
     },
   };

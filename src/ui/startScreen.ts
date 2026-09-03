@@ -9,25 +9,76 @@ import { progressStore } from '@/stores';
 import { showToast } from './toast';
 
 const LABS = [
-  { id: 'lab01', title: 'IAM Foundation',           brief: 'Build the directory from scratch. Create users, groups, and configure your first IdP policy.' },
-  { id: 'lab02', title: 'Joiner / Mover / Leaver',  brief: 'Process onboarding, transfer, and termination tickets.' },
-  { id: 'lab03', title: 'RBAC & Least Privilege',    brief: 'Create roles, discover standing privilege, and enforce least privilege.' },
-  { id: 'lab04', title: 'Enterprise SSO',            brief: 'Configure SAML and OIDC single sign-on for two business applications.' },
-  { id: 'lab05', title: 'MFA & Conditional Access',  brief: 'Enforce MFA for privileged accounts and block foreign sign-ins.' },
-  { id: 'lab06', title: 'Access Reviews',             brief: 'Conduct the Q3 access review campaign and remove stale access.' },
-  { id: 'lab07', title: 'SSO Break/Fix',            brief: 'Diagnose and resolve a live SSO outage. Randomized fault.' },
-  { id: 'lab08', title: 'Identity Incident',          brief: 'Respond to a compromised account: triage, contain, and write the report.' },
-  { id: 'lab09', title: 'Privileged Access Mgmt',    brief: 'Remove standing admin privilege and implement time-limited elevation.' },
-  { id: 'lab10', title: 'Enterprise Capstone',        brief: 'Run the full identity program: 10+ objectives, two faults, one debrief.' },
-  { id: 'lab11', title: 'Conditional Access',        brief: 'Block legacy auth, enforce MFA via CA policies, add named location exceptions.' },
-  { id: 'lab12', title: 'Hybrid Identity Sync',     brief: 'Provision on-prem AD users, install the cloud sync agent, resolve a soft-match conflict.' },
-  { id: 'lab13', title: 'Break-Glass Accounts',     brief: 'Design and test a break-glass emergency access policy with real-time alerting.' },
+  {
+    id: 'lab01',
+    title: 'IAM Foundation',
+    brief:
+      'Build the directory from scratch. Create users, groups, and configure your first IdP policy.',
+  },
+  {
+    id: 'lab02',
+    title: 'Joiner / Mover / Leaver',
+    brief: 'Process onboarding, transfer, and termination tickets.',
+  },
+  {
+    id: 'lab03',
+    title: 'RBAC & Least Privilege',
+    brief: 'Create roles, discover standing privilege, and enforce least privilege.',
+  },
+  {
+    id: 'lab04',
+    title: 'Enterprise SSO',
+    brief: 'Configure SAML and OIDC single sign-on for two business applications.',
+  },
+  {
+    id: 'lab05',
+    title: 'MFA & Conditional Access',
+    brief: 'Enforce MFA for privileged accounts and block foreign sign-ins.',
+  },
+  {
+    id: 'lab06',
+    title: 'Access Reviews',
+    brief: 'Conduct the Q3 access review campaign and remove stale access.',
+  },
+  {
+    id: 'lab07',
+    title: 'SSO Break/Fix',
+    brief: 'Diagnose and resolve a live SSO outage. Randomized fault.',
+  },
+  {
+    id: 'lab08',
+    title: 'Identity Incident',
+    brief: 'Respond to a compromised account: triage, contain, and write the report.',
+  },
+  {
+    id: 'lab09',
+    title: 'Privileged Access Mgmt',
+    brief: 'Remove standing admin privilege and implement time-limited elevation.',
+  },
+  {
+    id: 'lab10',
+    title: 'Enterprise Capstone',
+    brief: 'Run the full identity program: 10+ objectives, two faults, one debrief.',
+  },
+  {
+    id: 'lab11',
+    title: 'Conditional Access',
+    brief: 'Block legacy auth, enforce MFA via CA policies, add named location exceptions.',
+  },
+  {
+    id: 'lab12',
+    title: 'Hybrid Identity Sync',
+    brief:
+      'Provision on-prem AD users, install the cloud sync agent, resolve a soft-match conflict.',
+  },
+  {
+    id: 'lab13',
+    title: 'Break-Glass Accounts',
+    brief: 'Design and test a break-glass emergency access policy with real-time alerting.',
+  },
 ];
 
-export function showStartScreen(
-  onStart: (labId: string) => void,
-  onDismiss: () => void,
-) {
+export function showStartScreen(onStart: (labId: string) => void, onDismiss: () => void) {
   // Remove any existing start screen first (prevents double-overlay on rapid calls)
   const existing = document.getElementById('start-screen');
   if (existing) existing.remove();
@@ -54,7 +105,8 @@ export function showStartScreen(
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        ${LABS.map((l, i) => `
+        ${LABS.map(
+          (l, i) => `
           <div class="lab-card" data-id="${l.id}"
                style="background:#1b1f24;border:1px solid #2d343d;border-radius:8px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s,transform 0.1s;">
             <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
@@ -62,7 +114,8 @@ export function showStartScreen(
             </div>
             <div style="color:#8b95a1;font-size:12px;line-height:1.5;">${l.brief}</div>
           </div>
-        `).join('')}
+        `,
+        ).join('')}
       </div>
 
       <div style="margin-top:32px;text-align:center;color:#8b95a1;font-size:12px;">
@@ -151,7 +204,11 @@ export function showStartScreen(
     }
   });
   overlay.querySelector('#ss-reset')?.addEventListener('click', () => {
-    if (window.confirm('Reset ALL progress (completed labs, best scores, in-flight lab)? This cannot be undone.')) {
+    if (
+      window.confirm(
+        'Reset ALL progress (completed labs, best scores, in-flight lab)? This cannot be undone.',
+      )
+    ) {
       progressStore.getState().reset();
       // Also clear any in-flight lab and evidence.
       localStorage.removeItem('iam-lab-state-v2');
@@ -168,13 +225,17 @@ export function showStartScreen(
     link.textContent = 'Checking…';
     link.style.pointerEvents = 'none';
     try {
-      const disabled = (window as unknown as { env?: { OLLAMA_DISABLED?: string } }).env?.OLLAMA_DISABLED === 'true';
+      const disabled =
+        (window as unknown as { env?: { OLLAMA_DISABLED?: string } }).env?.OLLAMA_DISABLED ===
+        'true';
       if (disabled) {
         card.style.borderColor = '#d7ba7d';
         link.textContent = '⚙️ Ollama disabled — local hints only';
         return;
       }
-      const baseUrl = (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ?? 'http://localhost:11434';
+      const baseUrl =
+        (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ??
+        'http://localhost:11434';
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 3000);
       const res = await fetch(`${baseUrl}/api/tags`, { signal: ctrl.signal });
@@ -190,7 +251,8 @@ export function showStartScreen(
       }
     } catch {
       card.style.borderColor = '#f48771';
-      link.textContent = '⚠️ Ollama offline — install from ollama.com and run `ollama pull llama3.2`';
+      link.textContent =
+        '⚠️ Ollama offline — install from ollama.com and run `ollama pull llama3.2`';
       link.style.color = '#f48771';
     }
   });

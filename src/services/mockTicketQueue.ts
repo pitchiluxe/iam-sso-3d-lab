@@ -7,15 +7,87 @@ import { mkTicketId } from '@/domain';
 import type { MockAuditLog } from './mockAuditLog';
 
 export type NewTicket =
-  | { kind: 'onboarding';      requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'onboarding' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'mover';           requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'mover' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'leaver';         requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'leaver' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'transfer';        requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'transfer' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'termination';     requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'termination' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'access-request';  requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'access-request' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'password-reset';  requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'password-reset' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'mfa-issue';      requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'mfa-issue' }>['payload']; relatedUserIds?: UserId[] }
-  | { kind: 'incident';        requesterId: UserId; subject: string; body: string; priority?: Ticket['priority']; payload: Extract<Ticket, { kind: 'incident' }>['payload']; relatedUserIds?: UserId[] };
+  | {
+      kind: 'onboarding';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'onboarding' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'mover';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'mover' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'leaver';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'leaver' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'transfer';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'transfer' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'termination';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'termination' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'access-request';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'access-request' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'password-reset';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'password-reset' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'mfa-issue';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'mfa-issue' }>['payload'];
+      relatedUserIds?: UserId[];
+    }
+  | {
+      kind: 'incident';
+      requesterId: UserId;
+      subject: string;
+      body: string;
+      priority?: Ticket['priority'];
+      payload: Extract<Ticket, { kind: 'incident' }>['payload'];
+      relatedUserIds?: UserId[];
+    };
 
 export class MockTicketQueue {
   private tickets = new Map<TicketId, Ticket>();
@@ -32,7 +104,9 @@ export class MockTicketQueue {
     });
   }
 
-  get(id: TicketId): Ticket | undefined { return this.tickets.get(id); }
+  get(id: TicketId): Ticket | undefined {
+    return this.tickets.get(id);
+  }
 
   create(t: NewTicket): Ticket {
     const id = mkTicketId(nanoid(10));
@@ -87,5 +161,7 @@ export class MockTicketQueue {
     this.audit.record({ actorId: by, action: 'ticket.escalated', targetId: id });
   }
 
-  reset(): void { this.tickets.clear(); }
+  reset(): void {
+    this.tickets.clear();
+  }
 }

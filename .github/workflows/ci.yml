@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [master, main]
 
+# create-release / upload-release-asset need write access to repo contents;
+# the default GITHUB_TOKEN permissions on this repo are read-only, which was
+# failing the release job with "Resource not accessible by integration".
+permissions:
+  contents: write
+
 jobs:
   lint:
     name: Lint

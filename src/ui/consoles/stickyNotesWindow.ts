@@ -15,9 +15,19 @@ interface SavedNote {
 
 const COLORS = ['#fef08a', '#fda4af', '#93c5fd', '#86efac', '#c4b5fd'];
 const DEFAULT_NOTES: SavedNote[] = [
-  { text: 'Remember: always verify identity before granting access!', color: '#fef08a', left: 10, top: 10 },
+  {
+    text: 'Remember: always verify identity before granting access!',
+    color: '#fef08a',
+    left: 10,
+    top: 10,
+  },
   { text: 'SSO ticket #2847 — pending approval from HR', color: '#fda4af', left: 80, top: 80 },
-  { text: 'Review least-privilege policy for Finance group next week', color: '#93c5fd', left: 40, top: 160 },
+  {
+    text: 'Review least-privilege policy for Finance group next week',
+    color: '#93c5fd',
+    left: 40,
+    top: 160,
+  },
 ];
 
 export function renderStickyNotesWindow(body: HTMLElement): void {
@@ -33,7 +43,9 @@ export function renderStickyNotesWindow(body: HTMLElement): void {
   try {
     const raw = localStorage.getItem(STICKY_KEY);
     if (raw) notes = JSON.parse(raw) as SavedNote[];
-  } catch { /* use defaults */ }
+  } catch {
+    /* use defaults */
+  }
 
   // Toolbar
   const toolbar = document.createElement('div');
@@ -97,14 +109,19 @@ export function renderStickyNotesWindow(body: HTMLElement): void {
       border:none;font-size:14px;cursor:pointer;color:rgba(0,0,0,0.4);
       line-height:1;padding:0 2px;
     `;
-    deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); note.remove(); save(); });
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      note.remove();
+      save();
+    });
 
     note.appendChild(textEl);
     note.appendChild(deleteBtn);
 
     // Drag
     let dragging = false;
-    let dx = 0, dy = 0;
+    let dx = 0,
+      dy = 0;
     note.addEventListener('mousedown', (e) => {
       if ((e.target as HTMLElement).contentEditable === 'true') return;
       dragging = true;
@@ -143,7 +160,12 @@ export function renderStickyNotesWindow(body: HTMLElement): void {
   addBtn.addEventListener('click', () => {
     const color = COLORS[noteCounter % COLORS.length] ?? '#fef08a';
     noteCounter++;
-    const el = makeNote({ text: 'New note — click to edit', color, left: 20 + (noteCounter * 15) % 100, top: 20 + (noteCounter * 25) % 80 });
+    const el = makeNote({
+      text: 'New note — click to edit',
+      color,
+      left: 20 + ((noteCounter * 15) % 100),
+      top: 20 + ((noteCounter * 25) % 80),
+    });
     wrapper.appendChild(el);
     save();
     (el.querySelector('[contenteditable]') as HTMLElement)?.focus();

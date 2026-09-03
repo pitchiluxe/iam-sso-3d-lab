@@ -34,5 +34,4 @@ export const LAB_REGISTRY: ReadonlyArray<Lab> = [
   LAB_13,
 ] as const;
 
-export const findLab = (id: string): Lab | undefined =>
-  LAB_REGISTRY.find((l) => l.id === id);
+export const findLab = (id: string): Lab | undefined => LAB_REGISTRY.find((l) => l.id === id);

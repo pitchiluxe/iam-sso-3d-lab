@@ -6,8 +6,12 @@
  * mutate the world (move Bob, disable Jane, etc.) without breaking this baseline.
  */
 import {
-  COMPANY, GROUP_NAMES, SERVICE_ACCOUNT_NAMES,
-  SEED_USERS, SEED_ADMINS, seedEmail,
+  COMPANY,
+  GROUP_NAMES,
+  SERVICE_ACCOUNT_NAMES,
+  SEED_USERS,
+  SEED_ADMINS,
+  seedEmail,
 } from '@/config';
 import { mkRoleId, mkAppId } from '@/domain';
 import type { Application, MfaMethod, RoleId, GroupId, AppId, UserId } from '@/domain';
@@ -16,10 +20,10 @@ import type { MockIdP } from '@/services';
 import type { MockAppServer } from '@/services';
 
 export interface SeedResult {
-  userIds: Record<string, UserId>;     // username → UserId
-  groupIds: Record<string, GroupId>;   // group name → GroupId
-  roleIds: Record<string, RoleId>;     // role name → RoleId
-  appIds: Record<string, AppId>;       // app name → AppId
+  userIds: Record<string, UserId>; // username → UserId
+  groupIds: Record<string, GroupId>; // group name → GroupId
+  roleIds: Record<string, RoleId>; // role name → RoleId
+  appIds: Record<string, AppId>; // app name → AppId
 }
 
 export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppServer): SeedResult {
@@ -30,11 +34,7 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
 
   // --- Groups ---
   for (const name of GROUP_NAMES) {
-    const g = dir.createGroup(
-      name,
-      `Security group ${name}`,
-      'system' as UserId,
-    );
+    const g = dir.createGroup(name, `Security group ${name}`, 'system' as UserId);
     groupIds[name] = g.id;
   }
 
@@ -100,11 +100,11 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
   apps.registerApp(appVpn);
   apps.registerApp(appAdmin);
   dir.registerApp(appAdmin);
-  appIds[appHr.name]      = appHr.id;
+  appIds[appHr.name] = appHr.id;
   appIds[appFinance.name] = appFinance.id;
-  appIds[appHelpDesk.name]= appHelpDesk.id;
-  appIds[appVpn.name]     = appVpn.id;
-  appIds[appAdmin.name]   = appAdmin.id;
+  appIds[appHelpDesk.name] = appHelpDesk.id;
+  appIds[appVpn.name] = appVpn.id;
+  appIds[appAdmin.name] = appAdmin.id;
 
   // --- Roles ---
   for (const [name, gid] of Object.entries(groupIds)) {
@@ -121,10 +121,28 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
     if (g) g.ownerRoleId = r.id;
   }
   // Privileged roles
-  const iamAdminRole = dir.createRole('role-iam-admins', 'IAM Administrators', ['iam:*'], undefined, 'system' as UserId);
-  const domainAdminRole = dir.createRole('role-domain-admins', 'Domain Administrators', ['domain:*'], undefined, 'system' as UserId);
-  const serverAdminRole = dir.createRole('role-server-admins', 'Server Administrators', ['server:*'], undefined, 'system' as UserId);
-  roleIds['role-iam-admins']    = iamAdminRole.id;
+  const iamAdminRole = dir.createRole(
+    'role-iam-admins',
+    'IAM Administrators',
+    ['iam:*'],
+    undefined,
+    'system' as UserId,
+  );
+  const domainAdminRole = dir.createRole(
+    'role-domain-admins',
+    'Domain Administrators',
+    ['domain:*'],
+    undefined,
+    'system' as UserId,
+  );
+  const serverAdminRole = dir.createRole(
+    'role-server-admins',
+    'Server Administrators',
+    ['server:*'],
+    undefined,
+    'system' as UserId,
+  );
+  roleIds['role-iam-admins'] = iamAdminRole.id;
   roleIds['role-domain-admins'] = domainAdminRole.id;
   roleIds['role-server-admins'] = serverAdminRole.id;
 
@@ -141,15 +159,18 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
   const allSeeds = [...SEED_USERS, ...SEED_ADMINS];
   const tempIds: Record<string, UserId> = {};
   for (const s of allSeeds) {
-    const u = dir.createUser({
-      username:    s.username,
-      displayName: s.displayName,
-      email:       seedEmail(s),
-      department:  s.department,
-      title:       s.title,
-      mfa:         s.mfa as MfaMethod,
-      groupIds:    s.groups.map((g) => groupIds[g]).filter((g): g is GroupId => Boolean(g)),
-    }, 'system' as UserId);
+    const u = dir.createUser(
+      {
+        username: s.username,
+        displayName: s.displayName,
+        email: seedEmail(s),
+        department: s.department,
+        title: s.title,
+        mfa: s.mfa as MfaMethod,
+        groupIds: s.groups.map((g) => groupIds[g]).filter((g): g is GroupId => Boolean(g)),
+      },
+      'system' as UserId,
+    );
     tempIds[s.username] = u.id;
     userIds[s.username] = u.id;
   }
@@ -166,14 +187,17 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
 
   // --- Service accounts (created like users but flagged) ---
   for (const name of SERVICE_ACCOUNT_NAMES) {
-    const u = dir.createUser({
-      username:    name,
-      displayName: name,
-      email:       `${name}@${COMPANY.domain}`,
-      department:  'IT',
-      title:       'Service Account',
-      mfa:         'none',
-    }, 'system' as UserId);
+    const u = dir.createUser(
+      {
+        username: name,
+        displayName: name,
+        email: `${name}@${COMPANY.domain}`,
+        department: 'IT',
+        title: 'Service Account',
+        mfa: 'none',
+      },
+      'system' as UserId,
+    );
     userIds[name] = u.id;
   }
 

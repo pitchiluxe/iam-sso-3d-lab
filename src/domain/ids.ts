@@ -3,8 +3,17 @@
  * Using the brand pattern prevents mixing e.g. UserId with TicketId at compile time.
  */
 import type {
-  UserId, GroupId, RoleId, AppId, TicketId, AuditId,
-  IncidentId, ReviewId, LabId, EvidenceId, SessionId,
+  UserId,
+  GroupId,
+  RoleId,
+  AppId,
+  TicketId,
+  AuditId,
+  IncidentId,
+  ReviewId,
+  LabId,
+  EvidenceId,
+  SessionId,
 } from './types';
 import { nanoid } from 'nanoid';
 

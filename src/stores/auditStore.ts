@@ -37,5 +37,7 @@ export const auditStore = create<AuditState>()((set, get) => ({
     );
   },
 
-  reset() { set({ events: [], filter: {} }); },
+  reset() {
+    set({ events: [], filter: {} });
+  },
 }));

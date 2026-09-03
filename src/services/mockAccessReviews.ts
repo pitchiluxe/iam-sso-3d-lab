@@ -15,8 +15,8 @@ export class MockAccessReviews {
       id,
       campaign: c.campaign,
       openedAt: c.openedAt,
-      dueAt:    c.dueAt,
-      status:   'open',
+      dueAt: c.dueAt,
+      status: 'open',
       decisions: [],
     };
     this.reviews.set(id, review);
@@ -24,7 +24,10 @@ export class MockAccessReviews {
   }
 
   /** Seed a review with pre-existing pending decisions. */
-  seedDecisions(id: ReviewId, decisions: Omit<AccessReviewDecision, 'decidedBy' | 'decidedAt'>[]): void {
+  seedDecisions(
+    id: ReviewId,
+    decisions: Omit<AccessReviewDecision, 'decidedBy' | 'decidedAt'>[],
+  ): void {
     const r = this.reviews.get(id);
     if (!r) throw new Error(`[reviews] seedDecisions: review ${id} not found`);
     // Decisions are added by the manager; we keep placeholders here for the UI.

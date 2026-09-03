@@ -4,7 +4,11 @@
 import { create } from 'zustand';
 import type { FaultKind } from '@/domain';
 
-interface FaultLog { at: number; kind: FaultKind; stepId: string }
+interface FaultLog {
+  at: number;
+  kind: FaultKind;
+  stepId: string;
+}
 
 interface FaultState {
   active: FaultKind[];
@@ -29,5 +33,7 @@ export const faultStore = create<FaultState>()((set) => ({
     set((s) => ({ active: s.active.filter((k) => k !== kind) }));
   },
 
-  reset() { set({ active: [], log: [] }); },
+  reset() {
+    set({ active: [], log: [] });
+  },
 }));

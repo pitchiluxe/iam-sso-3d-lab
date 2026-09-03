@@ -25,20 +25,25 @@ export function applyLab08Seed(
     severity: 'high',
     affectedUserIds: [jane],
     affectedAppIds: [],
-    summary: 'Three failed sign-ins from foreign ASN (203.0.113.42) followed by one success. Possibly credential-stuffing.',
+    summary:
+      'Three failed sign-ins from foreign ASN (203.0.113.42) followed by one success. Possibly credential-stuffing.',
     indicators: ['geo:foreign', 'asn:AS-12345', 'rapid-fail-then-success'],
   });
 
   // Add suspicious audit events directly via audit log
   for (let i = 0; i < 3; i++) {
     audit.record({
-      actorId: jane, action: 'signin.failure', targetId: jane,
+      actorId: jane,
+      action: 'signin.failure',
+      targetId: jane,
       sessionId: 'suspicious' as import('@/domain').SessionId,
       ip: '203.0.113.42',
     });
   }
   audit.record({
-    actorId: jane, action: 'signin.success', targetId: jane,
+    actorId: jane,
+    action: 'signin.success',
+    targetId: jane,
     sessionId: 'suspicious' as import('@/domain').SessionId,
     ip: '203.0.113.42',
   });

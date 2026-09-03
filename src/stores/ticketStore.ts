@@ -9,13 +9,19 @@ interface TicketState {
   selectedId: TicketId | null;
   setTickets(tickets: Ticket[]): void;
   select(id: TicketId | null): void;
-  refresh(): void;   // placeholder — services push directly
+  refresh(): void; // placeholder — services push directly
 }
 
 export const ticketStore = create<TicketState>()((set) => ({
   tickets: [],
   selectedId: null,
-  setTickets(tickets) { set({ tickets }); },
-  select(id) { set({ selectedId: id }); },
-  refresh() { /* placeholder; overwritten by conductor wiring */ },
+  setTickets(tickets) {
+    set({ tickets });
+  },
+  select(id) {
+    set({ selectedId: id });
+  },
+  refresh() {
+    /* placeholder; overwritten by conductor wiring */
+  },
 }));

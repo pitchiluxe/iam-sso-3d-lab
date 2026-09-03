@@ -9,28 +9,30 @@ export const LAB_10: Lab = {
   id: mkLabId('lab10'),
   number: 10,
   title: 'Enterprise IAM & SSO Capstone',
-  brief: 'Build and operate the full identity environment. Onboard 5, move 2, terminate 1, configure SSO, enforce MFA, conduct access review, resolve an SSO outage and a security incident.',
+  brief:
+    'Build and operate the full identity environment. Onboard 5, move 2, terminate 1, configure SSO, enforce MFA, conduct access review, resolve an SSO outage and a security incident.',
   durationMinutes: 120,
   zoneIds: ['hr', 'iam-ops', 'sec-ops', 'app-center', 'help-desk'],
   startingZone: 'iam-ops',
   startingSeed: 'lab10',
   objectives: [
-    { id: 'o1',  description: 'Onboard 5 new employees',               points: 15, category: 'exec' },
-    { id: 'o2',  description: 'Move 2 employees correctly',          points: 10, category: 'exec' },
-    { id: 'o3',  description: 'Terminate 1 employee cleanly',        points: 10, category: 'exec' },
-    { id: 'o4',  description: 'Integrate 2 apps with SSO',           points: 10, category: 'exec' },
-    { id: 'o5',  description: 'Enforce MFA for privileged roles',     points: 5,  category: 'exec' },
-    { id: 'o6',  description: 'Conduct Q3 access review',           points: 10, category: 'exec' },
-    { id: 'o7',  description: 'Resolve SSO break/fix',               points: 10, category: 'troubleshoot' },
-    { id: 'o8',  description: 'Resolve identity incident',           points: 10, category: 'troubleshoot' },
-    { id: 'o9',  description: 'Produce final audit report',         points: 10, category: 'docs' },
-    { id: 'o10', description: 'Collect all evidence',               points: 10, category: 'evidence' },
+    { id: 'o1', description: 'Onboard 5 new employees', points: 15, category: 'exec' },
+    { id: 'o2', description: 'Move 2 employees correctly', points: 10, category: 'exec' },
+    { id: 'o3', description: 'Terminate 1 employee cleanly', points: 10, category: 'exec' },
+    { id: 'o4', description: 'Integrate 2 apps with SSO', points: 10, category: 'exec' },
+    { id: 'o5', description: 'Enforce MFA for privileged roles', points: 5, category: 'exec' },
+    { id: 'o6', description: 'Conduct Q3 access review', points: 10, category: 'exec' },
+    { id: 'o7', description: 'Resolve SSO break/fix', points: 10, category: 'troubleshoot' },
+    { id: 'o8', description: 'Resolve identity incident', points: 10, category: 'troubleshoot' },
+    { id: 'o9', description: 'Produce final audit report', points: 10, category: 'docs' },
+    { id: 'o10', description: 'Collect all evidence', points: 10, category: 'evidence' },
   ],
   steps: [
     {
       id: 's1',
       title: 'Onboard 5 new employees',
-      brief: 'Resolve 5 onboarding tickets from HR. Create each user, assign groups, verify access.',
+      brief:
+        'Resolve 5 onboarding tickets from HR. Create each user, assign groups, verify access.',
       validator: { kind: 'evidence-collected', params: { stepId: 's1' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'ticketConsole' } }],
       tutorPrompts: ['What is the fastest way to provision 5 users consistently?'],
@@ -40,7 +42,8 @@ export const LAB_10: Lab = {
     {
       id: 's2',
       title: 'Move 2 employees; remove stale access',
-      brief: 'Transfer Jane (Finance→Engineering) and Alex (Finance→HR). Remove their old group memberships.',
+      brief:
+        'Transfer Jane (Finance→Engineering) and Alex (Finance→HR). Remove their old group memberships.',
       validator: { kind: 'user-moved', params: { userId: 'alex.morgan' } },
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 5 } }],
       tutorPrompts: ['What is the minimum set of group changes for each transfer?'],
@@ -50,7 +53,8 @@ export const LAB_10: Lab = {
     {
       id: 's3',
       title: 'Terminate Bob Sato',
-      brief: 'Resolve the termination ticket. Disable Bob, revoke sessions, remove all groups. Verify no residual access.',
+      brief:
+        'Resolve the termination ticket. Disable Bob, revoke sessions, remove all groups. Verify no residual access.',
       validator: { kind: 'signin-succeeded', params: { userId: 'bob.sato' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['Prove Bob cannot reach any application after termination.'],
@@ -63,7 +67,9 @@ export const LAB_10: Lab = {
       brief: 'Configure both portals with SSO. Test sign-in for 2 users.',
       validator: { kind: 'app-config-fixed', params: { appId: 'app-finance' } },
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 5 } }],
-      tutorPrompts: ['Explain the difference between SAML and OIDC to a non-technical stakeholder.'],
+      tutorPrompts: [
+        'Explain the difference between SAML and OIDC to a non-technical stakeholder.',
+      ],
       hintIds: ['lab10.s4.h1'],
       points: { exec: 10 },
     },
@@ -100,7 +106,8 @@ export const LAB_10: Lab = {
     {
       id: 's8',
       title: 'Resolve identity security incident',
-      brief: 'An incident ticket is open. Contain the affected account, search for related activity, write the report.',
+      brief:
+        'An incident ticket is open. Contain the affected account, search for related activity, write the report.',
       validator: { kind: 'user-disabled', params: { userId: 'jane.doe' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'secOpsDashboard' } }],
       tutorPrompts: ['What is your escalation path for a critical identity incident?'],
@@ -110,17 +117,32 @@ export const LAB_10: Lab = {
     {
       id: 's9',
       title: 'Produce final audit report',
-      brief: 'Compile the final audit report: architecture diagram, IAM procedures, SSO config record, access matrix, lifecycle records, incident report, change log.',
+      brief:
+        'Compile the final audit report: architecture diagram, IAM procedures, SSO config record, access matrix, lifecycle records, incident report, change log.',
       validator: { kind: 'evidence-collected', params: { stepId: 's9' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'secOpsDashboard' } }],
-      tutorPrompts: ['If you had 30 seconds to explain your IAM architecture to a CISO, what would you say?'],
+      tutorPrompts: [
+        'If you had 30 seconds to explain your IAM architecture to a CISO, what would you say?',
+      ],
       hintIds: ['lab10.s9.h1'],
       points: { docs: 10, evidence: 10 },
     },
   ],
   faults: [
-    { id: 'f1', kind: 'excessive-permissions', applyAtStep: 's1', params: {}, targetUserId: 'bob.sato' as UserId },
-    { id: 'f2', kind: 'suspicious-signin',      applyAtStep: 's8', params: {}, targetUserId: 'jane.doe' as UserId },
+    {
+      id: 'f1',
+      kind: 'excessive-permissions',
+      applyAtStep: 's1',
+      params: {},
+      targetUserId: 'bob.sato' as UserId,
+    },
+    {
+      id: 'f2',
+      kind: 'suspicious-signin',
+      applyAtStep: 's8',
+      params: {},
+      targetUserId: 'jane.doe' as UserId,
+    },
   ],
   debriefQuestions: [
     'Explain authentication vs authorization.',

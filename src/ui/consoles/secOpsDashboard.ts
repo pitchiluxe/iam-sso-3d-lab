@@ -30,8 +30,11 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
   const reviews = conductor.reviews;
 
   const addEvidence = (stepId: string, kind: Evidence['kind'], label: string) => {
-    const lab = (window as unknown as { __lab?: { get(): import('@/domain').Lab | null } }).__lab?.get?.();
-    const stepIdx = (window as unknown as { __labState?: { stepIndex: number } }).__labState?.stepIndex ?? 0;
+    const lab = (
+      window as unknown as { __lab?: { get(): import('@/domain').Lab | null } }
+    ).__lab?.get?.();
+    const stepIdx =
+      (window as unknown as { __labState?: { stepIndex: number } }).__labState?.stepIndex ?? 0;
     const ev: Evidence = {
       id: mkEvidenceId(),
       labId: lab?.id ?? ('unknown' as never),
@@ -49,7 +52,8 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
 
     /* Top: tabs */
     const tabs = document.createElement('div');
-    tabs.style.cssText = 'display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);';
+    tabs.style.cssText =
+      'display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);';
     body.appendChild(tabs);
 
     let activeTab: 'audit' | 'incidents' | 'reviews' = 'audit';
@@ -67,7 +71,11 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
       const t = document.createElement('div');
       t.textContent = label;
       t.style.cssText = `padding:6px 12px;cursor:pointer;font-size:12px;color:${activeTab === id ? 'var(--accent)' : 'var(--muted)'};border-bottom:2px solid ${activeTab === id ? 'var(--accent)' : 'transparent'};`;
-      t.addEventListener('click', () => { activeTab = id; renderTab(); refreshTabs(); });
+      t.addEventListener('click', () => {
+        activeTab = id;
+        renderTab();
+        refreshTabs();
+      });
       tabs.appendChild(t);
     };
     const refreshTabs = () => {
@@ -79,18 +87,21 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
 
     const renderAudit = () => {
       const h = document.createElement('h3');
-      h.style.cssText = 'color:var(--accent);font-size:12px;text-transform:uppercase;margin-bottom:6px;';
+      h.style.cssText =
+        'color:var(--accent);font-size:12px;text-transform:uppercase;margin-bottom:6px;';
       h.textContent = 'Audit Log Search';
       body.appendChild(h);
 
       const search = document.createElement('input');
       search.type = 'text';
       search.placeholder = 'Filter by action, target, subject…';
-      search.style.cssText = 'width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;margin-bottom:8px;';
+      search.style.cssText =
+        'width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;margin-bottom:8px;';
       body.appendChild(search);
 
       const list = document.createElement('div');
-      list.style.cssText = 'max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;';
+      list.style.cssText =
+        'max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;';
       body.appendChild(list);
 
       const doSearch = (q: string) => {
@@ -98,16 +109,18 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
         list.innerHTML = '';
         const filtered = !query
           ? audit.events
-          : audit.events.filter((e) =>
-              e.action.toLowerCase().includes(query) ||
-              (e.targetId?.toLowerCase().includes(query) ?? false) ||
-              (e.subjectId?.toLowerCase().includes(query) ?? false) ||
-              (e.actorId.toLowerCase().includes(query))
+          : audit.events.filter(
+              (e) =>
+                e.action.toLowerCase().includes(query) ||
+                (e.targetId?.toLowerCase().includes(query) ?? false) ||
+                (e.subjectId?.toLowerCase().includes(query) ?? false) ||
+                e.actorId.toLowerCase().includes(query),
             );
         const recent = filtered.slice(-50).reverse();
         for (const ev of recent) {
           const row = document.createElement('div');
-          row.style.cssText = 'padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace;cursor:pointer;';
+          row.style.cssText =
+            'padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace;cursor:pointer;';
           const ip = ev.ip ? ` [ip:${ev.ip}]` : '';
           row.innerHTML = `<span style="color:var(--muted)">[${new Date(ev.at).toLocaleTimeString()}]</span> <span style="color:var(--accent)">${ev.action}</span> <span>${ev.targetId ?? ''}</span> ${ev.subjectId ? `<span style="color:var(--muted)">by ${ev.subjectId}</span>` : ''}${ip}`;
           list.appendChild(row);
@@ -130,7 +143,8 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
 
     const renderIncidents = () => {
       const h = document.createElement('h3');
-      h.style.cssText = 'color:var(--accent);font-size:12px;text-transform:uppercase;margin-bottom:6px;';
+      h.style.cssText =
+        'color:var(--accent);font-size:12px;text-transform:uppercase;margin-bottom:6px;';
       h.textContent = 'Identity Incidents';
       body.appendChild(h);
 
@@ -141,10 +155,14 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
       }
       for (const inc of all) {
         const card = document.createElement('div');
-        card.style.cssText = 'background:var(--panel-2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:8px;font-size:12px;';
-        const sevColor = inc.severity === 'critical' ? 'var(--err)'
-          : inc.severity === 'high' ? 'var(--warn)'
-          : 'var(--accent)';
+        card.style.cssText =
+          'background:var(--panel-2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:8px;font-size:12px;';
+        const sevColor =
+          inc.severity === 'critical'
+            ? 'var(--err)'
+            : inc.severity === 'high'
+              ? 'var(--warn)'
+              : 'var(--accent)';
         card.innerHTML = `
           <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
             <strong>${inc.title}</strong>
@@ -156,33 +174,41 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;';
         if (inc.status === 'open') {
-          actions.appendChild(btn('Contain', 'var(--warn)', () => {
-            for (const uid of inc.affectedUserIds) {
-              incidents.contain(inc.id, `Disabled user ${uid}`, 'system' as never);
-            }
-            addEvidence('s2', 'snapshot', `Contained incident: ${inc.title}`);
-            renderTab();
-          }));
+          actions.appendChild(
+            btn('Contain', 'var(--warn)', () => {
+              for (const uid of inc.affectedUserIds) {
+                incidents.contain(inc.id, `Disabled user ${uid}`, 'system' as never);
+              }
+              addEvidence('s2', 'snapshot', `Contained incident: ${inc.title}`);
+              renderTab();
+            }),
+          );
         }
         if (inc.status === 'contained') {
-          actions.appendChild(btn('Mark recovered', 'var(--accent)', () => {
-            incidents.recover(inc.id, 'system' as never);
-            renderTab();
-          }));
+          actions.appendChild(
+            btn('Mark recovered', 'var(--accent)', () => {
+              incidents.recover(inc.id, 'system' as never);
+              renderTab();
+            }),
+          );
         }
         if (inc.status === 'recovered') {
-          actions.appendChild(btn('Close', 'var(--accent)', () => {
-            incidents.close(inc.id, 'system' as never);
-            addEvidence('s5', 'snapshot', `Closed incident: ${inc.title}`);
-            renderTab();
-          }));
+          actions.appendChild(
+            btn('Close', 'var(--accent)', () => {
+              incidents.close(inc.id, 'system' as never);
+              addEvidence('s5', 'snapshot', `Closed incident: ${inc.title}`);
+              renderTab();
+            }),
+          );
         }
-        actions.appendChild(btn('Write report', '#60a5fa', () => {
-          const body2 = `## Incident Report\n\n${inc.title}\n\nSeverity: ${inc.severity}\n\nSummary: ${inc.summary}\n\nContainment actions: ${inc.containmentActions.length}\n\nIndicators: ${inc.indicators.join(', ')}`;
-          incidents.writeReport(inc.id, body2, 'system' as never);
-          addEvidence('s4', 'snapshot', `Wrote report for: ${inc.title}`);
-          renderTab();
-        }));
+        actions.appendChild(
+          btn('Write report', '#60a5fa', () => {
+            const body2 = `## Incident Report\n\n${inc.title}\n\nSeverity: ${inc.severity}\n\nSummary: ${inc.summary}\n\nContainment actions: ${inc.containmentActions.length}\n\nIndicators: ${inc.indicators.join(', ')}`;
+            incidents.writeReport(inc.id, body2, 'system' as never);
+            addEvidence('s4', 'snapshot', `Wrote report for: ${inc.title}`);
+            renderTab();
+          }),
+        );
         card.appendChild(actions);
         body.appendChild(card);
       }
@@ -190,7 +216,8 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
 
     const renderReviews = () => {
       const h = document.createElement('h3');
-      h.style.cssText = 'color:var(--accent);font-size:12px;text-transform:uppercase;margin-bottom:6px;';
+      h.style.cssText =
+        'color:var(--accent);font-size:12px;text-transform:uppercase;margin-bottom:6px;';
       h.textContent = 'Access Review Campaigns';
       body.appendChild(h);
 
@@ -201,7 +228,8 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
       }
       for (const r of all) {
         const card = document.createElement('div');
-        card.style.cssText = 'background:var(--panel-2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:8px;font-size:12px;';
+        card.style.cssText =
+          'background:var(--panel-2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:8px;font-size:12px;';
         card.innerHTML = `
           <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
             <strong>${r.campaign}</strong>
@@ -212,10 +240,12 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
           </div>
         `;
         const list = document.createElement('div');
-        list.style.cssText = 'max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;';
+        list.style.cssText =
+          'max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;';
         for (const d of r.decisions) {
           const row = document.createElement('div');
-          row.style.cssText = 'padding:4px 8px;border-bottom:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between;align-items:center;';
+          row.style.cssText =
+            'padding:4px 8px;border-bottom:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between;align-items:center;';
           row.innerHTML = `<span>${d.userId} → ${d.groupId ?? d.roleId}</span><span style="color:${d.decision === 'approve' ? 'var(--accent)' : 'var(--err)'}">${d.decision}</span>`;
           list.appendChild(row);
         }
@@ -224,24 +254,38 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
         // Manager actions
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
-        actions.appendChild(btn('Record all approvals', 'var(--accent)', () => {
-          for (const d of r.decisions) {
-            reviews.recordDecision(r.id, { ...d, decision: 'approve', decidedBy: 'ivy.park' as never });
-          }
-          addEvidence('s3', 'log-excerpt', `Recorded approvals for ${r.campaign}`);
-          renderTab();
-        }));
-        actions.appendChild(btn('Record revocations', 'var(--err)', () => {
-          for (const d of r.decisions) {
-            reviews.recordDecision(r.id, { ...d, decision: 'revoke', decidedBy: 'ivy.park' as never });
-          }
-          renderTab();
-        }));
-        actions.appendChild(btn('Close campaign', '#60a5fa', () => {
-          reviews.close(r.id);
-          addEvidence('s4', 'snapshot', `Closed campaign: ${r.campaign}`);
-          renderTab();
-        }));
+        actions.appendChild(
+          btn('Record all approvals', 'var(--accent)', () => {
+            for (const d of r.decisions) {
+              reviews.recordDecision(r.id, {
+                ...d,
+                decision: 'approve',
+                decidedBy: 'ivy.park' as never,
+              });
+            }
+            addEvidence('s3', 'log-excerpt', `Recorded approvals for ${r.campaign}`);
+            renderTab();
+          }),
+        );
+        actions.appendChild(
+          btn('Record revocations', 'var(--err)', () => {
+            for (const d of r.decisions) {
+              reviews.recordDecision(r.id, {
+                ...d,
+                decision: 'revoke',
+                decidedBy: 'ivy.park' as never,
+              });
+            }
+            renderTab();
+          }),
+        );
+        actions.appendChild(
+          btn('Close campaign', '#60a5fa', () => {
+            reviews.close(r.id);
+            addEvidence('s4', 'snapshot', `Closed campaign: ${r.campaign}`);
+            renderTab();
+          }),
+        );
         card.appendChild(actions);
         body.appendChild(card);
       }

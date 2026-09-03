@@ -25,5 +25,7 @@ export const scoreStore = create<ScoreState>()((set, get) => ({
     if (cur) set({ current: { ...cur, notes: [...cur.notes, n] } });
   },
 
-  reset() { set({ current: null }); },
+  reset() {
+    set({ current: null });
+  },
 }));

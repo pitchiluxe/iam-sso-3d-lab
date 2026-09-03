@@ -48,14 +48,18 @@ export function initDebriefScreen() {
 
         <!-- Score breakdown -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px;">
-          ${([
-            ['Technical Execution', score.exec, 25],
-            ['Troubleshooting', score.troubleshoot, 20],
-            ['Least Privilege', score['least-privilege'], 15],
-            ['Documentation', score.docs, 15],
-            ['Evidence & Verification', score.evidence, 15],
-            ['Communication', score.comms, 10],
-          ] as Array<[string, number, number]>).map(([label, earned, max]) => `
+          ${(
+            [
+              ['Technical Execution', score.exec, 25],
+              ['Troubleshooting', score.troubleshoot, 20],
+              ['Least Privilege', score['least-privilege'], 15],
+              ['Documentation', score.docs, 15],
+              ['Evidence & Verification', score.evidence, 15],
+              ['Communication', score.comms, 10],
+            ] as Array<[string, number, number]>
+          )
+            .map(
+              ([label, earned, max]) => `
             <div style="background:#1b1f24;border:1px solid #2d343d;border-radius:6px;padding:10px 14px;">
               <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
                 <span style="color:#8b95a1;font-size:12px;">${label}</span>
@@ -65,7 +69,9 @@ export function initDebriefScreen() {
                 <div style="height:4px;width:${Math.round((earned / max) * 100)}%;background:#4ec9b0;border-radius:2px;"></div>
               </div>
             </div>
-          `).join('')}
+          `,
+            )
+            .join('')}
         </div>
 
         <!-- Debrief questions -->
@@ -103,13 +109,19 @@ export function initDebriefScreen() {
     overlay.querySelector('#debrief-restart')?.addEventListener('click', () => {
       overlay.style.display = 'none';
       currentScore = null;
-      if (lab) (window as unknown as { __lab: { start(id: string): void } }).__lab.start(`lab${String(lab.number).padStart(2, '0')}`);
+      if (lab)
+        (window as unknown as { __lab: { start(id: string): void } }).__lab.start(
+          `lab${String(lab.number).padStart(2, '0')}`,
+        );
     });
     overlay.querySelector('#debrief-next')?.addEventListener('click', () => {
       overlay.style.display = 'none';
       currentScore = null;
       const next = lab.number + 1;
-      if (next <= 10) (window as unknown as { __lab: { start(id: string): void } }).__lab.start(`lab${String(next).padStart(2, '0')}`);
+      if (next <= 10)
+        (window as unknown as { __lab: { start(id: string): void } }).__lab.start(
+          `lab${String(next).padStart(2, '0')}`,
+        );
     });
     overlay.querySelector('#debrief-close')?.addEventListener('click', () => {
       overlay.style.display = 'none';

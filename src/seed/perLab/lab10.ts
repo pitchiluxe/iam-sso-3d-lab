@@ -18,19 +18,22 @@ export function applyLab10Seed(
 ): void {
   const base = applyBaseline(dir, idp, apps);
   const cara = base.userIds['cara.patel']!;
-  const ivy  = base.userIds['ivy.park']!;
+  const ivy = base.userIds['ivy.park']!;
 
   // 5 onboarding tickets
   const newHires = ['nina.king', 'oscar.lin', 'paul.weber', 'quinn.davis', 'rita.frost'];
   for (const u of newHires) {
-    const user = dir.createUser({
-      username:    u,
-      displayName: u.replace('.', ' '),
-      email:       `${u}@northwind.example`,
-      department:  'Finance',
-      title:       'New Hire',
-      mfa:         'none',
-    }, 'system' as UserId);
+    const user = dir.createUser(
+      {
+        username: u,
+        displayName: u.replace('.', ' '),
+        email: `${u}@northwind.example`,
+        department: 'Finance',
+        title: 'New Hire',
+        mfa: 'none',
+      },
+      'system' as UserId,
+    );
     tickets.create({
       kind: 'onboarding',
       requesterId: cara,
@@ -40,7 +43,7 @@ export function applyLab10Seed(
       relatedUserIds: [user.id],
       payload: {
         proposedGroupIds: [base.groupIds['grp-finance-payroll']!],
-        proposedRoleIds:  [base.roleIds['grp-finance-payroll']!],
+        proposedRoleIds: [base.roleIds['grp-finance-payroll']!],
         startDate: Date.now(),
       },
     });
@@ -54,7 +57,11 @@ export function applyLab10Seed(
     body: 'Jane is moving teams. Remove Finance access, add Engineering.',
     priority: 'normal',
     relatedUserIds: [base.userIds['jane.doe']!],
-    payload: { userId: base.userIds['jane.doe']!, fromDepartment: 'Finance', toDepartment: 'Engineering' },
+    payload: {
+      userId: base.userIds['jane.doe']!,
+      fromDepartment: 'Finance',
+      toDepartment: 'Engineering',
+    },
   });
   tickets.create({
     kind: 'transfer',
@@ -63,7 +70,11 @@ export function applyLab10Seed(
     body: 'Alex is moving to HR. Update groups accordingly.',
     priority: 'normal',
     relatedUserIds: [base.userIds['alex.morgan']!],
-    payload: { userId: base.userIds['alex.morgan']!, fromDepartment: 'Finance', toDepartment: 'HR' },
+    payload: {
+      userId: base.userIds['alex.morgan']!,
+      fromDepartment: 'Finance',
+      toDepartment: 'HR',
+    },
   });
 
   // 1 termination

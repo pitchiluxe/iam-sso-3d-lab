@@ -103,7 +103,9 @@ export function saveEnvelope(state: PersistedState): void {
     localStorage.setItem(V2_KEY, JSON.stringify(state));
     // Clean up v1 if it still exists (migration)
     localStorage.removeItem(V1_KEY);
-  } catch { /* quota exceeded or private mode */ }
+  } catch {
+    /* quota exceeded or private mode */
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -27,7 +27,11 @@ export class AppError extends Error {
   public readonly context?: Record<string, unknown>;
   public readonly cause?: unknown;
 
-  constructor(kind: AppErrorKind, message: string, opts: { context?: Record<string, unknown>; cause?: unknown } = {}) {
+  constructor(
+    kind: AppErrorKind,
+    message: string,
+    opts: { context?: Record<string, unknown>; cause?: unknown } = {},
+  ) {
     super(message);
     this.name = 'AppError';
     this.kind = kind;
@@ -50,7 +54,11 @@ export class AppError extends Error {
  * Central error sink. Always safe to call — never throws.
  * Records the error in the errorStore and logs to the console.
  */
-export function report(kind: AppErrorKind, message: string, opts: { context?: Record<string, unknown>; cause?: unknown } = {}): void {
+export function report(
+  kind: AppErrorKind,
+  message: string,
+  opts: { context?: Record<string, unknown>; cause?: unknown } = {},
+): void {
   try {
     const err = new AppError(kind, message, opts);
     errorStore.getState().record(err.toReport());
