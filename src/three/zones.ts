@@ -10,7 +10,15 @@
 import * as THREE from 'three';
 import * as props from './props';
 
-export type ZoneId = 'iam-ops' | 'sec-ops' | 'hr' | 'help-desk' | 'finance' | 'engineering' | 'app-center' | 'reception';
+export type ZoneId =
+  | 'iam-ops'
+  | 'sec-ops'
+  | 'hr'
+  | 'help-desk'
+  | 'finance'
+  | 'engineering'
+  | 'app-center'
+  | 'reception';
 
 export interface ConsoleAnchor {
   /** Unique id used by the UI. */
@@ -53,12 +61,20 @@ const IAM_OPS: ZoneBlueprint = {
     g.name = 'zone:iam-ops';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#1b1f24', roughness: 0.95 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#232830', roughness: 0.9 });
-    const mAccent = new THREE.MeshStandardMaterial({ color: '#4ec9b0', roughness: 0.5, emissive: '#0a3a32', emissiveIntensity: 0.4 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#3b3f48', roughness: 0.7 });
-    const mScreen  = new THREE.MeshStandardMaterial({ color: '#0a3a32', emissive: '#4ec9b0', emissiveIntensity: 0.8 });
-    const mRack   = new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.5, metalness: 0.4 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#1b1f24', roughness: 0.95 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#232830', roughness: 0.9 });
+    const mAccent = new THREE.MeshStandardMaterial({
+      color: '#4ec9b0',
+      roughness: 0.5,
+      emissive: '#0a3a32',
+      emissiveIntensity: 0.4,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({ color: '#3b3f48', roughness: 0.7 });
+    const mRack = new THREE.MeshStandardMaterial({
+      color: '#1a1d22',
+      roughness: 0.5,
+      metalness: 0.4,
+    });
 
     // Floor + grid
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
@@ -72,9 +88,9 @@ const IAM_OPS: ZoneBlueprint = {
 
     // Walls
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3],   // back
-      [-10, 0, 0.3, 4, 20],   // left
-      [10,  0, 0.3, 4, 20],   // right
+      [0, -10, 20, 4, 0.3], // back
+      [-10, 0, 0.3, 4, 20], // left
+      [10, 0, 0.3, 4, 20], // right
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -88,9 +104,15 @@ const IAM_OPS: ZoneBlueprint = {
     g.add(beam);
 
     // Briefing whiteboard (back wall)
-    const wb = props.makeWhiteboard(6, 1.8, new THREE.MeshStandardMaterial({ color: '#f0f4f8', roughness: 0.3 }));
+    const wb = props.makeWhiteboard(
+      6,
+      1.8,
+      new THREE.MeshStandardMaterial({ color: '#f0f4f8', roughness: 0.3 }),
+    );
     wb.position.set(0, 0, -9.9);
-    wb.children.forEach((c) => { c.castShadow = true; });
+    wb.children.forEach((c) => {
+      c.castShadow = true;
+    });
     g.add(wb);
     const sign = props.makeWallSign('IAM OPERATIONS CENTER', 5, 0.6, '#4ec9b0', '#0e1116');
     sign.position.set(0, 3.5, -9.9);
@@ -100,29 +122,52 @@ const IAM_OPS: ZoneBlueprint = {
     const iamDesk = props.makeDesk(2.4, 0.9, 1.2, mDesk);
     iamDesk.position.set(-4.5, 0, -3);
     g.add(iamDesk);
-    const iamScreen = props.makeMonitor(1.4, 0.9, mScreen);
+    const iamScreen = props.makeLockScreenMonitor(1.4, 0.9);
     iamScreen.position.set(-4.5, 0.9, -3.45);
+    iamScreen.userData.interactable = 'workstation'; // walk up, face the monitor, press E
     g.add(iamScreen);
-    g.add(props.makeChair('office', new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 })));
+    g.add(
+      props.makeChair(
+        'office',
+        new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(-4.5, 0, -1.6);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
 
-    consoles.push({ id: 'iam-console', position: new THREE.Vector3(-4.5, 1.6, -2.5), title: 'IAM Console', prompt: 'Open IAM Console (E)' });
-    consoles.push({ id: 'secops-dashboard', position: new THREE.Vector3(0, 1.7, -3.5), title: 'SecOps Dashboard', prompt: 'Open SecOps Dashboard (E)' });
+    // Note: the 3D consoles (IAM Console, SecOps Dashboard, etc.) are no longer
+    // anchored as 3D-scene interactables — they're available inside the VM Desktop
+    // opened from the workstation. The E key near the workstation opens the VM.
+
+    // (No consoles added in iam-ops — only the two desk monitors are interactable.)
 
     // Ticket Console desk (right)
     const ticketDesk = props.makeDesk(2.4, 0.9, 1.2, mDesk);
     ticketDesk.position.set(4.5, 0, -3);
     g.add(ticketDesk);
-    const ticketScreen = props.makeMonitor(1.4, 0.9, mScreen);
+    const ticketScreen = props.makeLockScreenMonitor(1.4, 0.9);
     ticketScreen.position.set(4.5, 0.9, -3.45);
+    ticketScreen.userData.interactable = 'workstation'; // walk up, face the monitor, press E
     g.add(ticketScreen);
-    g.add(props.makeChair('office', new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 })));
+    g.add(
+      props.makeChair(
+        'office',
+        new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(4.5, 0, -1.6);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
 
-    consoles.push({ id: 'ticket-console', position: new THREE.Vector3(4.5, 1.6, -2.5), title: 'Ticket Console', prompt: 'Open Ticket Queue (E)' });
+    // No 3D-scene console anchors here — all consoles (IAM, Ticket, SecOps, etc.)
+    // are opened from the VM Desktop launched by either desk monitor above.
 
     // Server rack (corner)
-    const rack = props.makeServerRack(1.2, 2.4, 0.8, mRack, ['#4ec9b0', '#0d1014', '#4ec9b0', '#0d1014']);
+    const rack = props.makeServerRack(1.2, 2.4, 0.8, mRack, [
+      '#4ec9b0',
+      '#0d1014',
+      '#4ec9b0',
+      '#0d1014',
+    ]);
     rack.position.set(-7, 0, 4);
     g.add(rack);
 
@@ -131,12 +176,6 @@ const IAM_OPS: ZoneBlueprint = {
     g.children[g.children.length - 1]!.position.set(7, 0, 4);
     g.add(props.makePlant('tree'));
     g.children[g.children.length - 1]!.position.set(7, 0, -4);
-
-    // Engineer workstation (clickable) — placed to the side so consoles stay accessible
-    const iamWs = props.makeWorkstation('IAM Operations — sign in to begin');
-    iamWs.position.set(0, 0, -7);
-    iamWs.rotation.y = Math.PI; // face the player spawn
-    g.add(iamWs);
 
     return { group: g, consoles };
   },
@@ -157,12 +196,24 @@ const SEC_OPS: ZoneBlueprint = {
     g.name = 'zone:sec-ops';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#141820', roughness: 0.95 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#1a2030', roughness: 0.9 });
-    const mAccent = new THREE.MeshStandardMaterial({ color: '#4ec9b0', roughness: 0.4, emissive: '#003d35', emissiveIntensity: 0.5 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.7, metalness: 0.3 });
-    const mWarnScreen = new THREE.MeshStandardMaterial({ color: '#001a14', emissive: '#f48771', emissiveIntensity: 0.8 });
-    const mRack   = new THREE.MeshStandardMaterial({ color: '#0d1014', roughness: 0.5, metalness: 0.6 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#141820', roughness: 0.95 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#1a2030', roughness: 0.9 });
+    const mAccent = new THREE.MeshStandardMaterial({
+      color: '#4ec9b0',
+      roughness: 0.4,
+      emissive: '#003d35',
+      emissiveIntensity: 0.5,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({
+      color: '#1a1d22',
+      roughness: 0.7,
+      metalness: 0.3,
+    });
+    const mRack = new THREE.MeshStandardMaterial({
+      color: '#0d1014',
+      roughness: 0.5,
+      metalness: 0.6,
+    });
 
     // Floor
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
@@ -177,7 +228,9 @@ const SEC_OPS: ZoneBlueprint = {
 
     // Walls
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3], [-10, 0, 0.3, 4, 20], [10, 0, 0.3, 4, 20],
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -191,10 +244,7 @@ const SEC_OPS: ZoneBlueprint = {
     g.add(sign);
 
     // Large curved SOC desk
-    const socDeskTop = new THREE.Mesh(
-      new THREE.BoxGeometry(8, 0.06, 2),
-      mDesk,
-    );
+    const socDeskTop = new THREE.Mesh(new THREE.BoxGeometry(8, 0.06, 2), mDesk);
     socDeskTop.position.set(0, 0.93, -3);
     socDeskTop.castShadow = true;
     g.add(socDeskTop);
@@ -205,23 +255,34 @@ const SEC_OPS: ZoneBlueprint = {
       g.add(leg);
     }
 
-    // 3 monitors on SOC desk
+    // 3 monitors on SOC desk — left and right are interactable (walk up, face it, press E)
     for (let i = 0; i < 3; i++) {
-      const mon = props.makeMonitor(1.6, 1.0, mWarnScreen);
+      const mon = props.makeLockScreenMonitor(1.6, 1.0);
       mon.position.set(-2.5 + i * 2.5, 0.93, -3.5);
+      if (i !== 1) mon.userData.interactable = 'workstation';
       g.add(mon);
     }
 
     // Chair
-    g.add(props.makeChair('office', new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.8 })));
+    g.add(
+      props.makeChair(
+        'office',
+        new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.8 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(0, 0, -1.5);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
 
-    // SecOps Dashboard console
-    consoles.push({ id: 'secops-dashboard', position: new THREE.Vector3(0, 1.7, -2.0), title: 'SecOps Dashboard', prompt: 'Open SecOps Dashboard (E)' });
+    // No 3D-scene console anchors — all consoles opened from VM Desktop via workstation.
 
     // Server rack wall (back wall)
     for (let i = 0; i < 3; i++) {
-      const r = props.makeServerRack(1.0, 2.0, 0.7, mRack, ['#f48771', '#4ec9b0', '#f48771', '#4ec9b0']);
+      const r = props.makeServerRack(1.0, 2.0, 0.7, mRack, [
+        '#f48771',
+        '#4ec9b0',
+        '#f48771',
+        '#4ec9b0',
+      ]);
       r.position.set(-5 + i * 1.2, 0, -9.3);
       g.add(r);
     }
@@ -238,12 +299,6 @@ const SEC_OPS: ZoneBlueprint = {
 
     g.add(props.makePlant('cactus'));
     g.children[g.children.length - 1]!.position.set(8, 0, 4);
-
-    // Engineer workstation (clickable)
-    const secWs = props.makeWorkstation('SecOps — analyst console');
-    secWs.position.set(0, 0, -7);
-    secWs.rotation.y = Math.PI;
-    g.add(secWs);
 
     return { group: g, consoles };
   },
@@ -264,11 +319,15 @@ const HR: ZoneBlueprint = {
     g.name = 'zone:hr';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#f5e6d0', roughness: 0.95 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#fff5e0', roughness: 0.9 });
-    const _mAccent = new THREE.MeshStandardMaterial({ color: '#d7ba7d', roughness: 0.4, emissive: '#3d2e10', emissiveIntensity: 0.3 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#c9a96e', roughness: 0.8 });
-    const mScreen  = new THREE.MeshStandardMaterial({ color: '#1a1000', emissive: '#d7ba7d', emissiveIntensity: 0.8 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#f5e6d0', roughness: 0.95 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#fff5e0', roughness: 0.9 });
+    const _mAccent = new THREE.MeshStandardMaterial({
+      color: '#d7ba7d',
+      roughness: 0.4,
+      emissive: '#3d2e10',
+      emissiveIntensity: 0.3,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({ color: '#c9a96e', roughness: 0.8 });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -276,7 +335,9 @@ const HR: ZoneBlueprint = {
     g.add(floor);
 
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3], [-10, 0, 0.3, 4, 20], [10, 0, 0.3, 4, 20],
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -289,11 +350,14 @@ const HR: ZoneBlueprint = {
     g.add(sign);
 
     // Two cubicle desks
-    for (const [cx, cz] of [[-3.5, -3], [3.5, -3]] as [number, number][]) {
+    for (const [cx, cz] of [
+      [-3.5, -3],
+      [3.5, -3],
+    ] as [number, number][]) {
       const desk = props.makeDesk(1.8, 0.85, 1.0, mDesk);
       desk.position.set(cx, 0, cz);
       g.add(desk);
-      const screen = props.makeMonitor(1.0, 0.7, mScreen);
+      const screen = props.makeLockScreenMonitor(1.0, 0.7);
       screen.position.set(cx, 0.85, cz - 0.55);
       g.add(screen);
       // Cubicle partition
@@ -303,8 +367,14 @@ const HR: ZoneBlueprint = {
       );
       part.position.set(cx, 1.5, cz + 0.6);
       g.add(part);
-      g.add(props.makeChair('office', new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 })));
+      g.add(
+        props.makeChair(
+          'office',
+          new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 }),
+        ),
+      );
       g.children[g.children.length - 1]!.position.set(cx, 0, cz - 1.1);
+      g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
     }
 
     // Coffee station (left wall)
@@ -349,11 +419,15 @@ const HELP_DESK: ZoneBlueprint = {
     g.name = 'zone:help-desk';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#e8eef4', roughness: 0.95 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#f0f4f8', roughness: 0.9 });
-    const mAccent = new THREE.MeshStandardMaterial({ color: '#4ec9b0', roughness: 0.4, emissive: '#003d35', emissiveIntensity: 0.4 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#d0d8e4', roughness: 0.7 });
-    const mScreen  = new THREE.MeshStandardMaterial({ color: '#001a14', emissive: '#4ec9b0', emissiveIntensity: 0.9 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#e8eef4', roughness: 0.95 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#f0f4f8', roughness: 0.9 });
+    const mAccent = new THREE.MeshStandardMaterial({
+      color: '#4ec9b0',
+      roughness: 0.4,
+      emissive: '#003d35',
+      emissiveIntensity: 0.4,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({ color: '#d0d8e4', roughness: 0.7 });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -361,7 +435,9 @@ const HELP_DESK: ZoneBlueprint = {
     g.add(floor);
 
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3], [-10, 0, 0.3, 4, 20], [10, 0, 0.3, 4, 20],
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -378,14 +454,18 @@ const HELP_DESK: ZoneBlueprint = {
     counterTop.position.set(0, 1.0, -3);
     counterTop.castShadow = true;
     g.add(counterTop);
-    for (const [x, z] of [[-1.8, -3], [1.8, -3], [0, -3]] as [number, number][]) {
+    for (const [x, z] of [
+      [-1.8, -3],
+      [1.8, -3],
+      [0, -3],
+    ] as [number, number][]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), mAccent);
       leg.position.set(x, 0.5, z);
       g.add(leg);
     }
 
     // Monitor on counter
-    const screen = props.makeMonitor(1.4, 0.9, mScreen);
+    const screen = props.makeLockScreenMonitor(1.4, 0.9);
     screen.position.set(0, 1.04, -3.55);
     g.add(screen);
 
@@ -397,13 +477,16 @@ const HELP_DESK: ZoneBlueprint = {
     bell.position.set(1.5, 1.09, -3.3);
     g.add(bell);
 
-    // Ticket Console
-    consoles.push({ id: 'ticket-console', position: new THREE.Vector3(0, 1.7, -2.5), title: 'Ticket Console', prompt: 'Open Ticket Queue (E)' });
+    // No 3D-scene console anchors — all consoles opened from VM Desktop via workstation.
 
     // Fluorescent light strip
     const fluoStrip = new THREE.Mesh(
       new THREE.BoxGeometry(6, 0.06, 0.3),
-      new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.6 }),
+      new THREE.MeshStandardMaterial({
+        color: '#ffffff',
+        emissive: '#ffffff',
+        emissiveIntensity: 0.6,
+      }),
     );
     fluoStrip.position.set(0, 3.9, -3);
     g.add(fluoStrip);
@@ -412,8 +495,14 @@ const HELP_DESK: ZoneBlueprint = {
     g.add(fluoLight);
 
     // Ergonomic chair
-    g.add(props.makeChair('office', new THREE.MeshStandardMaterial({ color: '#4ec9b0', roughness: 0.8 })));
+    g.add(
+      props.makeChair(
+        'office',
+        new THREE.MeshStandardMaterial({ color: '#4ec9b0', roughness: 0.8 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(0, 0, -1.5);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
 
     // Plants
     g.add(props.makePlant('fern'));
@@ -446,10 +535,19 @@ const FINANCE: ZoneBlueprint = {
     g.name = 'zone:finance';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#3b2e1e', roughness: 0.9 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#4a3828', roughness: 0.9 });
-    const _mAccent = new THREE.MeshStandardMaterial({ color: '#c9a96e', roughness: 0.3, emissive: '#3d2e10', emissiveIntensity: 0.3 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#5c3d28', roughness: 0.8, metalness: 0.1 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#3b2e1e', roughness: 0.9 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#4a3828', roughness: 0.9 });
+    const _mAccent = new THREE.MeshStandardMaterial({
+      color: '#c9a96e',
+      roughness: 0.3,
+      emissive: '#3d2e10',
+      emissiveIntensity: 0.3,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({
+      color: '#5c3d28',
+      roughness: 0.8,
+      metalness: 0.1,
+    });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -457,7 +555,9 @@ const FINANCE: ZoneBlueprint = {
     g.add(floor);
 
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3], [-10, 0, 0.3, 4, 20], [10, 0, 0.3, 4, 20],
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -473,7 +573,7 @@ const FINANCE: ZoneBlueprint = {
     const execDesk = props.makeDesk(3.2, 0.9, 1.6, mDesk);
     execDesk.position.set(0, 0, -3);
     g.add(execDesk);
-    const execScreen = props.makeMonitor(1.4, 0.9, new THREE.MeshStandardMaterial({ color: '#1a1000', emissive: '#c9a96e', emissiveIntensity: 0.9 }));
+    const execScreen = props.makeLockScreenMonitor(1.4, 0.9);
     execScreen.position.set(0, 0.9, -3.75);
     g.add(execScreen);
 
@@ -503,8 +603,14 @@ const FINANCE: ZoneBlueprint = {
     g.add(reportContent);
 
     // Executive leather chair
-    g.add(props.makeChair('executive', new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.6, metalness: 0.3 })));
+    g.add(
+      props.makeChair(
+        'executive',
+        new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.6, metalness: 0.3 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(0, 0, -1.5);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
 
     // Low-angle lamp light
     const lampLight = new THREE.PointLight(0xffb060, 0.5, 8);
@@ -533,11 +639,15 @@ const ENGINEERING: ZoneBlueprint = {
     g.name = 'zone:engineering';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#1a2030', roughness: 0.95 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#232840', roughness: 0.9 });
-    const _mAccent = new THREE.MeshStandardMaterial({ color: '#90b8ff', roughness: 0.4, emissive: '#001a40', emissiveIntensity: 0.5 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.7 });
-    const mScreen  = new THREE.MeshStandardMaterial({ color: '#001428', emissive: '#90b8ff', emissiveIntensity: 0.9 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#1a2030', roughness: 0.95 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#232840', roughness: 0.9 });
+    const _mAccent = new THREE.MeshStandardMaterial({
+      color: '#90b8ff',
+      roughness: 0.4,
+      emissive: '#001a40',
+      emissiveIntensity: 0.5,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.7 });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -550,7 +660,9 @@ const ENGINEERING: ZoneBlueprint = {
     g.add(strip);
 
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3], [-10, 0, 0.3, 4, 20], [10, 0, 0.3, 4, 20],
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -567,21 +679,32 @@ const ENGINEERING: ZoneBlueprint = {
     desk.position.set(0, 0, -3);
     g.add(desk);
     for (const mx of [-0.5, 0.5]) {
-      const mon = props.makeMonitor(0.9, 0.7, mScreen);
+      const mon = props.makeLockScreenMonitor(0.9, 0.7);
       mon.position.set(mx, 0.9, -3.45);
       g.add(mon);
     }
 
-    g.add(props.makeChair('office', new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 })));
+    g.add(
+      props.makeChair(
+        'office',
+        new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(0, 0, -1.6);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
 
-    // IAM Console for engineering (code signing, etc.)
-    consoles.push({ id: 'iam-console', position: new THREE.Vector3(0, 1.6, -2.5), title: 'IAM Console', prompt: 'Open IAM Console (E)' });
+    // No 3D-scene console anchors — all consoles opened from VM Desktop via workstation.
 
     // Engineering whiteboard
-    const wb = props.makeWhiteboard(4, 2.0, new THREE.MeshStandardMaterial({ color: '#f0f4f8', roughness: 0.3 }));
+    const wb = props.makeWhiteboard(
+      4,
+      2.0,
+      new THREE.MeshStandardMaterial({ color: '#f0f4f8', roughness: 0.3 }),
+    );
     wb.position.set(0, 0, -9.9);
-    wb.children.forEach((c) => { c.castShadow = true; });
+    wb.children.forEach((c) => {
+      c.castShadow = true;
+    });
     g.add(wb);
 
     // Cool blue light
@@ -599,7 +722,12 @@ const ENGINEERING: ZoneBlueprint = {
     g.add(coolerBody);
     const coolerBottle = new THREE.Mesh(
       new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8),
-      new THREE.MeshStandardMaterial({ color: '#a0d8ef', roughness: 0.3, transparent: true, opacity: 0.6 }),
+      new THREE.MeshStandardMaterial({
+        color: '#a0d8ef',
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.6,
+      }),
     );
     coolerBottle.position.set(-7, 1.7, 0);
     g.add(coolerBottle);
@@ -632,11 +760,19 @@ const APP_CENTER: ZoneBlueprint = {
     g.name = 'zone:app-center';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#0e1820', roughness: 0.95 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#141c24', roughness: 0.9 });
-    const mAccent = new THREE.MeshStandardMaterial({ color: '#4ec9b0', roughness: 0.3, emissive: '#003d35', emissiveIntensity: 0.7 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#1a2030', roughness: 0.7, metalness: 0.3 });
-    const mScreen  = new THREE.MeshStandardMaterial({ color: '#001a14', emissive: '#4ec9b0', emissiveIntensity: 1.0 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#0e1820', roughness: 0.95 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#141c24', roughness: 0.9 });
+    const mAccent = new THREE.MeshStandardMaterial({
+      color: '#4ec9b0',
+      roughness: 0.3,
+      emissive: '#003d35',
+      emissiveIntensity: 0.7,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({
+      color: '#1a2030',
+      roughness: 0.7,
+      metalness: 0.3,
+    });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -651,7 +787,9 @@ const APP_CENTER: ZoneBlueprint = {
     }
 
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3], [-10, 0, 0.3, 4, 20], [10, 0, 0.3, 4, 20],
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -664,42 +802,29 @@ const APP_CENTER: ZoneBlueprint = {
     g.add(sign);
 
     // Central pedestal
-    const pedestal = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.8, 1.0, 1.0, 12),
-      mDesk,
-    );
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 1.0, 12), mDesk);
     pedestal.position.set(0, 0.5, -3);
     pedestal.castShadow = true;
     g.add(pedestal);
-    const pedestalTop = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.7, 0.7, 0.1, 12),
-      mAccent,
-    );
+    const pedestalTop = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 12), mAccent);
     pedestalTop.position.set(0, 1.05, -3);
     g.add(pedestalTop);
 
     // 4 kiosk monitors in a row
     for (let i = 0; i < 4; i++) {
       const kx = -4.5 + i * 3;
-      const kStand = new THREE.Mesh(
-        new THREE.BoxGeometry(0.06, 0.8, 0.06),
-        mAccent,
-      );
+      const kStand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.8, 0.06), mAccent);
       kStand.position.set(kx, 0.4, -6);
       g.add(kStand);
-      const kScreen = props.makeMonitor(0.9, 0.7, mScreen);
+      const kScreen = props.makeLockScreenMonitor(0.9, 0.7);
       kScreen.position.set(kx, 0.8, -6.35);
       g.add(kScreen);
-      const kBase = new THREE.Mesh(
-        new THREE.BoxGeometry(0.4, 0.06, 0.4),
-        mAccent,
-      );
+      const kBase = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.4), mAccent);
       kBase.position.set(kx, 0.03, -6);
       g.add(kBase);
     }
 
-    // App Center console (SecOps dashboard for app monitoring)
-    consoles.push({ id: 'secops-dashboard', position: new THREE.Vector3(0, 1.7, -2.0), title: 'SecOps Dashboard', prompt: 'Open SecOps Dashboard (E)' });
+    // No 3D-scene console anchors — all consoles opened from VM Desktop via workstation.
 
     // Showcase lighting
     const showcaseLight = new THREE.PointLight(0x4ec9b0, 0.8, 12);
@@ -731,10 +856,15 @@ const RECEPTION: ZoneBlueprint = {
     g.name = 'zone:reception';
     const consoles: ConsoleAnchor[] = [];
 
-    const mFloor  = new THREE.MeshStandardMaterial({ color: '#e8dcc8', roughness: 0.7 });
-    const mWall   = new THREE.MeshStandardMaterial({ color: '#f0e8d8', roughness: 0.9 });
-    const _mAccent = new THREE.MeshStandardMaterial({ color: '#c9a96e', roughness: 0.3, emissive: '#3d2e10', emissiveIntensity: 0.3 });
-    const mDesk   = new THREE.MeshStandardMaterial({ color: '#5c4033', roughness: 0.8 });
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#e8dcc8', roughness: 0.7 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#f0e8d8', roughness: 0.9 });
+    const _mAccent = new THREE.MeshStandardMaterial({
+      color: '#c9a96e',
+      roughness: 0.3,
+      emissive: '#3d2e10',
+      emissiveIntensity: 0.3,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({ color: '#5c4033', roughness: 0.8 });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -742,7 +872,9 @@ const RECEPTION: ZoneBlueprint = {
     g.add(floor);
 
     for (const [x, z, rw, rh, rd] of [
-      [0, -10, 20, 4, 0.3], [-10, 0, 0.3, 4, 20], [10, 0, 0.3, 4, 20],
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
     ] as [number, number, number, number, number][]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
       wall.position.set(x, 2, z);
@@ -769,11 +901,26 @@ const RECEPTION: ZoneBlueprint = {
     g.add(np);
 
     // Bench seating
-    g.add(props.makeChair('bench', new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 })));
+    g.add(
+      props.makeChair(
+        'bench',
+        new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(0, 0, 2);
-    g.add(props.makeChair('bench', new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 })));
+    g.add(
+      props.makeChair(
+        'bench',
+        new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(-5, 0, 2);
-    g.add(props.makeChair('bench', new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 })));
+    g.add(
+      props.makeChair(
+        'bench',
+        new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 }),
+      ),
+    );
     g.children[g.children.length - 1]!.position.set(5, 0, 2);
 
     // Warm recessed lighting
@@ -799,14 +946,14 @@ const RECEPTION: ZoneBlueprint = {
 /* Registry                                                                   */
 /* -------------------------------------------------------------------------- */
 export const ZONE_BLUEPRINTS: Record<ZoneId, ZoneBlueprint> = {
-  'iam-ops':      IAM_OPS,
-  'sec-ops':      SEC_OPS,
-  'hr':           HR,
-  'help-desk':    HELP_DESK,
-  'finance':      FINANCE,
-  'engineering': ENGINEERING,
-  'app-center':  APP_CENTER,
-  'reception':    RECEPTION,
+  'iam-ops': IAM_OPS,
+  'sec-ops': SEC_OPS,
+  hr: HR,
+  'help-desk': HELP_DESK,
+  finance: FINANCE,
+  engineering: ENGINEERING,
+  'app-center': APP_CENTER,
+  reception: RECEPTION,
 };
 
 export const listZones = (): ZoneId[] => Object.keys(ZONE_BLUEPRINTS) as ZoneId[];

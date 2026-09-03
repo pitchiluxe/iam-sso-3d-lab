@@ -26,6 +26,7 @@ import { report } from './util/errors';
 import { showToast } from './ui/toast';
 import { isTouchDevice, TouchController } from './three/touchController';
 import { createDesktopOverlay, type DesktopOverlay } from './ui/desktopOverlay';
+import { initErrorLog } from './ui/errorLog';
 
 // ---------------------------------------------------------------------------
 // Overlay manager — single source of truth for which full-screen overlay is
@@ -51,9 +52,15 @@ function makeOverlayManager(
     const top = stack[stack.length - 1];
     if (!top) return;
     switch (top) {
-      case 'start':   onDismissStart();   break;
-      case 'console': onDismissConsole(); break;
-      case 'desktop': onDismissDesktop(); break;
+      case 'start':
+        onDismissStart();
+        break;
+      case 'console':
+        onDismissConsole();
+        break;
+      case 'desktop':
+        onDismissDesktop();
+        break;
     }
   }
 
@@ -94,6 +101,12 @@ async function bootstrap() {
     showToast('Unexpected error. Check the console for details.', { kind: 'error' });
   });
 
+  // Background error log — captures all errors flowing through errorStore
+  // and displays them in a floating panel (Ctrl+Shift+E to toggle).
+  // Also writes to localStorage so the log survives a page reload.
+  initErrorLog();
+  console.log('[boot] Error log initialized. Press Ctrl+Shift+E to view.');
+
   const appEl = document.getElementById('app')!;
   const engine = initEngine(appEl);
 
@@ -101,7 +114,10 @@ async function bootstrap() {
   engine.renderer.domElement.addEventListener('webglcontextlost', (e) => {
     e.preventDefault();
     report('webgl-lost', 'WebGL context lost', { cause: e });
-    showToast('Graphics context lost. Please refresh the page.', { kind: 'error', durationMs: 8000 });
+    showToast('Graphics context lost. Please refresh the page.', {
+      kind: 'error',
+      durationMs: 8000,
+    });
   });
 
   // Surface non-fatal service errors as toasts (zone/console have their own
@@ -121,14 +137,19 @@ async function bootstrap() {
   if (persisted.resume) {
     const lab = findLab(persisted.resume.currentLabId);
     if (lab) {
-      labStore.getState().restore(
-        lab,
-        persisted.resume.stepIndex,
-        persisted.resume.stepStatuses,
-        persisted.resume.failed,
-      );
+      labStore
+        .getState()
+        .restore(
+          lab,
+          persisted.resume.stepIndex,
+          persisted.resume.stepStatuses,
+          persisted.resume.failed,
+        );
       engine.enterZone(lab.startingZone as ZoneId);
-      setHUDZone(lab.startingZone as ZoneId, ZONE_BLUEPRINTS[lab.startingZone as ZoneId].displayName);
+      setHUDZone(
+        lab.startingZone as ZoneId,
+        ZONE_BLUEPRINTS[lab.startingZone as ZoneId].displayName,
+      );
       console.log(`[boot] Resumed ${lab.id} at step ${persisted.resume.stepIndex}.`);
     }
   }
@@ -139,9 +160,15 @@ async function bootstrap() {
 
   // ── Overlay manager — single ESC key handler, routes to the topmost overlay ─
   const overlayMgr = makeOverlayManager(
-    /* onDismissStart   */ () => { /* handled by startScreen.ts dismiss() */ },
-    /* onDismissConsole */ () => { consoleUI.close(); },
-    /* onDismissDesktop */ () => { desktop.hide(); },
+    /* onDismissStart   */ () => {
+      /* handled by startScreen.ts dismiss() */
+    },
+    /* onDismissConsole */ () => {
+      consoleUI.close();
+    },
+    /* onDismissDesktop */ () => {
+      desktop.hide();
+    },
   );
 
   // ── Helper: open the lab-selection menu ────────────────────────────────────
@@ -179,7 +206,9 @@ async function bootstrap() {
   const showHint = () => {
     hint.style.display = 'block';
     if (lockTimer) clearTimeout(lockTimer);
-    lockTimer = window.setTimeout(() => { hint.style.display = 'none'; }, 4000);
+    lockTimer = window.setTimeout(() => {
+      hint.style.display = 'none';
+    }, 4000);
   };
 
   // ── Engine ────────────────────────────────────────────────────────────────
@@ -189,6 +218,9 @@ async function bootstrap() {
   // Wire console interactions
   engine.onConsolePrompt = (c) => {
     consoleUI.setPrompt(c ? c.prompt : null);
+  };
+  engine.onWorkstationPrompt = (show) => {
+    consoleUI.setPrompt(show ? 'Open VM (E)' : null);
   };
   engine.onConsoleActivate = (c) => {
     consoleUI.open(c.id, c.title);
@@ -250,33 +282,56 @@ async function bootstrap() {
   });
 
   // ── window.__lab ──────────────────────────────────────────────────────────
-  (window as unknown as {
-    __lab: {
-      start(id: string): void;
-      list(): string[];
-      get(): Lab | null;
-      conductor: Conductor;
-      engine: typeof engine;
-      stopRenderLoop(): void;
-      desktop: DesktopOverlay;
-      showWorkstation(): void;
-    };
-  }).__lab = {
+  (
+    window as unknown as {
+      __lab: {
+        start(id: string): void;
+        list(): string[];
+        get(): Lab | null;
+        conductor: Conductor;
+        engine: typeof engine;
+        stopRenderLoop(): void;
+        desktop: DesktopOverlay;
+        showWorkstation(): void;
+      };
+    }
+  ).__lab = {
     stopRenderLoop: stopLoop,
     start(id: string) {
       const lab = findLab(id) ?? findLab(mkLabId('lab01'))!;
       conductor.start(lab.id);
       engine.enterZone(lab.startingZone as ZoneId);
-      setHUDZone(lab.startingZone as ZoneId, ZONE_BLUEPRINTS[lab.startingZone as ZoneId].displayName);
+      setHUDZone(
+        lab.startingZone as ZoneId,
+        ZONE_BLUEPRINTS[lab.startingZone as ZoneId].displayName,
+      );
     },
     list() {
-      return ['lab01','lab02','lab03','lab04','lab05','lab06','lab07','lab08','lab09','lab10','lab11','lab12','lab13'];
+      return [
+        'lab01',
+        'lab02',
+        'lab03',
+        'lab04',
+        'lab05',
+        'lab06',
+        'lab07',
+        'lab08',
+        'lab09',
+        'lab10',
+        'lab11',
+        'lab12',
+        'lab13',
+      ];
     },
-    get() { return conductor.currentLab; },
+    get() {
+      return conductor.currentLab;
+    },
     conductor,
     engine,
     desktop,
-    showWorkstation() { desktop.show(conductor); },
+    showWorkstation() {
+      desktop.show(conductor);
+    },
   };
 
   // Show the start screen only if no lab is in progress from a previous session.

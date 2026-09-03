@@ -10,13 +10,15 @@ import * as THREE from 'three';
 
 /** A simple box-based desk with legs and optional screen. */
 export function makeDesk(
-  w = 2.4, h = 0.9, d = 1.2,
+  w = 2.4,
+  h = 0.9,
+  d = 1.2,
   deskMat?: THREE.Material,
   legMat?: THREE.Material,
 ): THREE.Group {
   const g = new THREE.Group();
   const dm = deskMat ?? new THREE.MeshStandardMaterial({ color: '#3b3f48', roughness: 0.7 });
-  const lm = legMat  ?? new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.9 });
+  const lm = legMat ?? new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.9 });
 
   const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, d), dm);
   top.position.y = h - 0.03;
@@ -26,9 +28,16 @@ export function makeDesk(
 
   // 4 legs
   const legH = h - 0.06;
-  const lw = 0.06, ld = 0.06;
-  const ox = w / 2 - 0.1, oz = d / 2 - 0.1;
-  for (const [lx, lz] of [[-ox, -oz], [ox, -oz], [-ox, oz], [ox, oz]] as [number, number][]) {
+  const lw = 0.06,
+    ld = 0.06;
+  const ox = w / 2 - 0.1,
+    oz = d / 2 - 0.1;
+  for (const [lx, lz] of [
+    [-ox, -oz],
+    [ox, -oz],
+    [-ox, oz],
+    [ox, oz],
+  ] as [number, number][]) {
     const leg = new THREE.Mesh(new THREE.BoxGeometry(lw, legH, ld), lm);
     leg.position.set(lx, legH / 2, lz);
     leg.castShadow = true;
@@ -37,16 +46,84 @@ export function makeDesk(
   return g;
 }
 
-/** A monitor (screen + stand). `onMat` is the emissive (powered-on) screen material. */
-export function makeMonitor(
-  w = 1.4, h = 0.9,
-  onMat?: THREE.MeshStandardMaterial,
-): THREE.Group {
-  const g = new THREE.Group();
-  const smOn  = onMat  ?? new THREE.MeshStandardMaterial({ color: '#001a14', emissive: '#4ec9b0', emissiveIntensity: 0.9 });
-  const bmMat = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 });
+/**
+ * Renders a Windows-style lock screen (blue gradient, large clock, date) onto
+ * a canvas texture. Built once per monitor at zone-load time — it's a static
+ * snapshot, not a ticking clock, same tradeoff as the other zone-build-time
+ * canvas textures (wall signs, workstation screen).
+ */
+function makeLockScreenTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 320;
+  const ctx = canvas.getContext('2d')!;
 
-  const screen = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), smOn);
+  const grad = ctx.createLinearGradient(0, 0, 512, 320);
+  grad.addColorStop(0, '#1e3a5f');
+  grad.addColorStop(0.55, '#2d5a8f');
+  grad.addColorStop(1, '#0f1f38');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 320);
+
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const date = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.font = '300 88px "Segoe UI Light", "Segoe UI", -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(time, 36, 176);
+
+  ctx.font = '400 26px "Segoe UI", -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillText(date, 38, 212);
+
+  // Lock glyph (simple padlock drawn with primitives — emoji glyphs aren't
+  // guaranteed to render inside a 2D canvas context across platforms).
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(52, 250, 10, Math.PI, 0, false);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.fillRect(38, 250, 28, 20);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** A monitor showing a Windows-style lock screen — used for decorative desk
+ * monitors across every zone so the workspace looks like real signed-out PCs.
+ * Only the face pointing toward the desk's chair (local +z) shows the lock
+ * screen; the back, sides, top and bottom are a plain dark plastic bezel —
+ * a BoxGeometry with a single material would otherwise wrap the screen
+ * texture around every face, including the one facing away from the player. */
+export function makeLockScreenMonitor(w = 1.4, h = 0.9): THREE.Group {
+  const g = new THREE.Group();
+  const tex = makeLockScreenTexture();
+  const screenFaceMat = new THREE.MeshStandardMaterial({
+    map: tex,
+    emissive: '#1e3a5f',
+    emissiveMap: tex,
+    emissiveIntensity: 0.7,
+    roughness: 0.4,
+  });
+  const bmMat = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 });
+  const bezelMat = new THREE.MeshStandardMaterial({ color: '#0d1014', roughness: 0.75 });
+
+  // BoxGeometry material groups, in order: +x, -x, +y, -y, +z, -z.
+  // Every decorative monitor is placed with the chair on its +z side, so the
+  // lock screen goes on the +z face only.
+  const screen = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), [
+    bezelMat,
+    bezelMat,
+    bezelMat,
+    bezelMat,
+    screenFaceMat,
+    bezelMat,
+  ]);
   screen.position.y = h / 2 + 0.08;
   screen.castShadow = true;
   g.add(screen);
@@ -64,12 +141,15 @@ export function makeMonitor(
 
 /** A server rack unit with LED status lights. */
 export function makeServerRack(
-  w = 1.2, h = 2.4, d = 0.8,
+  w = 1.2,
+  h = 2.4,
+  d = 0.8,
   rackMat?: THREE.Material,
   ledColors: string[] = ['#4ec9b0', '#0d1014', '#4ec9b0', '#0d1014'],
 ): THREE.Group {
   const g = new THREE.Group();
-  const rm = rackMat ?? new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.5, metalness: 0.4 });
+  const rm =
+    rackMat ?? new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.5, metalness: 0.4 });
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rm);
   body.position.y = h / 2;
@@ -196,7 +276,12 @@ export function makeChair(
     const back = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.55, 0.06), cm);
     back.position.set(0, 0.8, -0.28);
     g.add(back);
-    for (const [x, z] of [[-0.22, -0.22], [0.22, -0.22], [-0.22, 0.22], [0.22, 0.22]] as [number, number][]) {
+    for (const [x, z] of [
+      [-0.22, -0.22],
+      [0.22, -0.22],
+      [-0.22, 0.22],
+      [0.22, 0.22],
+    ] as [number, number][]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), cm);
       leg.position.set(x, 0.25, z);
       g.add(leg);
@@ -207,7 +292,9 @@ export function makeChair(
 
 /** A ceiling light panel. */
 export function makeCeilingLight(
-  w = 1.2, d = 0.4, warm = false,
+  w = 1.2,
+  d = 0.4,
+  warm = false,
 ): { mesh: THREE.Mesh; light: THREE.PointLight } {
   const color = warm ? 0xffd9a0 : 0xffffff;
   const mesh = new THREE.Mesh(
@@ -224,10 +311,7 @@ export function makeCeilingLight(
 }
 
 /** A whiteboard panel on a stand. */
-export function makeWhiteboard(
-  w = 3, h = 1.8,
-  mat?: THREE.Material,
-): THREE.Group {
+export function makeWhiteboard(w = 3, h = 1.8, mat?: THREE.Material): THREE.Group {
   const g = new THREE.Group();
   const wm = mat ?? new THREE.MeshStandardMaterial({ color: '#f0f4f8', roughness: 0.3 });
   const fm = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.9 });
@@ -247,21 +331,20 @@ export function makeWhiteboard(
 }
 
 /** A floor accent strip (emissive teal line). */
-export function makeFloorStrip(
-  length = 8, width = 0.08,
-  color = '#4ec9b0',
-): THREE.Mesh {
+export function makeFloorStrip(length = 8, width = 0.08, color = '#4ec9b0'): THREE.Mesh {
   return new THREE.Mesh(
     new THREE.BoxGeometry(length, 0.01, width),
-    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.3 }),
+    new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.6,
+      roughness: 0.3,
+    }),
   );
 }
 
 /** A reception desk with a nameplate. */
-export function makeReceptionDesk(
-  w = 3, h = 1.1, d = 1,
-  deskMat?: THREE.Material,
-): THREE.Group {
+export function makeReceptionDesk(w = 3, h = 1.1, d = 1, deskMat?: THREE.Material): THREE.Group {
   const g = new THREE.Group();
   const dm = deskMat ?? new THREE.MeshStandardMaterial({ color: '#5c4033', roughness: 0.8 });
   const bm = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.9 });
@@ -306,19 +389,25 @@ export function makeReceptionDesk(
  *   [    keyboard + mouse    ]   <- in the middle
  *   [ desk surface (1.8 x 1.0) ]  <- at the front
  */
-export function makeWorkstation(
-  screenLabel = 'APEX OS — sign in to begin',
-): THREE.Group {
+export function makeWorkstation(screenLabel = 'APEX OS — sign in to begin'): THREE.Group {
   const g = new THREE.Group();
   g.name = 'workstation';
 
   // Materials
   const mDeskTop = new THREE.MeshStandardMaterial({ color: '#2d2a26', roughness: 0.7 });
-  const mEdge    = new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.5, metalness: 0.4 });
-  const mBezel   = new THREE.MeshStandardMaterial({ color: '#0d1014', roughness: 0.4 });
-  const mKb      = new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.5, metalness: 0.3 });
-  const mKey     = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.6 });
-  const mMouse   = new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.4, metalness: 0.2 });
+  const mEdge = new THREE.MeshStandardMaterial({
+    color: '#1a1d22',
+    roughness: 0.5,
+    metalness: 0.4,
+  });
+  const mBezel = new THREE.MeshStandardMaterial({ color: '#0d1014', roughness: 0.4 });
+  const mKb = new THREE.MeshStandardMaterial({ color: '#1a1d22', roughness: 0.5, metalness: 0.3 });
+  const mKey = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.6 });
+  const mMouse = new THREE.MeshStandardMaterial({
+    color: '#1a1d22',
+    roughness: 0.4,
+    metalness: 0.2,
+  });
 
   // ---- Screen content texture (shared by both monitors) ----
   const screenCanvas = document.createElement('canvas');
@@ -377,7 +466,9 @@ export function makeWorkstation(
   });
 
   // ---- Desk top ----
-  const deskW = 1.8, deskD = 1.0, deskH = 0.04;
+  const deskW = 1.8,
+    deskD = 1.0,
+    deskH = 0.04;
   const desk = new THREE.Mesh(new THREE.BoxGeometry(deskW, deskH, deskD), mDeskTop);
   desk.position.set(0, 0.75, 0);
   desk.castShadow = true;
@@ -393,9 +484,9 @@ export function makeWorkstation(
   const legH = 0.72;
   for (const [lx, lz] of [
     [-deskW / 2 + 0.08, -deskD / 2 + 0.08],
-    [ deskW / 2 - 0.08, -deskD / 2 + 0.08],
-    [-deskW / 2 + 0.08,  deskD / 2 - 0.08],
-    [ deskW / 2 - 0.08,  deskD / 2 - 0.08],
+    [deskW / 2 - 0.08, -deskD / 2 + 0.08],
+    [-deskW / 2 + 0.08, deskD / 2 - 0.08],
+    [deskW / 2 - 0.08, deskD / 2 - 0.08],
   ] as [number, number][]) {
     const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, legH, 0.06), mEdge);
     leg.position.set(lx, legH / 2, lz);
@@ -409,20 +500,21 @@ export function makeWorkstation(
   monitorGroup.userData.interactable = 'workstation';
 
   // Two monitors side by side
-  const monW = 0.55, monH = 0.35;
+  const monW = 0.55,
+    monH = 0.35;
   for (const mx of [-0.32, 0.32]) {
     const bezel = new THREE.Mesh(new THREE.BoxGeometry(monW + 0.04, monH + 0.04, 0.02), mBezel);
-    bezel.position.set(mx, 1.20, -0.42);
+    bezel.position.set(mx, 1.2, -0.42);
     bezel.castShadow = true;
     monitorGroup.add(bezel);
     const face = new THREE.Mesh(new THREE.PlaneGeometry(monW, monH), mScreenWithTex);
-    face.position.set(mx, 1.20, -0.41);
+    face.position.set(mx, 1.2, -0.41);
     monitorGroup.add(face);
     const stand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.08), mEdge);
     stand.position.set(mx, 1.02, -0.42);
     monitorGroup.add(stand);
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.04), mEdge);
-    post.position.set(mx, 1.10, -0.42);
+    post.position.set(mx, 1.1, -0.42);
     monitorGroup.add(post);
   }
   g.add(monitorGroup);
@@ -435,14 +527,14 @@ export function makeWorkstation(
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 10; c++) {
       const key = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.005, 0.025), mKey);
-      key.position.set(-0.21 + c * 0.046, 0.795, 0.00 + r * 0.03);
+      key.position.set(-0.21 + c * 0.046, 0.795, 0.0 + r * 0.03);
       g.add(key);
     }
   }
 
   // ---- Mouse ----
-  const mouseBody = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.025, 0.10), mMouse);
-  mouseBody.position.set(0.30, 0.785, 0.05);
+  const mouseBody = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.025, 0.1), mMouse);
+  mouseBody.position.set(0.3, 0.785, 0.05);
   mouseBody.castShadow = true;
   g.add(mouseBody);
 

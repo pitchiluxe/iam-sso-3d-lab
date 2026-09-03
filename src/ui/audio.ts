@@ -6,19 +6,51 @@
 
 let ctx: AudioContext | null = null;
 
+const MUTE_KEY = 'settings_sound_muted';
+let muted = localStorage.getItem(MUTE_KEY) === 'true';
+
+/** Read the current mute state (mirrors what the Settings app shows). */
+export function isMuted(): boolean {
+  return muted;
+}
+
+/** Set and persist the mute state — used by the Settings app's Sound toggle. */
+export function setMuted(v: boolean): void {
+  muted = v;
+  try {
+    localStorage.setItem(MUTE_KEY, String(v));
+  } catch {
+    /* ignore */
+  }
+}
+
 function ensureCtx(): AudioContext | null {
   if (ctx) return ctx;
   try {
-    const AC = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
-      ?? (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const AC =
+      (
+        window as unknown as {
+          AudioContext?: typeof AudioContext;
+          webkitAudioContext?: typeof AudioContext;
+        }
+      ).AudioContext ??
+      (
+        window as unknown as {
+          AudioContext?: typeof AudioContext;
+          webkitAudioContext?: typeof AudioContext;
+        }
+      ).webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
-  } catch { return null; }
+  } catch {
+    return null;
+  }
   return ctx;
 }
 
 /** A soft short blip. */
 export function blip(freq = 440, durMs = 80, vol = 0.05): void {
+  if (muted) return;
   const c = ensureCtx();
   if (!c) return;
   const osc = c.createOscillator();

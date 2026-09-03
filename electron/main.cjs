@@ -6,20 +6,12 @@
 // - Disables nodeIntegration in the renderer (security)
 // - Single-instance lock so the user doesn't accidentally launch
 //   two copies pointing at the same persisted state
-// - IPC bridge for launching the bundled AIHub Browser executable
-// - Exposes resources paths (AIHUB_EXE) to the renderer via a preload
 
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
 
 const DIST = path.join(__dirname, '..', 'dist');
 const INDEX_HTML = path.join(DIST, 'index.html');
-
-// AIHub Browser is bundled as an extra resource at install time
-// (see package.json → build.extraResources). In dev, fall back to a
-// known local path so the launcher still works during development.
-const DEV_AIHUB_EXE = 'C:\\Users\\erick\\Documents\\_My_Digital_Solutions\\AIHub-Browser\\dist\\AIHub-Browser-1.45.1-win-x64.exe';
-const PROD_AIHUB_EXE = path.join(process.resourcesPath || '', 'aihub', 'AIHub-Browser-1.45.1-win-x64.exe');
 
 let mainWindow = null;
 
@@ -38,27 +30,21 @@ app.on('second-instance', () => {
 });
 
 // --- IPC handlers ----------------------------------------------------------
-// Renderers (in sandboxed webview) can request opening an external
-// executable. shell.openPath is the safe way to do this.
-ipcMain.handle('shell:openPath', async (_event, absPath) => {
-  if (typeof absPath !== 'string' || !absPath) {
-    return { ok: false, error: 'invalid path' };
-  }
-  const err = await shell.openPath(absPath);
-  if (err) return { ok: false, error: err };
-  return { ok: true };
-});
+function getEnvPayload() {
+  return { IS_ELECTRON: true };
+}
 
-ipcMain.handle('env:get', () => {
-  // Determine which AIHub Browser path to expose. Prefer bundled resource,
-  // fall back to dev path.
-  const fs = require('fs');
-  const exists = (p) => { try { return p && fs.existsSync(p); } catch { return false; } };
-  const aihubExe = exists(PROD_AIHUB_EXE) ? PROD_AIHUB_EXE : DEV_AIHUB_EXE;
-  return {
-    AIHUB_EXE: aihubExe,
-    IS_ELECTRON: true,
-  };
+// Async variant (kept for any future caller that doesn't need it at preload
+// startup — the renderer itself uses the synchronous one below).
+ipcMain.handle('env:get', () => getEnvPayload());
+
+// Synchronous variant — the preload script needs env values before it calls
+// contextBridge.exposeInMainWorld('env', ...), which happens synchronously
+// during preload evaluation. An async invoke() there would resolve too late:
+// exposeInMainWorld clones whatever value it's given at call time, so a
+// promise resolving afterward can't retroactively update what was exposed.
+ipcMain.on('env:get:sync', (event) => {
+  event.returnValue = getEnvPayload();
 });
 
 // --- Window creation -------------------------------------------------------

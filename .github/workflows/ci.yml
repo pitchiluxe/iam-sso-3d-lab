@@ -110,30 +110,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.2.0
-          release_name: IAM SSO 3D Lab v0.2.0
+          tag_name: v0.2.1
+          release_name: IAM SSO 3D Lab v0.2.1
           body: |
-            ## IAM & SSO 3D Lab v0.2.0 — VM Desktop Edition
+            ## IAM & SSO 3D Lab v0.2.1 — VM Desktop Fixes & New Apps
 
-            A realistic enterprise identity management and SSO training simulation. This release introduces a full **Virtual Machine (VM) desktop environment** — instructions, consoles, notes, and objectives are hidden until the learner presses **E** on a workstation in the 3D scene.
-
-            ### What's new in v0.2.0
-            - **VM desktop** auto-opens with AI Supervisor + Objectives windows
-            - **Notepad** with line numbers, word count, and auto-save
-            - **Sticky Notes** — draggable, color-coded, persistent
-            - **File Explorer** with C: drive, Documents, Pictures, Downloads
-            - **AIHub Browser** bundled and pre-installed — double-click the icon to launch
-            - All lab instructions live **inside the VM** — nothing visible from the 3D scene until E is pressed
-            - "Open Tutor" button renamed to **"Open VM & Tutor"**
+            ### What's new in v0.2.1
+            - **Removed AIHub Browser** — it was bundled/pre-installed in prior builds; no longer shipped or referenced anywhere in the app
+            - **New VM apps**: Settings (Windows-11-style, with a working Sound mute toggle and wallpaper picker — including an IAMLab dark wallpaper), classic-style Control Panel, and a Recycle Bin you can drag desktop icons onto to remove them
+            - **Drag-to-reorder desktop icons**, arranged 6-per-column like a real desktop, with order and deletions persisted
+            - Desk monitors in the 3D workspace now show a **Windows-style lock screen** (front face only — the back/sides are a plain dark bezel, not a wraparound texture), and desk chairs now actually face their monitor instead of showing their back to it
+            - **Lab 1 is now actually completable end-to-end** — fixed two validators that could never be satisfied: step 3 (create the admin user) collided with a pre-seeded admin account, and step 4 (MFA policy) checked for an audit event the UI never emitted
+            - **Step completion is now visible**: a step shows a brief greyed-out "Next Step" state before the AI supervisor auto-advances, instead of jumping instantly
+            - Fixed the VM desktop **duplicating windows** every time you exited and re-entered (IAM Console/Objectives would pile up); already-open windows now also refresh instead of showing stale data after a lab reset
+            - Fixed the IAM Console losing its scrollbar
+            - Fixed the AI Supervisor chat silently falling back to canned hints on a cold local-Ollama model load; added a "thinking…" indicator while it's answering
 
             ### Features
             - 13 hands-on labs (IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass)
-            - 3D virtual environment with interactive consoles
+            - 3D virtual environment with interactive consoles, walk up to a monitor and press E to open the VM desktop
             - AI Supervisor (Socratic coaching via local Ollama LLM — never gives answers)
             - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass)
 
             ### Run the installer
-            Download `IAM-SSO-3D-Lab-Setup-0.2.0.exe` and run it on any Windows 10/11 64-bit machine. Includes AIHub Browser (83MB).
+            Download `IAM-SSO-3D-Lab-Setup-0.2.1.exe` and run it on any Windows 10/11 64-bit machine.
 
             ### AI Supervisor setup
             1. Install [Ollama](https://ollama.com)
@@ -168,8 +168,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.2.0.exe
-          asset_name: IAM-SSO-3D-Lab-Setup-0.2.0.exe
+          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.2.1.exe
+          asset_name: IAM-SSO-3D-Lab-Setup-0.2.1.exe
           asset_content_type: application/octet-stream
 
       - name: Upload 7z archive
@@ -178,6 +178,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/iam-sso-3d-lab-0.2.0-x64.nsis.7z
-          asset_name: iam-sso-3d-lab-0.2.0-x64.nsis.7z
+          asset_path: dist-installer/iam-sso-3d-lab-0.2.1-x64.nsis.7z
+          asset_name: iam-sso-3d-lab-0.2.1-x64.nsis.7z
           asset_content_type: application/x-7z-compressed

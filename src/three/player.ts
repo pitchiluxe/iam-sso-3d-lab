@@ -7,10 +7,12 @@
 import * as THREE from 'three';
 import type { ConsoleAnchor } from './zones';
 
-const WALK_SPEED   = 3.0;   // units per second
+const WALK_SPEED = 3.0; // units per second
 const SPRINT_SPEED = 5.0;
-const EYE_HEIGHT   = 1.7;
-const PROXIMITY    = 2.5;   // distance at which a console prompts
+const EYE_HEIGHT = 1.7;
+const PROXIMITY = 2.5; // distance at which a console prompts
+const WORKSTATION_PROXIMITY = 2.2; // distance at which the VM prompt appears
+const WORKSTATION_FACING_COS = 0.55; // must be looking roughly at the monitor (~55° half-angle cone)
 
 export class PlayerController {
   private camera: THREE.PerspectiveCamera;
@@ -20,10 +22,14 @@ export class PlayerController {
   private keys = new Set<string>();
   private pointerLocked = false;
   private consoles: ConsoleAnchor[] = [];
+  private workstations: THREE.Object3D[] = [];
   private nearConsole: ConsoleAnchor | null = null;
+  private nearWorkstation: THREE.Object3D | null = null;
 
   public onPrompt: ((console: ConsoleAnchor | null) => void) | null = null;
   public onActivate: ((console: ConsoleAnchor) => void) | null = null;
+  public onWorkstationPrompt: ((show: boolean) => void) | null = null;
+  public onWorkstationActivate: (() => void) | null = null;
 
   constructor(camera: THREE.PerspectiveCamera, dom: HTMLElement) {
     this.camera = camera;
@@ -38,12 +44,19 @@ export class PlayerController {
     this.onPrompt?.(null);
   }
 
+  /** Set the workstations in the current zone (workstation meshes for E-key proximity). */
+  setWorkstations(workstations: THREE.Object3D[]): void {
+    this.workstations = workstations;
+    this.nearWorkstation = null;
+    this.onWorkstationPrompt?.(false);
+  }
+
   /** Teleport the player to a specific point in the world. */
   teleport(pos: THREE.Vector3, lookAt: THREE.Vector3): void {
     this.camera.position.copy(pos);
     this.camera.lookAt(lookAt);
     const dir = new THREE.Vector3().subVectors(lookAt, pos).normalize();
-    this.yaw   = Math.atan2(-dir.x, -dir.z);
+    this.yaw = Math.atan2(-dir.x, -dir.z);
     this.pitch = Math.asin(dir.y);
   }
 
@@ -56,14 +69,14 @@ export class PlayerController {
       const startYaw = this.yaw;
       const startPitch = this.pitch;
       const targetDir = new THREE.Vector3().subVectors(lookAt, target).normalize();
-      const targetYaw   = Math.atan2(-targetDir.x, -targetDir.z);
+      const targetYaw = Math.atan2(-targetDir.x, -targetDir.z);
       const targetPitch = Math.asin(targetDir.y);
       const t0 = performance.now();
       const tick = () => {
         const t = Math.min(1, (performance.now() - t0) / ms);
         const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // easeInOutQuad
         this.camera.position.lerpVectors(startPos, target, ease);
-        this.yaw   = startYaw   + (targetYaw   - startYaw)   * ease;
+        this.yaw = startYaw + (targetYaw - startYaw) * ease;
         this.pitch = startPitch + (targetPitch - startPitch) * ease;
         if (t < 1) requestAnimationFrame(tick);
         else resolve();
@@ -84,7 +97,7 @@ export class PlayerController {
    */
   setKey(code: string, down: boolean): void {
     if (down) this.keys.add(code);
-    else      this.keys.delete(code);
+    else this.keys.delete(code);
   }
 
   /**
@@ -92,7 +105,7 @@ export class PlayerController {
    * equivalent to the pointer-lock mouse-move handler.
    */
   setLookDelta(dx: number, dy: number, sensitivity = 0.0025): void {
-    this.yaw   -= dx * sensitivity;
+    this.yaw -= dx * sensitivity;
     this.pitch -= dy * sensitivity;
     this.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, this.pitch));
   }
@@ -107,21 +120,20 @@ export class PlayerController {
   /* ------------------------------------------------------------------ */
 
   private moveCamera(delta: number): void {
-    const speed = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')
-      ? SPRINT_SPEED
-      : WALK_SPEED;
-    const fwd = this.keys.has('KeyW') || this.keys.has('ArrowUp')   ? 1 : 0;
+    const speed =
+      this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? SPRINT_SPEED : WALK_SPEED;
+    const fwd = this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0;
     const bwd = this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0;
     const lft = this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0;
-    const rgt = this.keys.has('KeyD') || this.keys.has('ArrowRight')? 1 : 0;
+    const rgt = this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0;
 
     // Forward direction projected to XZ plane
     const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    const right   = new THREE.Vector3( Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
     const move = new THREE.Vector3();
     move.addScaledVector(forward, fwd - bwd);
-    move.addScaledVector(right,   rgt - lft);
+    move.addScaledVector(right, rgt - lft);
     if (move.lengthSq() > 0) {
       move.normalize().multiplyScalar(speed * delta);
       this.camera.position.add(move);
@@ -134,28 +146,62 @@ export class PlayerController {
     this.camera.position.y = EYE_HEIGHT;
 
     // Apply look
-    const lookDir = new THREE.Vector3(
+    this.camera.lookAt(this.camera.position.clone().add(this.getForwardVector()));
+  }
+
+  /** Normalized forward vector the camera is currently facing. */
+  private getForwardVector(): THREE.Vector3 {
+    return new THREE.Vector3(
       -Math.sin(this.yaw) * Math.cos(this.pitch),
-       Math.sin(this.pitch),
+      Math.sin(this.pitch),
       -Math.cos(this.yaw) * Math.cos(this.pitch),
     );
-    this.camera.lookAt(this.camera.position.clone().add(lookDir));
   }
 
   private updateProximity(): void {
-    if (this.consoles.length === 0) {
-      if (this.nearConsole) { this.nearConsole = null; this.onPrompt?.(null); }
-      return;
+    // Console proximity
+    if (this.consoles.length > 0) {
+      let best: ConsoleAnchor | null = null;
+      let bestDist = PROXIMITY;
+      for (const c of this.consoles) {
+        const d = this.camera.position.distanceTo(c.position);
+        if (d < bestDist) {
+          bestDist = d;
+          best = c;
+        }
+      }
+      if (best?.id !== this.nearConsole?.id) {
+        this.nearConsole = best;
+        this.onPrompt?.(best);
+      }
+    } else if (this.nearConsole) {
+      this.nearConsole = null;
+      this.onPrompt?.(null);
     }
-    let best: ConsoleAnchor | null = null;
-    let bestDist = PROXIMITY;
-    for (const c of this.consoles) {
-      const d = this.camera.position.distanceTo(c.position);
-      if (d < bestDist) { bestDist = d; best = c; }
-    }
-    if (best?.id !== this.nearConsole?.id) {
-      this.nearConsole = best;
-      this.onPrompt?.(best);
+
+    // Workstation proximity — must be close AND facing the monitor, not just nearby.
+    if (this.workstations.length > 0) {
+      let bestWs: THREE.Object3D | null = null;
+      let bestWsDist = WORKSTATION_PROXIMITY;
+      const worldPos = new THREE.Vector3();
+      const toWs = new THREE.Vector3();
+      const forward = this.getForwardVector();
+      for (const ws of this.workstations) {
+        ws.getWorldPosition(worldPos);
+        const d = this.camera.position.distanceTo(worldPos);
+        if (d >= bestWsDist) continue;
+        toWs.subVectors(worldPos, this.camera.position).normalize();
+        if (forward.dot(toWs) < WORKSTATION_FACING_COS) continue; // not looking at it
+        bestWsDist = d;
+        bestWs = ws;
+      }
+      if (bestWs !== this.nearWorkstation) {
+        this.nearWorkstation = bestWs;
+        this.onWorkstationPrompt?.(!!bestWs);
+      }
+    } else if (this.nearWorkstation) {
+      this.nearWorkstation = null;
+      this.onWorkstationPrompt?.(false);
     }
   }
 
@@ -163,8 +209,12 @@ export class PlayerController {
     // Keyboard
     window.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
-      if (e.code === 'KeyE' && this.nearConsole) {
-        this.onActivate?.(this.nearConsole);
+      if (e.code === 'KeyE') {
+        if (this.nearWorkstation) {
+          this.onWorkstationActivate?.();
+        } else if (this.nearConsole) {
+          this.onActivate?.(this.nearConsole);
+        }
       }
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -174,12 +224,12 @@ export class PlayerController {
       if (!this.pointerLocked) this.dom.requestPointerLock();
     });
     document.addEventListener('pointerlockchange', () => {
-      this.pointerLocked = (document.pointerLockElement === this.dom);
+      this.pointerLocked = document.pointerLockElement === this.dom;
     });
     document.addEventListener('mousemove', (e) => {
       if (!this.pointerLocked) return;
       const sens = 0.0025;
-      this.yaw   -= e.movementX * sens;
+      this.yaw -= e.movementX * sens;
       this.pitch -= e.movementY * sens;
       this.pitch = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, this.pitch));
     });

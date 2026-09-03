@@ -19,14 +19,24 @@ interface LabState {
 
   load(lab: Lab): void;
   /** Restore a previously persisted resume state. Used on app boot. */
-  restore(lab: Lab, stepIndex: number, stepStatuses: Record<string, StepStatus>, failed: boolean): void;
+  restore(
+    lab: Lab,
+    stepIndex: number,
+    stepStatuses: Record<string, StepStatus>,
+    failed: boolean,
+  ): void;
   start(): void;
+  /** Mark the current step 'done' without moving stepIndex yet — lets the UI
+   * show a brief completed/greyed-out state before advance() moves on. */
+  markStepDone(stepId: string): void;
   advance(): void;
   failStep(stepId: string): void;
   reset(): void;
 }
 
-function saveResume(s: Pick<LabState, 'current' | 'stepIndex' | 'stepStatuses' | 'failed' | 'labId'>): void {
+function saveResume(
+  s: Pick<LabState, 'current' | 'stepIndex' | 'stepStatuses' | 'failed' | 'labId'>,
+): void {
   if (!s.current || !s.labId) return;
   const resume: PersistedResume = {
     currentLabId: s.labId,
@@ -80,20 +90,33 @@ export const labStore = create<LabState>()((set, get) => ({
   start() {
     const { current, stepIndex } = get();
     if (!current) return;
-    const statuses: Record<string, StepStatus> = { ...get().stepStatuses, [current.steps[stepIndex]!.id]: 'in-progress' };
+    const statuses: Record<string, StepStatus> = {
+      ...get().stepStatuses,
+      [current.steps[stepIndex]!.id]: 'in-progress',
+    };
     set({ stepStatuses: statuses });
     saveResume({ ...get() });
+  },
+
+  markStepDone(stepId) {
+    set((s) => ({ stepStatuses: { ...s.stepStatuses, [stepId]: 'done' } }));
   },
 
   advance() {
     const { current, stepIndex } = get();
     if (!current) return;
-    const statuses: Record<string, StepStatus> = { ...get().stepStatuses, [current.steps[stepIndex]!.id]: 'done' };
+    const statuses: Record<string, StepStatus> = {
+      ...get().stepStatuses,
+      [current.steps[stepIndex]!.id]: 'done',
+    };
     const next = stepIndex + 1;
     if (next >= current.steps.length) {
       set({ stepIndex: next, stepStatuses: statuses, failed: false });
     } else {
-      const nextStatuses: Record<string, StepStatus> = { ...statuses, [current.steps[next]!.id]: 'in-progress' };
+      const nextStatuses: Record<string, StepStatus> = {
+        ...statuses,
+        [current.steps[next]!.id]: 'in-progress',
+      };
       set({ stepIndex: next, stepStatuses: nextStatuses, failed: false });
     }
     saveResume({ ...get() });

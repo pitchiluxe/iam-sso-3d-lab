@@ -1,35 +1,36 @@
 /**
  * ui/consoles/objectivesWindow.ts — VM Objectives window.
  *
- * Displays the current lab's objectives, current step details, evidence
- * requirements, and the "Open VM & Tutor" button. Lives inside the
- * desktop overlay VM. Updates live as the user advances through steps.
+ * Displays the current lab's objectives, current step details, and evidence
+ * requirements. Lives inside the desktop overlay VM. Updates live as the
+ * user advances through steps.
  */
 import { labStore } from '@/stores';
-import type { Conductor } from '@/conductor/conductor';
 import type { ValidatorKind } from '@/domain';
 
 const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
-  'ticket-resolved':         'Resolve the ticket in the Ticket Console',
-  'user-disabled':           'Disable the user account in IAM Console',
-  'user-enabled':            'Unlock / re-enable the user in IAM Console',
-  'user-created':            'Create the user in IAM Console',
-  'user-moved':             'Move the user to the new group',
-  'group-added':            'Create the security group in IAM Console',
-  'group-removed':          'Remove the user from the group',
-  'role-granted':           'Grant the role to the user',
-  'role-revoked':           'Revoke the role from the user',
-  'app-config-fixed':        'Fix the application configuration',
-  'signin-succeeded':       'Sign in as the user in IAM Console',
-  'mfa-challenge-completed':'Complete an MFA challenge',
-  'session-revoked':        'Revoke the user session',
-  'fault-cleared':         'Clear the injected fault',
-  'evidence-collected':     'Capture evidence for this step',
-  'audit-note-written':     'Write a note in the audit log',
-  'review-decisions-recorded':'Record access review decisions',
+  'ticket-resolved': 'Resolve the ticket in the Ticket Console',
+  'user-disabled': 'Disable the user account in IAM Console',
+  'user-enabled': 'Unlock / re-enable the user in IAM Console',
+  'user-created': 'Create the user in IAM Console',
+  'user-moved': 'Move the user to the new group',
+  'group-created': 'Create the security group in IAM Console',
+  'group-added': 'Add the user to the group in IAM Console',
+  'group-removed': 'Remove the user from the group',
+  'role-granted': 'Grant the role to the user',
+  'role-revoked': 'Revoke the role from the user',
+  'app-config-fixed': 'Fix the application configuration',
+  'signin-succeeded': 'Sign in as the user in IAM Console',
+  'mfa-challenge-completed': 'Complete an MFA challenge',
+  'mfa-policy-enforced': 'Enable MFA enforcement in IAM Console',
+  'session-revoked': 'Revoke the user session',
+  'fault-cleared': 'Clear the injected fault',
+  'evidence-collected': 'Capture evidence for this step',
+  'audit-note-written': 'Write a note in the audit log',
+  'review-decisions-recorded': 'Record access review decisions',
 };
 
-export function renderObjectivesWindow(body: HTMLElement, conductor: Conductor): void {
+export function renderObjectivesWindow(body: HTMLElement): void {
   // Use a container that fills the body
   const container = document.createElement('div');
   container.style.cssText = `
@@ -54,11 +55,14 @@ export function renderObjectivesWindow(body: HTMLElement, conductor: Conductor):
 
     const step = lab.steps[idx]!;
     const status = labStore.getState().stepStatuses[step.id] ?? 'pending';
-    const statusColor = status === 'done' ? '#4ec9b0' : status === 'in-progress' ? '#d7ba7d' : '#8b95a1';
-    const statusLabel = status === 'done' ? '✓ DONE' : status === 'in-progress' ? 'IN PROGRESS' : 'PENDING';
+    const statusColor =
+      status === 'done' ? '#4ec9b0' : status === 'in-progress' ? '#d7ba7d' : '#8b95a1';
+    const statusLabel =
+      status === 'done' ? '✓ DONE' : status === 'in-progress' ? 'IN PROGRESS' : 'PENDING';
     const isStepDone = status === 'done';
 
-    const unlockLabel = VALIDATOR_LABELS[step.validator.kind] ?? `Complete validator: ${step.validator.kind}`;
+    const unlockLabel =
+      VALIDATOR_LABELS[step.validator.kind] ?? `Complete validator: ${step.validator.kind}`;
     const unlockParams = step.validator.params as Record<string, string>;
     const unlockDetail = unlockParams.userId
       ? ` (user: ${unlockParams.userId})`
@@ -70,19 +74,23 @@ export function renderObjectivesWindow(body: HTMLElement, conductor: Conductor):
             ? ` (app: ${unlockParams.appId})`
             : '';
 
-    const evidenceList = step.evidence.length > 0
-      ? step.evidence.map((e) => {
-          const how = e.capture === 'auto' ? 'auto-captured' : 'capture manually';
-          return `<li style="margin:2px 0;">${e.kind} — <span style="color:#8b95a1;">${how}</span></li>`;
-        }).join('')
-      : '<li style="color:#8b95a1;">No specific evidence required.</li>';
+    const evidenceList =
+      step.evidence.length > 0
+        ? step.evidence
+            .map((e) => {
+              const how = e.capture === 'auto' ? 'auto-captured' : 'capture manually';
+              return `<li style="margin:2px 0;">${e.kind} — <span style="color:#8b95a1;">${how}</span></li>`;
+            })
+            .join('')
+        : '<li style="color:#8b95a1;">No specific evidence required.</li>';
 
-    const tutoring = step.tutorPrompts.length > 0
-      ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(78,201,176,0.06);border:1px solid rgba(78,201,176,0.25);border-radius:6px;">
+    const tutoring =
+      step.tutorPrompts.length > 0
+        ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(78,201,176,0.06);border:1px solid rgba(78,201,176,0.25);border-radius:6px;">
            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#4ec9b0;margin-bottom:4px;">🤖 Coaching Focus</div>
            <div style="font-size:11px;font-style:italic;color:#8b95a1;">${step.tutorPrompts[0]}</div>
          </div>`
-      : '';
+        : '';
 
     container.innerHTML = `
       <div style="padding:10px 14px;border-bottom:1px solid #2d343d;background:#1b1f24;flex-shrink:0;">
@@ -119,13 +127,22 @@ export function renderObjectivesWindow(body: HTMLElement, conductor: Conductor):
 
         ${tutoring}
 
-        <div style="margin-top:12px;display:flex;gap:8px;">
-          <button id="obj-open-tutor"
-            style="flex:1;background:#4ec9b0;color:#0e1116;border:none;border-radius:5px;padding:7px;font-size:12px;cursor:pointer;font-weight:700;">
-            🤖 Open VM &amp; Tutor
+        ${
+          isStepDone
+            ? `
+        <div style="margin-top:12px;">
+          <button id="obj-next-step" disabled title="Advances automatically — no click needed"
+            style="width:100%;background:#232830;color:#5a6570;border:1px solid #2d343d;border-radius:5px;padding:7px;font-size:12px;font-weight:700;cursor:not-allowed;opacity:0.6;">
+            Next Step →
           </button>
+        </div>
+        `
+            : ''
+        }
+
+        <div style="margin-top:12px;">
           <button id="obj-reset-lab"
-            style="flex:1;background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:5px;padding:7px;font-size:11px;cursor:pointer;">
+            style="width:100%;background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:5px;padding:7px;font-size:11px;cursor:pointer;">
             Reset lab
           </button>
         </div>
@@ -135,25 +152,17 @@ export function renderObjectivesWindow(body: HTMLElement, conductor: Conductor):
           background:${isStepDone ? 'rgba(78,201,176,0.08)' : 'rgba(215,186,125,0.08)'};
           border-left:2px solid ${isStepDone ? '#4ec9b0' : '#d7ba7d'};
           border-radius:0 4px 4px 0;line-height:1.4;">
-          ${isStepDone
-            ? 'Step complete — click <strong>Advance</strong> in the lab to move on.'
-            : `<strong>${unlockLabel}${unlockDetail}</strong> — the conductor observes this action automatically when complete.`}
+          ${
+            isStepDone
+              ? 'Step complete — the AI supervisor advances you to the next step automatically.'
+              : `<strong>${unlockLabel}${unlockDetail}</strong> — the conductor observes this action automatically when complete.`
+          }
         </div>
 
       </div>
     `;
 
     // Wire buttons
-    container.querySelector('#obj-open-tutor')?.addEventListener('click', () => {
-      const __lab = (window as unknown as { __lab?: {
-        desktop?: { openWindow(id: string, c: unknown): void };
-        conductor?: unknown;
-      } }).__lab;
-      if (__lab?.desktop && __lab.conductor) {
-        __lab.desktop.openWindow('ollama-console', __lab.conductor);
-      }
-    });
-
     container.querySelector('#obj-reset-lab')?.addEventListener('click', () => {
       const lab2 = labStore.getState().current;
       if (lab2) {

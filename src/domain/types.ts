@@ -6,41 +6,67 @@
 // ---------------------------------------------------------------------------
 // Primitive brand aliases — prevent mixing e.g. UserId with TicketId
 // ---------------------------------------------------------------------------
-export type UserId      = string & { readonly __brand: 'UserId' };
-export type GroupId     = string & { readonly __brand: 'GroupId' };
-export type RoleId      = string & { readonly __brand: 'RoleId' };
-export type AppId       = string & { readonly __brand: 'AppId' };
-export type TicketId    = string & { readonly __brand: 'TicketId' };
-export type AuditId     = string & { readonly __brand: 'AuditId' };
-export type IncidentId  = string & { readonly __brand: 'IncidentId' };
-export type ReviewId    = string & { readonly __brand: 'ReviewId' };
-export type LabId       = string & { readonly __brand: 'LabId' };
-export type EvidenceId  = string & { readonly __brand: 'EvidenceId' };
-export type SessionId   = string & { readonly __brand: 'SessionId' };
+export type UserId = string & { readonly __brand: 'UserId' };
+export type GroupId = string & { readonly __brand: 'GroupId' };
+export type RoleId = string & { readonly __brand: 'RoleId' };
+export type AppId = string & { readonly __brand: 'AppId' };
+export type TicketId = string & { readonly __brand: 'TicketId' };
+export type AuditId = string & { readonly __brand: 'AuditId' };
+export type IncidentId = string & { readonly __brand: 'IncidentId' };
+export type ReviewId = string & { readonly __brand: 'ReviewId' };
+export type LabId = string & { readonly __brand: 'LabId' };
+export type EvidenceId = string & { readonly __brand: 'EvidenceId' };
+export type SessionId = string & { readonly __brand: 'SessionId' };
 
 // ---------------------------------------------------------------------------
 // Enumerations
 // ---------------------------------------------------------------------------
 export type Role =
-  | 'Employee' | 'Manager' | 'HR' | 'Finance'
-  | 'HelpDesk' | 'IAMAdmin' | 'SecOps' | 'ServerAdmin'
-  | 'Auditor' | 'AppOwner' | 'Executive' | 'ServiceAccount';
+  | 'Employee'
+  | 'Manager'
+  | 'HR'
+  | 'Finance'
+  | 'HelpDesk'
+  | 'IAMAdmin'
+  | 'SecOps'
+  | 'ServerAdmin'
+  | 'Auditor'
+  | 'AppOwner'
+  | 'Executive'
+  | 'ServiceAccount';
 
 export type TicketKind =
-  | 'onboarding' | 'mover' | 'leaver' | 'access-request'
-  | 'password-reset' | 'mfa-issue' | 'transfer' | 'termination' | 'incident';
+  | 'onboarding'
+  | 'mover'
+  | 'leaver'
+  | 'access-request'
+  | 'password-reset'
+  | 'mfa-issue'
+  | 'transfer'
+  | 'termination'
+  | 'incident';
 
 export type TicketStatus =
-  | 'open' | 'in-progress' | 'pending-approval' | 'resolved' | 'closed' | 'cancelled';
+  'open' | 'in-progress' | 'pending-approval' | 'resolved' | 'closed' | 'cancelled';
 
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export type FaultKind =
-  | 'wrong-redirect-uri' | 'expired-cert' | 'wrong-issuer'
-  | 'wrong-client-secret' | 'wrong-claim-mapping' | 'missing-role'
-  | 'clock-skew' | 'dns-resolution' | 'mfa-prompt-loop'
-  | 'suspicious-signin' | 'excessive-permissions' | 'dormant-account'
-  | 'legacy-auth-misconfiguration' | 'sync-soft-match-conflict' | 'idp-mfa-outage';
+  | 'wrong-redirect-uri'
+  | 'expired-cert'
+  | 'wrong-issuer'
+  | 'wrong-client-secret'
+  | 'wrong-claim-mapping'
+  | 'missing-role'
+  | 'clock-skew'
+  | 'dns-resolution'
+  | 'mfa-prompt-loop'
+  | 'suspicious-signin'
+  | 'excessive-permissions'
+  | 'dormant-account'
+  | 'legacy-auth-misconfiguration'
+  | 'sync-soft-match-conflict'
+  | 'idp-mfa-outage';
 
 export type AuthProtocol = 'SAML' | 'OIDC';
 
@@ -70,7 +96,7 @@ export interface User {
 
 export interface Group {
   id: GroupId;
-  name: string;         // e.g. 'grp-finance-payroll'
+  name: string; // e.g. 'grp-finance-payroll'
   description: string;
   memberIds: UserId[];
   ownerRoleId?: RoleId;
@@ -78,10 +104,10 @@ export interface Group {
 
 export interface RoleRecord {
   id: RoleId;
-  name: string;         // e.g. 'role-payroll-reader'
+  name: string; // e.g. 'role-payroll-reader'
   description: string;
   permissions: string[]; // e.g. ['payroll:read', 'journal:post']
-  appId?: AppId;        // role scoped to an app; undefined = global
+  appId?: AppId; // role scoped to an app; undefined = global
 }
 
 // ---------------------------------------------------------------------------
@@ -89,12 +115,12 @@ export interface RoleRecord {
 // ---------------------------------------------------------------------------
 export interface Application {
   id: AppId;
-  name: string;          // 'HR Portal', 'Finance Portal', …
+  name: string; // 'HR Portal', 'Finance Portal', …
   protocol: AuthProtocol;
   redirectUri: string;
   clientId: string;
-  entityId?: string;     // SAML-only
-  issuer?: string;       // OIDC-only
+  entityId?: string; // SAML-only
+  issuer?: string; // OIDC-only
   requiredRoleIds: RoleId[];
   mfaRequired: boolean;
   status: 'configured' | 'misconfigured' | 'offline';
@@ -113,8 +139,11 @@ export interface Session {
 }
 
 export type SignInResult =
-  | { ok: true;  session: Session; user: User }
-  | { ok: false; reason: 'bad-password' | 'disabled' | 'locked' | 'mfa-required' | 'conditional-block' };
+  | { ok: true; session: Session; user: User }
+  | {
+      ok: false;
+      reason: 'bad-password' | 'disabled' | 'locked' | 'mfa-required' | 'conditional-block';
+    };
 
 export type MfaResult = { ok: boolean; reason?: string };
 
@@ -151,15 +180,42 @@ interface TicketBase {
 }
 
 export type Ticket =
-  | (TicketBase & { kind: 'onboarding';    payload: { proposedGroupIds: GroupId[]; proposedRoleIds: RoleId[]; startDate: number } })
-  | (TicketBase & { kind: 'mover';         payload: { userId: UserId; fromGroupIds: GroupId[]; toGroupIds: GroupId[] } })
-  | (TicketBase & { kind: 'leaver';        payload: { userId: UserId; lastDay: number; revokeSessions: boolean } })
-  | (TicketBase & { kind: 'transfer';      payload: { userId: UserId; fromDepartment: string; toDepartment: string } })
-  | (TicketBase & { kind: 'termination';   payload: { userId: UserId; reason: string; immediate: boolean } })
-  | (TicketBase & { kind: 'access-request'; payload: { userId: UserId; requestedRoleIds: RoleId[]; justification: string } })
-  | (TicketBase & { kind: 'password-reset'; payload: { userId: UserId; method: 'helpdesk' | 'self-service' } })
-  | (TicketBase & { kind: 'mfa-issue';    payload: { userId: UserId; symptom: 'repeated-prompts' | 'lost-device' | 'locked-out' } })
-  | (TicketBase & { kind: 'incident';     payload: { incidentId: IncidentId; affectedUserId?: UserId; affectedAppId?: AppId } });
+  | (TicketBase & {
+      kind: 'onboarding';
+      payload: { proposedGroupIds: GroupId[]; proposedRoleIds: RoleId[]; startDate: number };
+    })
+  | (TicketBase & {
+      kind: 'mover';
+      payload: { userId: UserId; fromGroupIds: GroupId[]; toGroupIds: GroupId[] };
+    })
+  | (TicketBase & {
+      kind: 'leaver';
+      payload: { userId: UserId; lastDay: number; revokeSessions: boolean };
+    })
+  | (TicketBase & {
+      kind: 'transfer';
+      payload: { userId: UserId; fromDepartment: string; toDepartment: string };
+    })
+  | (TicketBase & {
+      kind: 'termination';
+      payload: { userId: UserId; reason: string; immediate: boolean };
+    })
+  | (TicketBase & {
+      kind: 'access-request';
+      payload: { userId: UserId; requestedRoleIds: RoleId[]; justification: string };
+    })
+  | (TicketBase & {
+      kind: 'password-reset';
+      payload: { userId: UserId; method: 'helpdesk' | 'self-service' };
+    })
+  | (TicketBase & {
+      kind: 'mfa-issue';
+      payload: { userId: UserId; symptom: 'repeated-prompts' | 'lost-device' | 'locked-out' };
+    })
+  | (TicketBase & {
+      kind: 'incident';
+      payload: { incidentId: IncidentId; affectedUserId?: UserId; affectedAppId?: AppId };
+    });
 
 // ---------------------------------------------------------------------------
 // Audit events (tagged-union)
@@ -174,14 +230,29 @@ export interface AuditEvent {
   at: number;
   actorId: UserId;
   action:
-    | 'user.created' | 'user.disabled' | 'user.unlocked' | 'user.updated' | 'user.deleted'
-    | 'group.add' | 'group.remove' | 'group.updated' | 'group.deleted'
-    | 'role.grant' | 'role.revoke'
+    | 'user.created'
+    | 'user.disabled'
+    | 'user.unlocked'
+    | 'user.updated'
+    | 'user.deleted'
+    | 'group.created'
+    | 'group.add'
+    | 'group.remove'
+    | 'group.updated'
+    | 'group.deleted'
+    | 'role.grant'
+    | 'role.revoke'
     | 'app.config.changed'
-    | 'signin.success' | 'signin.failure' | 'signout'
-    | 'mfa.challenge' | 'mfa.reset'
+    | 'signin.success'
+    | 'signin.failure'
+    | 'signout'
+    | 'mfa.challenge'
+    | 'mfa.reset'
+    | 'policy.updated'
     | 'session.revoked'
-    | 'ticket.created' | 'ticket.resolved' | 'ticket.escalated';
+    | 'ticket.created'
+    | 'ticket.resolved'
+    | 'ticket.escalated';
   /** Polysemous target: UserId | GroupId | RoleId | AppId | TicketId | SessionId */
   targetId?: string;
   /** For events that involve a subject distinct from the actor/target (group/role grants). */
@@ -216,7 +287,7 @@ export interface Incident {
 
 export interface AccessReview {
   id: ReviewId;
-  campaign: string;      // e.g. 'Q3-2026'
+  campaign: string; // e.g. 'Q3-2026'
   openedAt: number;
   dueAt: number;
   status: 'open' | 'in-progress' | 'closed';
@@ -237,11 +308,25 @@ export interface AccessReviewDecision {
 // Labs
 // ---------------------------------------------------------------------------
 export type ValidatorKind =
-  | 'ticket-resolved' | 'user-disabled' | 'user-created'
-  | 'group-added' | 'group-removed' | 'role-granted' | 'role-revoked'
-  | 'app-config-fixed' | 'signin-succeeded' | 'mfa-challenge-completed'
-  | 'session-revoked' | 'review-decisions-recorded' | 'evidence-collected'
-  | 'fault-cleared' | 'audit-note-written' | 'user-enabled' | 'user-moved';
+  | 'ticket-resolved'
+  | 'user-disabled'
+  | 'user-created'
+  | 'group-created'
+  | 'group-added'
+  | 'group-removed'
+  | 'role-granted'
+  | 'role-revoked'
+  | 'app-config-fixed'
+  | 'signin-succeeded'
+  | 'mfa-challenge-completed'
+  | 'mfa-policy-enforced'
+  | 'session-revoked'
+  | 'review-decisions-recorded'
+  | 'evidence-collected'
+  | 'fault-cleared'
+  | 'audit-note-written'
+  | 'user-enabled'
+  | 'user-moved';
 
 export interface LabStep {
   id: string;
@@ -284,7 +369,7 @@ export interface Lab {
   durationMinutes: number;
   zoneIds: string[];
   startingZone: string;
-  startingSeed: string;   // 'baseline' | 'after-lab01' | …
+  startingSeed: string; // 'baseline' | 'after-lab01' | …
   objectives: LabObjective[];
   steps: LabStep[];
   faults: FaultInjection[];
@@ -294,7 +379,8 @@ export interface Lab {
 // ---------------------------------------------------------------------------
 // Evidence & scoring
 // ---------------------------------------------------------------------------
-export type ScoreCategory = 'exec' | 'troubleshoot' | 'least-privilege' | 'docs' | 'evidence' | 'comms';
+export type ScoreCategory =
+  'exec' | 'troubleshoot' | 'least-privilege' | 'docs' | 'evidence' | 'comms';
 
 export interface ScorePoints {
   exec?: number;

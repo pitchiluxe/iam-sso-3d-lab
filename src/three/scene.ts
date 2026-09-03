@@ -14,9 +14,12 @@ export class SceneManager {
   private scene: THREE.Scene;
   private currentGroup: THREE.Group | null = null;
   private currentConsoles: ConsoleAnchor[] = [];
+  private currentWorkstations: THREE.Object3D[] = [];
   private currentZoneId: ZoneId | null = null;
   /** Notifies the player controller and HUD when a new zone is loaded. */
-  public onEntered: ((zoneId: ZoneId, consoles: ConsoleAnchor[]) => void) | null = null;
+  public onEntered:
+    ((zoneId: ZoneId, consoles: ConsoleAnchor[], workstations: THREE.Object3D[]) => void) | null =
+    null;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -31,9 +34,16 @@ export class SceneManager {
     const bp = ZONE_BLUEPRINTS[zoneId];
     let group: THREE.Group;
     let consoles: ConsoleAnchor[];
+    let workstations: THREE.Object3D[] = [];
 
     try {
       ({ group, consoles } = bp.build());
+      // Find workstation meshes (tagged with userData.interactable = 'workstation')
+      group.traverse((o) => {
+        if ((o as THREE.Object3D).userData?.interactable === 'workstation') {
+          workstations.push(o);
+        }
+      });
     } catch (err) {
       report('zone-build-failed', `Zone "${zoneId}" failed to build`, {
         context: { zoneId },
@@ -42,17 +52,26 @@ export class SceneManager {
       // Render a neutral fallback room so the learner is never stuck on a blank screen.
       group = buildFallbackRoom(zoneId);
       consoles = [];
+      workstations = [];
     }
 
     this.scene.add(group);
     this.currentGroup = group;
     this.currentConsoles = consoles;
+    this.currentWorkstations = workstations;
     this.currentZoneId = zoneId;
-    this.onEntered?.(zoneId, consoles);
+    this.onEntered?.(zoneId, consoles, workstations);
   }
 
-  getCurrentZoneId(): ZoneId | null { return this.currentZoneId; }
-  getConsoles(): ConsoleAnchor[] { return [...this.currentConsoles]; }
+  getCurrentZoneId(): ZoneId | null {
+    return this.currentZoneId;
+  }
+  getConsoles(): ConsoleAnchor[] {
+    return [...this.currentConsoles];
+  }
+  getWorkstations(): THREE.Object3D[] {
+    return [...this.currentWorkstations];
+  }
 }
 
 /* Recursively dispose geometry and materials. */

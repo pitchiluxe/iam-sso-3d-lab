@@ -14,6 +14,18 @@ import { renderObjectivesWindow } from './consoles/objectivesWindow';
 import { renderNotepadWindow } from './consoles/notepadWindow';
 import { renderStickyNotesWindow } from './consoles/stickyNotesWindow';
 import { renderFileExplorerWindow } from './consoles/fileExplorerWindow';
+import { renderBrowserWindow } from './consoles/browserWindow';
+import { renderSettingsWindow } from './consoles/settingsWindow';
+import { renderControlPanelWindow } from './consoles/controlPanelWindow';
+import { renderRecycleBinWindow } from './consoles/recycleBinWindow';
+import {
+  getIconOrder,
+  saveIconOrder,
+  getDeletedIcons,
+  deleteIcon,
+  onDesktopIconsChanged,
+} from '@/util/desktopIcons';
+import { WALLPAPER_BY_ID, DEFAULT_WALLPAPER_ID, WALLPAPER_STORAGE_KEY } from '@/util/wallpapers';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,21 +45,125 @@ export interface DesktopOverlay {
   hide(): void;
   isVisible(): boolean;
   openWindow(id: string, conductor: Conductor): void;
+  /** Called whenever the desktop is closed (Exit button or ESC). */
+  onExit: (() => void) | null;
 }
 
 const DESKTOP_APPS: WindowDef[] = [
-  { id: 'iam-console',     title: 'IAM Console',      icon: '🔐', width: 720, height: 580, render: (c, b) => renderIAMConsole(b, c) },
-  { id: 'ticket-console',  title: 'Ticket Queue',     icon: '🎫', width: 680, height: 560, render: (c, b) => renderTicketConsole(b, c) },
-  { id: 'secops-dashboard', title: 'SecOps Dashboard', icon: '🛡️', width: 740, height: 600, render: (c, b) => renderSecOpsDashboard(b, c) },
-  { id: 'ollama-console',  title: 'AI Supervisor',    icon: '🤖', width: 640, height: 600, render: (c, b) => renderOllamaConsole(b, c) },
-  { id: 'objectives',      title: 'Objectives',        icon: '📋', width: 380, height: 560, render: (c, b) => renderObjectivesWindow(b, c) },
-  { id: 'notepad',         title: 'Notepad',           icon: '📝', width: 560, height: 480, render: (_c, b) => renderNotepadWindow(b) },
-  { id: 'sticky-notes',    title: 'Sticky Notes',      icon: '📌', width: 480, height: 400, render: (_c, b) => renderStickyNotesWindow(b) },
-  { id: 'explorer',        title: 'File Explorer',     icon: '📁', width: 700, height: 500, render: (_c, b) => renderFileExplorerWindow(b) },
+  {
+    id: 'iam-console',
+    title: 'IAM Console',
+    icon: '🔐',
+    width: 720,
+    height: 580,
+    render: (c, b) => renderIAMConsole(b, c),
+  },
+  {
+    id: 'ticket-console',
+    title: 'Ticket Queue',
+    icon: '🎫',
+    width: 680,
+    height: 560,
+    render: (c, b) => renderTicketConsole(b, c),
+  },
+  {
+    id: 'secops-dashboard',
+    title: 'SecOps Dashboard',
+    icon: '🛡️',
+    width: 740,
+    height: 600,
+    render: (c, b) => renderSecOpsDashboard(b, c),
+  },
+  {
+    id: 'ollama-console',
+    title: 'AI Supervisor',
+    icon: '🤖',
+    width: 640,
+    height: 600,
+    render: (c, b) => renderOllamaConsole(b, c),
+  },
+  {
+    id: 'objectives',
+    title: 'Objectives',
+    icon: '📋',
+    width: 380,
+    height: 560,
+    render: (_c, b) => renderObjectivesWindow(b),
+  },
+  {
+    id: 'notepad',
+    title: 'Notepad',
+    icon: '📝',
+    width: 560,
+    height: 480,
+    render: (_c, b) => renderNotepadWindow(b),
+  },
+  {
+    id: 'sticky-notes',
+    title: 'Sticky Notes',
+    icon: '📌',
+    width: 480,
+    height: 400,
+    render: (_c, b) => renderStickyNotesWindow(b),
+  },
+  {
+    id: 'explorer',
+    title: 'File Explorer',
+    icon: '📁',
+    width: 700,
+    height: 500,
+    render: (_c, b) => renderFileExplorerWindow(b),
+  },
+  {
+    id: 'browser',
+    title: 'Web Browser',
+    icon: '🌐',
+    width: 800,
+    height: 600,
+    render: (_c, b) => renderBrowserWindow(b),
+  },
+  {
+    id: 'settings',
+    title: 'Settings',
+    icon: '⚙️',
+    width: 640,
+    height: 520,
+    render: (_c, b) => renderSettingsWindow(b),
+  },
+  {
+    id: 'control-panel',
+    title: 'Control Panel',
+    icon: '🎛️',
+    width: 680,
+    height: 520,
+    render: (_c, b) => renderControlPanelWindow(b),
+  },
+  {
+    id: 'recycle-bin',
+    title: 'Recycle Bin',
+    icon: '🗑️',
+    width: 480,
+    height: 440,
+    render: (_c, b) => renderRecycleBinWindow(b),
+  },
 ];
 
-const APP_BY_ID: Record<string, WindowDef> =
-  Object.fromEntries(DESKTOP_APPS.map((a) => [a.id, a]));
+const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map((a) => [a.id, a]));
+
+/** Windows whose render() actually reads conductor state (users/groups/lab
+ * progress/audit log) — these need a forced refresh on VM re-entry so they
+ * don't keep showing data from before a lab reset. Notepad, Sticky Notes,
+ * File Explorer, Settings, Control Panel, Recycle Bin and the Web Browser
+ * ignore their conductor param entirely, so refreshing them would only risk
+ * clobbering in-progress local state (e.g. an unsaved Notepad draft) for no
+ * benefit. */
+const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
+  'iam-console',
+  'ticket-console',
+  'secops-dashboard',
+  'ollama-console',
+  'objectives',
+]);
 
 // ---------------------------------------------------------------------------
 // WindowManager
@@ -152,6 +268,17 @@ class WindowManager {
     return [...this.windows.keys()];
   }
 
+  /** Re-run a window's render() against the current conductor state — used
+   * when re-entering the VM so already-open conductor-backed windows (IAM
+   * Console, Objectives, etc.) don't keep showing stale data from before a
+   * lab reset/switch instead of being duplicated as brand-new windows. */
+  refresh(id: string): void {
+    const w = this.windows.get(id);
+    const def = APP_BY_ID[id];
+    if (!w || !def) return;
+    def.render(this.conductor, w.body);
+  }
+
   updateTaskbar(): void {
     const strip = document.getElementById('taskbar-apps');
     if (strip) strip.innerHTML = this.buildTaskbarHTML();
@@ -160,19 +287,17 @@ class WindowManager {
   buildTaskbarHTML(): string {
     const open = this.getOpenIds();
     const minimized = this.getMinimizedIds();
-    return DESKTOP_APPS
-      .map((d) => {
-        const isOpen = open.includes(d.id);
-        const isMin = minimized.includes(d.id);
-        if (!isOpen && !isMin) return '';
-        const active = isOpen && !isMin ? 'taskbar-app--active' : '';
-        const dataAttrs = `data-win="${d.id}" data-min="${isMin}"`;
-        return `<button class="taskbar-app ${active}" ${dataAttrs} title="${d.title}">
+    return DESKTOP_APPS.map((d) => {
+      const isOpen = open.includes(d.id);
+      const isMin = minimized.includes(d.id);
+      if (!isOpen && !isMin) return '';
+      const active = isOpen && !isMin ? 'taskbar-app--active' : '';
+      const dataAttrs = `data-win="${d.id}" data-min="${isMin}"`;
+      return `<button class="taskbar-app ${active}" ${dataAttrs} title="${d.title}">
           <span>${d.icon}</span>
           <span class="taskbar-app-label">${d.title}</span>
         </button>`;
-      })
-      .join('');
+    }).join('');
   }
 
   private createWindowElement(def: WindowDef): WinState {
@@ -203,7 +328,8 @@ class WindowManager {
     `;
 
     const titleEl = document.createElement('div');
-    titleEl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;color:#e6e6e6;font-weight:500;';
+    titleEl.style.cssText =
+      'display:flex;align-items:center;gap:8px;font-size:13px;color:#e6e6e6;font-weight:500;';
     titleEl.innerHTML = `<span>${def.icon}</span><span>${def.title}</span>`;
     titleBar.appendChild(titleEl);
 
@@ -227,8 +353,12 @@ class WindowManager {
         else if (ld.action === 'minimize') this.minimize(def.id);
         else this.toggleMaximize(def.id);
       });
-      btn.addEventListener('mouseenter', () => { btn.style.opacity = '1'; });
-      btn.addEventListener('mouseleave', () => { btn.style.opacity = '0.85'; });
+      btn.addEventListener('mouseenter', () => {
+        btn.style.opacity = '1';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.opacity = '0.85';
+      });
       lights.appendChild(btn);
     }
     titleBar.appendChild(lights);
@@ -240,7 +370,8 @@ class WindowManager {
 
     // Dragging
     let dragging = false;
-    let dx = 0, dy = 0;
+    let dx = 0,
+      dy = 0;
 
     titleBar.addEventListener('mousedown', (e) => {
       if ((e.target as HTMLElement).tagName === 'BUTTON') return;
@@ -262,7 +393,9 @@ class WindowManager {
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
     };
-    const onUp = () => { dragging = false; };
+    const onUp = () => {
+      dragging = false;
+    };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
 
@@ -307,10 +440,16 @@ export function createDesktopOverlay(): DesktopOverlay {
 
   function buildDesktop(c: HTMLElement): void {
     const bg = document.createElement('div');
+    const savedWallpaperId = localStorage.getItem(WALLPAPER_STORAGE_KEY) ?? DEFAULT_WALLPAPER_ID;
+    const savedWallpaper =
+      WALLPAPER_BY_ID[savedWallpaperId] ?? WALLPAPER_BY_ID[DEFAULT_WALLPAPER_ID]!;
     bg.style.cssText = `
       position: absolute; inset: 0; bottom: 48px;
-      background: linear-gradient(145deg, #0d1117 0%, #0e1520 60%, #0a1015 100%);
+      background: ${savedWallpaper};
     `;
+    document.addEventListener('apex-wallpaper-changed', (e) => {
+      bg.style.background = (e as CustomEvent<string>).detail;
+    });
     const grid = document.createElement('div');
     grid.style.cssText = `
       position: absolute; inset: 0;
@@ -323,29 +462,117 @@ export function createDesktopOverlay(): DesktopOverlay {
     bg.appendChild(grid);
     c.appendChild(bg);
 
-    // Desktop icons
+    // Desktop icons — one per windowed app. Order persists via
+    // util/desktopIcons.ts; dragging one onto the Recycle Bin deletes it.
     const iconCol = document.createElement('div');
+    // Windows-style layout: fill each column top-to-bottom 6 icons deep,
+    // then start a new column to the right, instead of one long strip.
     iconCol.style.cssText = `
       position: absolute; top: 20px; left: 16px;
-      display: flex; flex-direction: column; gap: 8px; align-items: center;
+      display: grid; grid-template-rows: repeat(6, auto); grid-auto-flow: column;
+      gap: 8px; justify-items: center;
     `;
-    for (const app of DESKTOP_APPS) {
+    bg.appendChild(iconCol);
+    renderDesktopIcons(iconCol);
+    onDesktopIconsChanged(() => renderDesktopIcons(iconCol));
+  }
+
+  interface DesktopIconEntry {
+    id: string;
+    title: string;
+    icon: string;
+  }
+
+  function allDesktopIconEntries(): DesktopIconEntry[] {
+    return DESKTOP_APPS.map((a): DesktopIconEntry => ({ id: a.id, title: a.title, icon: a.icon }));
+  }
+
+  /** Resolve the visible, ordered, non-deleted list of desktop icons. */
+  function resolveIconOrder(): DesktopIconEntry[] {
+    const all = allDesktopIconEntries();
+    const byId = new Map(all.map((e) => [e.id, e]));
+    const deletedIds = new Set(getDeletedIcons().map((d) => d.id));
+    const savedOrder = getIconOrder();
+
+    const orderedIds =
+      savedOrder && savedOrder.length > 0
+        ? [...savedOrder, ...all.map((e) => e.id).filter((id) => !savedOrder.includes(id))]
+        : all.map((e) => e.id);
+
+    return orderedIds
+      .filter((id) => !deletedIds.has(id) && byId.has(id))
+      .map((id) => byId.get(id)!);
+  }
+
+  function renderDesktopIcons(iconCol: HTMLElement): void {
+    iconCol.innerHTML = '';
+    const icons = resolveIconOrder();
+    let draggedId: string | null = null;
+
+    for (const entry of icons) {
       const iconBtn = document.createElement('button');
+      iconBtn.draggable = true;
+      iconBtn.dataset['iconId'] = entry.id;
       iconBtn.style.cssText = `
         background: transparent; border: none; cursor: pointer;
         display: flex; flex-direction: column; align-items: center; gap: 4px;
         padding: 8px; border-radius: 6px; width: 80px;
       `;
       iconBtn.innerHTML = `
-        <span style="font-size:32px;line-height:1;">${app.icon}</span>
-        <span style="font-size:11px;color:#c8cdd3;text-align:center;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${app.title}</span>
+        <span style="font-size:32px;line-height:1;">${entry.icon}</span>
+        <span style="font-size:11px;color:#c8cdd3;text-align:center;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${entry.title}</span>
       `;
-      iconBtn.title = `Open ${app.title} (double-click)`;
-      iconBtn.addEventListener('dblclick', () => { wmCtx.current?.open(app); });
-      iconBtn.addEventListener('click', () => { wmCtx.current?.open(app); });
+      const activate = () => {
+        const def = APP_BY_ID[entry.id];
+        if (def) wmCtx.current?.open(def);
+      };
+      iconBtn.title = `Open ${entry.title} (double-click) · drag to reorder or drop on Recycle Bin to remove`;
+      iconBtn.addEventListener('dblclick', activate);
+      iconBtn.addEventListener('click', activate);
+
+      // --- Drag to reorder / drop-on-Recycle-Bin to delete ---
+      iconBtn.addEventListener('dragstart', (e) => {
+        draggedId = entry.id;
+        iconBtn.style.opacity = '0.4';
+        e.dataTransfer?.setData('text/plain', entry.id);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+      });
+      iconBtn.addEventListener('dragend', () => {
+        iconBtn.style.opacity = '1';
+        draggedId = null;
+      });
+      iconBtn.addEventListener('dragover', (e) => {
+        if (!draggedId || draggedId === entry.id) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        iconBtn.style.background = 'rgba(78,201,176,0.15)';
+      });
+      iconBtn.addEventListener('dragleave', () => {
+        iconBtn.style.background = 'transparent';
+      });
+      iconBtn.addEventListener('drop', (e) => {
+        e.preventDefault();
+        iconBtn.style.background = 'transparent';
+        const sourceId = e.dataTransfer?.getData('text/plain') || draggedId;
+        if (!sourceId || sourceId === entry.id) return;
+
+        if (entry.id === 'recycle-bin') {
+          const source = allDesktopIconEntries().find((x) => x.id === sourceId);
+          if (source && source.id !== 'recycle-bin') deleteIcon(source);
+          return;
+        }
+
+        const currentOrder = resolveIconOrder().map((x) => x.id);
+        const from = currentOrder.indexOf(sourceId);
+        if (from === -1) return;
+        currentOrder.splice(from, 1);
+        const to = currentOrder.indexOf(entry.id);
+        currentOrder.splice(to, 0, sourceId);
+        saveIconOrder(currentOrder);
+      });
+
       iconCol.appendChild(iconBtn);
     }
-    bg.appendChild(iconCol);
   }
 
   function buildTaskbar(c: HTMLElement, conductor: Conductor): void {
@@ -372,8 +599,12 @@ export function createDesktopOverlay(): DesktopOverlay {
       transition: background 0.15s;
     `;
     startBtn.innerHTML = `<span style="font-size:16px;">⌂</span><span>Start</span>`;
-    startBtn.addEventListener('mouseenter', () => { startBtn.style.background = '#2d343d'; });
-    startBtn.addEventListener('mouseleave', () => { startBtn.style.background = '#232830'; });
+    startBtn.addEventListener('mouseenter', () => {
+      startBtn.style.background = '#2d343d';
+    });
+    startBtn.addEventListener('mouseleave', () => {
+      startBtn.style.background = '#232830';
+    });
     startBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleStartMenu();
@@ -397,9 +628,13 @@ export function createDesktopOverlay(): DesktopOverlay {
       font-size: 12px; color: #8b95a1;
     `;
     tray.innerHTML = `<span title="Connected" style="font-size:14px;">📶</span>`;
-    const clock = document.createElement('span');
+    const clock = document.createElement('button');
     clock.id = 'taskbar-clock';
-    clock.style.cssText = 'font-variant-numeric: tabular-nums;';
+    clock.title = 'Open calendar';
+    clock.style.cssText = `
+      font-variant-numeric: tabular-nums; background: transparent; border: none;
+      color: inherit; font: inherit; cursor: pointer; padding: 2px 4px; border-radius: 4px;
+    `;
     const updateClock = () => {
       const now = new Date();
       clock.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -407,6 +642,16 @@ export function createDesktopOverlay(): DesktopOverlay {
     updateClock();
     if (clockInterval) clearInterval(clockInterval);
     clockInterval = window.setInterval(updateClock, 10000);
+    clock.addEventListener('mouseenter', () => {
+      clock.style.background = '#2d343d';
+    });
+    clock.addEventListener('mouseleave', () => {
+      clock.style.background = 'transparent';
+    });
+    clock.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCalendarWidget();
+    });
     tray.appendChild(clock);
 
     const logoutBtn = document.createElement('button');
@@ -417,12 +662,16 @@ export function createDesktopOverlay(): DesktopOverlay {
     `;
     logoutBtn.textContent = '↩ Exit';
     logoutBtn.title = 'Close workstation and return to 3D navigation';
-    logoutBtn.addEventListener('mouseenter', () => { logoutBtn.style.background = '#2d343d'; logoutBtn.style.color = '#e6e6e6'; });
-    logoutBtn.addEventListener('mouseleave', () => { logoutBtn.style.background = 'transparent'; logoutBtn.style.color = '#8b95a1'; });
+    logoutBtn.addEventListener('mouseenter', () => {
+      logoutBtn.style.background = '#2d343d';
+      logoutBtn.style.color = '#e6e6e6';
+    });
+    logoutBtn.addEventListener('mouseleave', () => {
+      logoutBtn.style.background = 'transparent';
+      logoutBtn.style.color = '#8b95a1';
+    });
     logoutBtn.addEventListener('click', () => {
-      const overlay = document.getElementById('desktop-overlay');
-      if (overlay) overlay.style.display = 'none';
-      visible = false;
+      api.hide();
     });
     tray.appendChild(logoutBtn);
 
@@ -439,6 +688,7 @@ export function createDesktopOverlay(): DesktopOverlay {
     });
 
     buildStartMenu(c, conductor, wm);
+    buildCalendarWidget(c);
 
     c.addEventListener('click', (e) => {
       const tgt = e.target as HTMLElement;
@@ -446,12 +696,85 @@ export function createDesktopOverlay(): DesktopOverlay {
         const sm = document.getElementById('start-menu');
         if (sm) sm.style.display = 'none';
       }
+      if (!tgt.closest('#calendar-widget') && !tgt.closest('#taskbar-clock')) {
+        const cal = document.getElementById('calendar-widget');
+        if (cal) cal.style.display = 'none';
+      }
     });
   }
 
   function toggleStartMenu(): void {
     const sm = document.getElementById('start-menu');
     if (sm) sm.style.display = sm.style.display === 'flex' ? 'none' : 'flex';
+  }
+
+  function toggleCalendarWidget(): void {
+    const cal = document.getElementById('calendar-widget');
+    if (cal) cal.style.display = cal.style.display === 'block' ? 'none' : 'block';
+  }
+
+  /** A small month-view calendar that pops up above the taskbar clock. */
+  function buildCalendarWidget(c: HTMLElement): void {
+    const cal = document.createElement('div');
+    cal.id = 'calendar-widget';
+    cal.style.cssText = `
+      display: none; position: absolute; bottom: 52px; right: 8px;
+      width: 260px; background: rgba(27, 31, 36, 0.97);
+      border: 1px solid #2d343d; border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px);
+      z-index: 100; padding: 14px; color: #e6e6e6; font-size: 12px;
+    `;
+    c.appendChild(cal);
+
+    const MONTH_NAMES = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    const renderCalendar = () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const today = now.getDate();
+      const firstDow = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      let cells = '';
+      for (let i = 0; i < firstDow; i++) cells += '<div></div>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const isToday = d === today;
+        cells += `<div style="text-align:center;padding:4px 0;border-radius:4px;font-size:11px;${
+          isToday ? 'background:#4ec9b0;color:#0e1116;font-weight:700;' : 'color:#c8cdd3;'
+        }">${d}</div>`;
+      }
+
+      cal.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+          <strong style="font-size:13px;">${MONTH_NAMES[month]} ${year}</strong>
+          <span style="color:#8b95a1;font-size:11px;">${now.toLocaleDateString([], { weekday: 'long' })}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px;color:#8b95a1;margin-bottom:4px;">
+          ${DOW.map((d) => `<div style="text-align:center;">${d}</div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">${cells}</div>
+      `;
+    };
+
+    renderCalendar();
+    // Keep the highlighted day correct if the widget is left open across midnight.
+    window.setInterval(renderCalendar, 60000);
   }
 
   function buildStartMenu(c: HTMLElement, conductor: Conductor, wm: WindowManager): void {
@@ -492,7 +815,8 @@ export function createDesktopOverlay(): DesktopOverlay {
     sm.appendChild(pinnedLabel);
 
     const appsGrid = document.createElement('div');
-    appsGrid.style.cssText = 'padding: 0 8px 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px;';
+    appsGrid.style.cssText =
+      'padding: 0 8px 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px;';
     for (const app of DESKTOP_APPS) {
       const appBtn = document.createElement('button');
       appBtn.style.cssText = `
@@ -502,8 +826,12 @@ export function createDesktopOverlay(): DesktopOverlay {
         transition: background 0.15s;
       `;
       appBtn.innerHTML = `<span style="font-size:20px;">${app.icon}</span><span>${app.title}</span>`;
-      appBtn.addEventListener('mouseenter', () => { appBtn.style.background = '#232830'; });
-      appBtn.addEventListener('mouseleave', () => { appBtn.style.background = 'transparent'; });
+      appBtn.addEventListener('mouseenter', () => {
+        appBtn.style.background = '#232830';
+      });
+      appBtn.addEventListener('mouseleave', () => {
+        appBtn.style.background = 'transparent';
+      });
       appBtn.addEventListener('click', () => {
         wm.open(app);
         const sm2 = document.getElementById('start-menu');
@@ -524,22 +852,77 @@ export function createDesktopOverlay(): DesktopOverlay {
     c.appendChild(sm);
   }
 
-  return {
+  /**
+   * Open the default VM windows in a consistent 2-pane layout,
+   * centered in the viewport with a small gap between them.
+   *
+   *   Left:  IAM Console  — the primary admin tool (wide)
+   *   Right: Objectives — lab checklist and coaching focus (narrow)
+   *
+   * Positions are pinned so every VM entry looks the same. The AI
+   * Supervisor and other apps remain accessible from the Start menu
+   * and taskbar but are NOT opened by default to keep the desktop calm.
+   */
+  function layoutDefaultWindows(wm: WindowManager | null): void {
+    if (!wm) return;
+
+    // Helper: open + immediately pin the window to a specific position
+    const openPinned = (id: string, x: number, y: number, w: number, h: number) => {
+      const def = APP_BY_ID[id];
+      if (!def) return;
+      wm.open(def);
+      // After open() positions the window with random offset, pin it precisely
+      const ws = wm.windows.get(id);
+      if (ws) {
+        ws.el.style.left = `${x}px`;
+        ws.el.style.top = `${y}px`;
+        ws.el.style.width = `${w}px`;
+        ws.el.style.height = `${h}px`;
+      }
+    };
+
+    // 2-pane centered layout
+    const GAP = 16; // gap between the two windows
+    const iamW = 700;
+    const objW = 360;
+    const totalW = iamW + GAP + objW;
+    const x0 = Math.round((window.innerWidth - totalW) / 2); // left edge of iam console
+    const h = Math.min(620, window.innerHeight - 80);
+    const y0 = Math.round((window.innerHeight - 48 - h) / 2); // centered vertically, above taskbar
+
+    openPinned('iam-console', x0, y0, iamW, h); // left pane
+    openPinned('objectives', x0 + iamW + GAP, y0, objW, h); // right pane, GAP px gap
+  }
+
+  const api: DesktopOverlay = {
     show(conductor: Conductor) {
       if (!container) {
         container = buildContainer();
         buildDesktop(container);
         buildTaskbar(container, conductor);
-        // Auto-open AI Supervisor + Objectives inside the VM
-        wmCtx.current?.openById('ollama-console');
-        wmCtx.current?.openById('objectives');
+        // Auto-open IAM Console + Objectives inside the VM (2-pane default layout)
+        layoutDefaultWindows(wmCtx.current);
       } else {
-        // Update the WindowManager for a fresh conductor
-        wmCtx.current = new WindowManager(conductor, container);
-        wmCtx.current.updateTaskbar();
-        // Re-open default windows for the new conductor
-        wmCtx.current?.openById('ollama-console');
-        wmCtx.current?.openById('objectives');
+        // Re-entering the VM: reuse the existing WindowManager and its DOM
+        // instead of building a new one. Recreating the WindowManager here
+        // (as this used to do) left the old windows orphaned in the DOM —
+        // layoutDefaultWindows would then open a second IAM Console +
+        // Objectives on top of them every single time the learner exited
+        // and re-entered, duplicating windows without bound.
+        const wm = wmCtx.current;
+        if (wm && wm.getOpenIds().length > 0) {
+          // Windows are already open — refresh the conductor-backed ones so
+          // they reflect the current lab state (e.g. after Reset Lab) rather
+          // than whatever was rendered when they were first opened.
+          for (const id of wm.getOpenIds()) {
+            if (CONDUCTOR_BACKED_WINDOW_IDS.has(id)) wm.refresh(id);
+          }
+          wm.updateTaskbar();
+        } else {
+          // Desktop was opened before but everything got closed — restore
+          // the default layout.
+          layoutDefaultWindows(wm);
+        }
       }
       if (container) container.style.display = 'flex';
       visible = true;
@@ -547,12 +930,19 @@ export function createDesktopOverlay(): DesktopOverlay {
     hide() {
       const overlay = document.getElementById('desktop-overlay');
       if (overlay) overlay.style.display = 'none';
-      visible = false;
+      if (visible) {
+        visible = false;
+        api.onExit?.();
+      }
     },
-    isVisible() { return visible; },
+    isVisible() {
+      return visible;
+    },
     openWindow(id: string, conductor: Conductor) {
       if (!visible) this.show(conductor);
       wmCtx.current?.openById(id);
     },
+    onExit: null,
   };
+  return api;
 }

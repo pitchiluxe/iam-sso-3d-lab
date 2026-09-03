@@ -12,15 +12,27 @@
  * still owns step progression — the supervisor observes and guides.
  */
 import type {
-  AuditEvent, Lab, LabId, ScoreBreakdown, ScorePoints, ScoreCategory,
+  AuditEvent,
+  Lab,
+  LabId,
+  ScoreBreakdown,
+  ScorePoints,
+  ScoreCategory,
   AppId,
+  UserId,
 } from '@/domain';
 import type { EventBus } from '@/util';
 import { createEventBus } from '@/util';
 import { OllamaSupervisor } from '@/services/ollamaSupervisor';
 import {
-  MockAuditLog, MockDirectory, MockIdP, MockAppServer,
-  MockTicketQueue, MockAccessReviews, MockIncidents, FaultService,
+  MockAuditLog,
+  MockDirectory,
+  MockIdP,
+  MockAppServer,
+  MockTicketQueue,
+  MockAccessReviews,
+  MockIncidents,
+  FaultService,
 } from '@/services';
 import { applyBaseline } from '@/seed/baseline';
 import { applyLab01Seed } from '@/seed/perLab/lab01';
@@ -37,26 +49,32 @@ import { applyLab11Seed } from '@/seed/perLab/lab11';
 import { applyLab12Seed } from '@/seed/perLab/lab12';
 import { applyLab13Seed } from '@/seed/perLab/lab13';
 import {
-  labStore, ticketStore, auditStore, faultStore, tutorStore,
-  evidenceStore, scoreStore, progressStore,
+  labStore,
+  ticketStore,
+  auditStore,
+  faultStore,
+  tutorStore,
+  evidenceStore,
+  scoreStore,
+  progressStore,
 } from '@/stores';
 import { findLab } from '@/labs/registry';
 
 const SEEDS: Record<string, (ctx: SeedContext) => void> = {
-  baseline:   (ctx) => applyBaseline(ctx.dir, ctx.idp, ctx.apps),
-  'lab01':    (ctx) => applyLab01Seed(ctx.dir, ctx.idp, ctx.apps),
-  'lab02':    (ctx) => applyLab02Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  'lab03':    (ctx) => applyLab03Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  'lab04':    (ctx) => applyLab04Seed(ctx.dir, ctx.idp, ctx.apps),
-  'lab05':    (ctx) => applyLab05Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  'lab06':    (ctx) => applyLab06Seed(ctx.dir, ctx.idp, ctx.apps, ctx.reviews),
-  'lab07':    (ctx) => applyLab07Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents),
-  'lab08':    (ctx) => applyLab08Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents, ctx.audit),
-  'lab09':    (ctx) => applyLab09Seed(ctx.dir, ctx.idp, ctx.apps),
-  'lab10':    (ctx) => applyLab10Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  'lab11':    (ctx) => applyLab11Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  'lab12':    (ctx) => applyLab12Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  'lab13':    (ctx) => applyLab13Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  baseline: (ctx) => applyBaseline(ctx.dir, ctx.idp, ctx.apps),
+  lab01: (ctx) => applyLab01Seed(ctx.dir, ctx.idp, ctx.apps),
+  lab02: (ctx) => applyLab02Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab03: (ctx) => applyLab03Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab04: (ctx) => applyLab04Seed(ctx.dir, ctx.idp, ctx.apps),
+  lab05: (ctx) => applyLab05Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab06: (ctx) => applyLab06Seed(ctx.dir, ctx.idp, ctx.apps, ctx.reviews),
+  lab07: (ctx) => applyLab07Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents),
+  lab08: (ctx) => applyLab08Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents, ctx.audit),
+  lab09: (ctx) => applyLab09Seed(ctx.dir, ctx.idp, ctx.apps),
+  lab10: (ctx) => applyLab10Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab11: (ctx) => applyLab11Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab12: (ctx) => applyLab12Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab13: (ctx) => applyLab13Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
 };
 
 export interface SeedContext {
@@ -84,19 +102,30 @@ export class Conductor {
   private _unsubscribers: Array<() => void> = [];
   /** AI supervisor (Ollama) — scores each step and coaches the learner. */
   readonly supervisor: OllamaSupervisor = new OllamaSupervisor();
+  /** True while a step is marked done and waiting out its brief pause before
+   * advanceStep() actually runs — blocks handleEvent from double-scheduling. */
+  private _advancePending = false;
+  /** Bumped on every start()/stop() so a pause left over from a reset lab
+   * can detect it's stale and skip advancing into the new session. */
+  private _sessionToken = 0;
 
   /** Wire all services fresh and return them. */
   private bootstrap() {
+    this._advancePending = false;
+    this._sessionToken++;
     this.bus = createEventBus();
-    this.audit  = new MockAuditLog(this.bus);
-    this.dir    = new MockDirectory(this.audit);
-    this.idp    = new MockIdP(this.audit, this.dir);
-    this.apps   = new MockAppServer(this.dir, this.idp, this.audit);
-    this.tickets   = new MockTicketQueue(this.audit);
-    this.reviews   = new MockAccessReviews();
+    this.audit = new MockAuditLog(this.bus);
+    this.dir = new MockDirectory(this.audit);
+    this.idp = new MockIdP(this.audit, this.dir);
+    this.apps = new MockAppServer(this.dir, this.idp, this.audit);
+    this.tickets = new MockTicketQueue(this.audit);
+    this.reviews = new MockAccessReviews();
     this.incidents = new MockIncidents();
     this.faults = new FaultService({
-      dir: this.dir, idp: this.idp, apps: this.apps, audit: this.audit,
+      dir: this.dir,
+      idp: this.idp,
+      apps: this.apps,
+      audit: this.audit,
     });
   }
 
@@ -110,9 +139,13 @@ export class Conductor {
     // Apply the lab's starting seed
     const seedFn = SEEDS[this.currentLab.startingSeed] ?? SEEDS['baseline']!;
     seedFn({
-      dir: this.dir, idp: this.idp, apps: this.apps,
-      tickets: this.tickets, reviews: this.reviews,
-      incidents: this.incidents, audit: this.audit,
+      dir: this.dir,
+      idp: this.idp,
+      apps: this.apps,
+      tickets: this.tickets,
+      reviews: this.reviews,
+      incidents: this.incidents,
+      audit: this.audit,
     });
 
     // Push state to stores
@@ -160,9 +193,14 @@ export class Conductor {
   /** Get the current set of services. */
   getServices() {
     return {
-      dir: this.dir, idp: this.idp, apps: this.apps,
-      tickets: this.tickets, reviews: this.reviews,
-      incidents: this.incidents, audit: this.audit, faults: this.faults,
+      dir: this.dir,
+      idp: this.idp,
+      apps: this.apps,
+      tickets: this.tickets,
+      reviews: this.reviews,
+      incidents: this.incidents,
+      audit: this.audit,
+      faults: this.faults,
     };
   }
 
@@ -173,42 +211,72 @@ export class Conductor {
   private handleEvent(e: AuditEvent) {
     auditStore.getState().append(e);
     const lab = this.currentLab;
-    if (!lab) return;
+    if (!lab || this._advancePending) return;
     const step = lab.steps[labStore.getState().stepIndex];
     if (!step) return;
 
     if (this.eventMatchesValidator(e, step.validator)) {
-      this.bus.emit('lab.advance');
+      // Mark the step done immediately (renders the greyed-out "Next Step"
+      // state in the Objectives window) but don't advance stepIndex yet —
+      // advancing in the same tick as the match made the "done" state
+      // effectively invisible, since the UI would only ever repaint after
+      // stepIndex had already moved to the next step.
+      this._advancePending = true;
+      labStore.getState().markStepDone(step.id);
+      const token = this._sessionToken;
+      setTimeout(() => {
+        // A lab reset/restart in the meantime bumps the token — skip so we
+        // don't advance a session that's no longer the active one.
+        if (this._sessionToken !== token) return;
+        this._advancePending = false;
+        this.bus.emit('lab.advance');
+      }, 1200);
     }
   }
 
   private eventMatchesValidator(e: AuditEvent, v: Lab['steps'][number]['validator']): boolean {
     const p = v.params as Record<string, string>;
+
+    // Resolve username strings to UserIds when the raw ID lookup fails.
+    // Lab definitions may pass username strings (e.g. "bob.sato") cast as UserId.
+    const resolveUserId = (id: string): string => {
+      const existing = this.dir.getUser(id as UserId);
+      if (existing) return id;
+      const byName = this.dir.getUserByUsername(id);
+      return byName?.id ?? id;
+    };
+    const userId = resolveUserId(p.userId ?? '');
+    const groupId = p.groupId ?? '';
+
     switch (v.kind) {
       case 'ticket-resolved':
         return e.action === 'ticket.resolved' && e.targetId === p.ticketId;
       case 'user-disabled':
-        return e.action === 'user.disabled' && e.targetId === p.userId;
+        return e.action === 'user.disabled' && e.targetId === userId;
       case 'user-enabled':
-        return e.action === 'user.unlocked' && e.targetId === p.userId;
+        return e.action === 'user.unlocked' && e.targetId === userId;
       case 'user-created':
-        return e.action === 'user.created' && e.targetId === p.userId;
+        return e.action === 'user.created' && e.targetId === userId;
+      case 'group-created':
+        return e.action === 'group.created' && e.targetId === groupId;
       case 'group-added':
-        return e.action === 'group.add' && e.subjectId === p.userId && e.targetId === p.groupId;
+        return e.action === 'group.add' && e.subjectId === userId && e.targetId === groupId;
       case 'group-removed':
-        return e.action === 'group.remove' && e.subjectId === p.userId && e.targetId === p.groupId;
+        return e.action === 'group.remove' && e.subjectId === userId && e.targetId === groupId;
       case 'role-granted':
-        return e.action === 'role.grant' && e.subjectId === p.userId;
+        return e.action === 'role.grant' && e.subjectId === userId;
       case 'role-revoked':
-        return e.action === 'role.revoke' && e.subjectId === p.userId;
+        return e.action === 'role.revoke' && e.subjectId === userId;
       case 'app-config-fixed':
         return this.apps.getApp(p.appId as AppId)?.status === 'configured';
       case 'signin-succeeded':
-        return e.action === 'signin.success' && e.targetId === p.userId;
+        return e.action === 'signin.success' && e.targetId === userId;
       case 'mfa-challenge-completed':
-        return e.action === 'mfa.challenge' && e.targetId === p.userId;
+        return e.action === 'mfa.challenge' && e.targetId === userId;
+      case 'mfa-policy-enforced':
+        return e.action === 'policy.updated' && this.idp.hasMfaPolicy();
       case 'session-revoked':
-        return e.action === 'session.revoked' && e.subjectId === p.userId;
+        return e.action === 'session.revoked' && e.subjectId === userId;
       case 'fault-cleared':
         return !faultStore.getState().active.includes(p.kind as never);
       case 'evidence-collected':
@@ -216,7 +284,7 @@ export class Conductor {
       case 'audit-note-written':
         return false; // not used in thin slice
       case 'user-moved':
-        return e.action === 'group.remove' && e.subjectId === p.userId;
+        return e.action === 'group.remove' && e.subjectId === userId;
       default:
         return false;
     }
@@ -227,7 +295,15 @@ export class Conductor {
     if (!lab) return;
     for (const f of lab.faults) {
       if (f.applyAtStep === stepId) {
-        this.faults.apply(f.kind, { targetAppId: f.targetAppId, targetUserId: f.targetUserId });
+        // Resolve a username-shaped targetUserId to the real UserId at apply time.
+        // Lab definitions may pass the username string (e.g. "bob.sato") cast as UserId;
+        // if so, look it up by username in the directory.
+        let targetUserId = f.targetUserId;
+        if (targetUserId && !this.dir.getUser(targetUserId)) {
+          const byName = this.dir.getUserByUsername(targetUserId as unknown as string);
+          if (byName) targetUserId = byName.id;
+        }
+        this.faults.apply(f.kind, { targetAppId: f.targetAppId, targetUserId });
         faultStore.getState().apply(f.kind, stepId);
       }
     }
@@ -286,7 +362,12 @@ function computeScore(
   failCount: number,
 ): ScoreBreakdown {
   const earned: Record<ScoreCategory, number> = {
-    exec: 0, troubleshoot: 0, 'least-privilege': 0, docs: 0, evidence: 0, comms: 0,
+    exec: 0,
+    troubleshoot: 0,
+    'least-privilege': 0,
+    docs: 0,
+    evidence: 0,
+    comms: 0,
   };
   // Sum per-step points for passed steps
   const statuses = labStore.getState().stepStatuses;
@@ -302,7 +383,9 @@ function computeScore(
   earned.troubleshoot = Math.max(0, earned.troubleshoot - penalty);
 
   // Bonus/penalty: 0 on least-privilege if any user has an obviously excessive role
-  if (dir.listRoles().some((r) => r.name === 'role-domain-admin' && dir.getUserByUsername('bob.sato'))) {
+  if (
+    dir.listRoles().some((r) => r.name === 'role-domain-admin' && dir.getUserByUsername('bob.sato'))
+  ) {
     earned['least-privilege'] = Math.min(earned['least-privilege'], 5);
   }
   // 0 on evidence if any required evidence is missing
@@ -317,12 +400,21 @@ function computeScore(
     }
   }
 
-  const total = earned.exec + earned.troubleshoot + earned['least-privilege'] + earned.docs + earned.evidence + earned.comms;
+  const total =
+    earned.exec +
+    earned.troubleshoot +
+    earned['least-privilege'] +
+    earned.docs +
+    earned.evidence +
+    earned.comms;
   return {
     labId: lab.id,
-    exec: earned.exec, troubleshoot: earned.troubleshoot,
-    'least-privilege': earned['least-privilege'], docs: earned.docs,
-    evidence: earned.evidence, comms: earned.comms,
+    exec: earned.exec,
+    troubleshoot: earned.troubleshoot,
+    'least-privilege': earned['least-privilege'],
+    docs: earned.docs,
+    evidence: earned.evidence,
+    comms: earned.comms,
     total,
     notes: failCount > 0 ? [`Penalty: -${penalty} from ${failCount} failed validate calls`] : [],
   };

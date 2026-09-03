@@ -1,7 +1,7 @@
 {
   "name": "iam-sso-3d-lab",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
@@ -32,12 +32,6 @@
       "dist/**/*",
       "electron/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "C:\\Users\\erick\\Documents\\_My_Digital_Solutions\\AIHub-Browser\\dist\\AIHub-Browser-1.45.1-win-x64.exe",
-        "to": "aihub/AIHub-Browser-1.45.1-win-x64.exe"
-      }
     ],
     "win": {
       "target": [

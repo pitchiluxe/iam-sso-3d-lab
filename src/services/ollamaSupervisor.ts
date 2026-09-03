@@ -16,7 +16,7 @@ import { tutorStore } from '@/stores';
 import type { Lab, LabStep, AuditEvent } from '@/domain';
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
-const DEFAULT_MODEL   = 'llama3.2';
+const DEFAULT_MODEL = 'llama3.2';
 
 export interface OllamaConfig {
   baseUrl?: string;
@@ -47,13 +47,20 @@ export interface StepScore {
 }
 
 function ollamaBaseUrl(): string {
-  return (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ?? DEFAULT_BASE_URL;
+  return (
+    (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ??
+    DEFAULT_BASE_URL
+  );
 }
 function ollamaModel(): string {
-  return (window as unknown as { env?: { OLLAMA_MODEL?: string } }).env?.OLLAMA_MODEL ?? DEFAULT_MODEL;
+  return (
+    (window as unknown as { env?: { OLLAMA_MODEL?: string } }).env?.OLLAMA_MODEL ?? DEFAULT_MODEL
+  );
 }
 function isDisabled(): boolean {
-  return (window as unknown as { env?: { OLLAMA_DISABLED?: string } }).env?.OLLAMA_DISABLED === 'true';
+  return (
+    (window as unknown as { env?: { OLLAMA_DISABLED?: string } }).env?.OLLAMA_DISABLED === 'true'
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +104,7 @@ DOMAIN GRAPH (use this when naming areas, not specific IDs):
 - Groups have: name (convention: grp-<dept>-<role>), description, members.
 - Apps have: name, protocol (SAML/OIDC), status (configured/misconfigured/down), MFA requirement, required roles.
 - Tickets have: id, requester, action (create/modify/disable/delete), target, priority, state.
-- Audit log records every action: user.created, user.updated, user.disabled, user.deleted, group.add, group.remove, group.updated, group.deleted, role.grant, role.revoke, app.config.fixed, signin.succeeded, mfa.challenge.completed, session.revoked, fault.cleared, evidence.collected.
+- Audit log records every action: user.created, user.updated, user.disabled, user.deleted, group.created, group.add, group.remove, group.updated, group.deleted, role.grant, role.revoke, app.config.fixed, signin.succeeded, mfa.challenge.completed, session.revoked, fault.cleared, evidence.collected.
 
 SCORING RUBRIC (when the learner clicks "Score my step"):
 - exec            0-25: completed the required action correctly
@@ -127,9 +134,16 @@ function buildScoringPrompt(
   stepIndex: number,
   events: AuditEvent[],
 ): string {
-  const eventSummary = events.length === 0
-    ? 'No audit events recorded yet for this step.'
-    : events.slice(-10).map((e) => `[${new Date(e.at).toLocaleTimeString()}] ${e.actorId}: ${e.action} target=${e.targetId ?? ''} subject=${e.subjectId ?? ''}`).join('\n');
+  const eventSummary =
+    events.length === 0
+      ? 'No audit events recorded yet for this step.'
+      : events
+          .slice(-10)
+          .map(
+            (e) =>
+              `[${new Date(e.at).toLocaleTimeString()}] ${e.actorId}: ${e.action} target=${e.targetId ?? ''} subject=${e.subjectId ?? ''}`,
+          )
+          .join('\n');
 
   const tutorPrompts = (step.tutorPrompts ?? []).join(' | ') || 'None provided';
 
@@ -149,44 +163,59 @@ Score the learner on the 6-category rubric. In the "coaching" field, use the HIN
 
 const STEP_PASS_THRESHOLDS: Record<string, number> = {
   'ticket-resolved': 1,
-  'user-disabled':   1,
-  'user-enabled':   1,
-  'user-created':   1,
-  'user-moved':     1,
-  'group-added':    1,
-  'group-removed':  1,
-  'role-granted':   1,
-  'role-revoked':   1,
-  'app-config-fixed':1,
-  'signin-succeeded':1,
+  'user-disabled': 1,
+  'user-enabled': 1,
+  'user-created': 1,
+  'user-moved': 1,
+  'group-created': 1,
+  'group-added': 1,
+  'group-removed': 1,
+  'role-granted': 1,
+  'role-revoked': 1,
+  'app-config-fixed': 1,
+  'signin-succeeded': 1,
   'mfa-challenge-completed': 1,
+  'mfa-policy-enforced': 1,
   'session-revoked': 1,
-  'fault-cleared':   1,
+  'fault-cleared': 1,
   'evidence-collected': 1,
 };
 
-function localFallbackScore(events: AuditEvent[], step: LabStep, params: Record<string, string>): StepScore {
+function localFallbackScore(
+  events: AuditEvent[],
+  step: LabStep,
+  params: Record<string, string>,
+): StepScore {
   const { kind } = step.validator;
   const required = params.userId ?? params.groupId ?? params.ticketId ?? params.appId ?? '';
 
   const matched = events.filter((e) => {
-    if (e.action === kind.replace(/-([a-z])/g, (_, c) => c.toUpperCase()).replace(/([A-Z])/g, '.$1').toLowerCase()) {
+    if (
+      e.action ===
+      kind
+        .replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+        .replace(/([A-Z])/g, '.$1')
+        .toLowerCase()
+    ) {
       return true;
     }
     return e.targetId === required || e.subjectId === required;
   });
 
   const passed = matched.length >= (STEP_PASS_THRESHOLDS[kind] ?? 1);
-  const evidencePct = events.filter((e) => e.action.includes('log') || e.action.includes('audit')).length > 0 ? 1.0 : 0.0;
+  const evidencePct =
+    events.filter((e) => e.action.includes('log') || e.action.includes('audit')).length > 0
+      ? 1.0
+      : 0.0;
 
   return {
-    exec:            passed ? 20 : 0,
-    troubleshoot:    passed ? 15 : 5,
-    leastPrivilege:  passed ? 12 : 5,
-    docs:            evidencePct ? 12 : 5,
-    evidence:        evidencePct ? 12 : 0,
-    comms:           passed ? 8 : 3,
-    coaching:        passed
+    exec: passed ? 20 : 0,
+    troubleshoot: passed ? 15 : 5,
+    leastPrivilege: passed ? 12 : 5,
+    docs: evidencePct ? 12 : 5,
+    evidence: evidencePct ? 12 : 0,
+    comms: passed ? 8 : 3,
+    coaching: passed
       ? 'Good work completing the step. Review the audit log to confirm your changes are reflected there before moving on.'
       : 'Not quite — check the audit log to see if your action was recorded. Review the validator requirement in the briefing panel.',
     passed,
@@ -222,7 +251,11 @@ export class OllamaSupervisor {
       return score;
     } catch (err) {
       console.warn('[ollama] LLM call failed, using local scorer:', err);
-      const fallback = localFallbackScore(events, step, step.validator.params as Record<string, string>);
+      const fallback = localFallbackScore(
+        events,
+        step,
+        step.validator.params as Record<string, string>,
+      );
       tutorStore.getState().addDialog({
         from: 'system',
         body: 'AI Supervisor unavailable — using local scoring. Configure Ollama at http://localhost:11434 for AI-powered coaching.',
@@ -270,7 +303,12 @@ export class OllamaSupervisor {
   // Private
   // ---------------------------------------------------------------------------
 
-  private async _callLlm(lab: Lab, step: LabStep, stepIndex: number, events: AuditEvent[]): Promise<StepScore> {
+  private async _callLlm(
+    lab: Lab,
+    step: LabStep,
+    stepIndex: number,
+    events: AuditEvent[],
+  ): Promise<StepScore> {
     const messages: OllamaMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: buildScoringPrompt(lab, step, stepIndex, events) },
@@ -282,36 +320,41 @@ export class OllamaSupervisor {
 
   private async _chat(messages: OllamaMessage[]): Promise<string | null> {
     const baseUrl = this.config.baseUrl ?? ollamaBaseUrl();
-    const model   = this.config.model    ?? ollamaModel();
+    const model = this.config.model ?? ollamaModel();
 
     const res = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, messages, stream: false }),
-      signal: AbortSignal.timeout(30000),
+      // 90s: tolerate a cold model load, not just a warm inference call.
+      signal: AbortSignal.timeout(90000),
     });
 
     if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
-    const data: OllamaChatResponse = await res.json() as OllamaChatResponse;
+    const data: OllamaChatResponse = (await res.json()) as OllamaChatResponse;
     return data.message?.content ?? null;
   }
 
   private _parseScore(raw: string, step: LabStep, events: AuditEvent[]): StepScore {
     try {
       // Strip markdown code fences if present
-      const json = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+      const json = raw
+        .replace(/^```json\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
       const obj = JSON.parse(json) as Partial<StepScore>;
       const passed = typeof obj.passed === 'boolean' ? obj.passed : (obj.exec ?? 0) >= 15;
       return {
-        exec:           Math.max(0, Math.min(25, obj.exec           ?? 0)),
-        troubleshoot:   Math.max(0, Math.min(20, obj.troubleshoot   ?? 0)),
+        exec: Math.max(0, Math.min(25, obj.exec ?? 0)),
+        troubleshoot: Math.max(0, Math.min(20, obj.troubleshoot ?? 0)),
         leastPrivilege: Math.max(0, Math.min(15, obj.leastPrivilege ?? 0)),
-        docs:           Math.max(0, Math.min(15, obj.docs           ?? 0)),
-        evidence:       Math.max(0, Math.min(15, obj.evidence       ?? 0)),
-        comms:          Math.max(0, Math.min(10, obj.comms          ?? 0)),
-        coaching:       typeof obj.coaching === 'string' && obj.coaching.length > 0
-                         ? obj.coaching
-                         : 'Step complete. Review your audit log to confirm the action was recorded.',
+        docs: Math.max(0, Math.min(15, obj.docs ?? 0)),
+        evidence: Math.max(0, Math.min(15, obj.evidence ?? 0)),
+        comms: Math.max(0, Math.min(10, obj.comms ?? 0)),
+        coaching:
+          typeof obj.coaching === 'string' && obj.coaching.length > 0
+            ? obj.coaching
+            : 'Step complete. Review your audit log to confirm the action was recorded.',
         passed,
       };
     } catch {

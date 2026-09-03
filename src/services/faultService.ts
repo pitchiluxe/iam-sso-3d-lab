@@ -98,13 +98,31 @@ const faultRegistry: Record<FaultKind, FaultMutator> = {
     if (!u) return;
     const sessionId = mkSessionId('suspicious');
     for (let i = 0; i < 3; i++) {
-      ctx.audit.record({ actorId: u.id, action: 'signin.failure', targetId: u.id, sessionId, ip: '203.0.113.42' });
+      ctx.audit.record({
+        actorId: u.id,
+        action: 'signin.failure',
+        targetId: u.id,
+        sessionId,
+        ip: '203.0.113.42',
+      });
     }
-    ctx.audit.record({ actorId: u.id, action: 'signin.success', targetId: u.id, sessionId, ip: '203.0.113.42' });
+    ctx.audit.record({
+      actorId: u.id,
+      action: 'signin.success',
+      targetId: u.id,
+      sessionId,
+      ip: '203.0.113.42',
+    });
   },
   'excessive-permissions': (ctx) => {
     if (!ctx.targetUserId) return;
-    const role = ctx.dir.createRole('role-domain-admin', 'Domain admin', ['*:*'], undefined, SYSTEM_ACTOR);
+    const role = ctx.dir.createRole(
+      'role-domain-admins',
+      'Domain Administrators',
+      ['domain:*'],
+      undefined,
+      SYSTEM_ACTOR,
+    );
     ctx.dir.grantRoleDirect(ctx.targetUserId, role.id, SYSTEM_ACTOR);
   },
   'dormant-account': (ctx) => {
@@ -122,19 +140,34 @@ const faultRegistry: Record<FaultKind, FaultMutator> = {
     if (!ctx.targetUserId) return;
     const u = ctx.dir.getUser(ctx.targetUserId);
     if (!u) return;
-    ctx.audit.record({ actorId: u.id, action: 'app.config.changed', targetId: u.id, diff: { fault: 'legacy-auth-misconfiguration' } });
+    ctx.audit.record({
+      actorId: u.id,
+      action: 'app.config.changed',
+      targetId: u.id,
+      diff: { fault: 'legacy-auth-misconfiguration' },
+    });
   },
   'sync-soft-match-conflict': (ctx) => {
     if (!ctx.targetUserId) return;
     const u = ctx.dir.getUser(ctx.targetUserId);
     if (!u) return;
-    ctx.audit.record({ actorId: u.id, action: 'app.config.changed', targetId: u.id, diff: { fault: 'sync-soft-match-conflict' } });
+    ctx.audit.record({
+      actorId: u.id,
+      action: 'app.config.changed',
+      targetId: u.id,
+      diff: { fault: 'sync-soft-match-conflict' },
+    });
   },
   'idp-mfa-outage': (ctx) => {
     if (!ctx.targetUserId) return;
     const u = ctx.dir.getUser(ctx.targetUserId);
     if (!u) return;
-    ctx.audit.record({ actorId: u.id, action: 'app.config.changed', targetId: u.id, diff: { fault: 'idp-mfa-outage' } });
+    ctx.audit.record({
+      actorId: u.id,
+      action: 'app.config.changed',
+      targetId: u.id,
+      diff: { fault: 'idp-mfa-outage' },
+    });
   },
 };
 

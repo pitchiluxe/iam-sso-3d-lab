@@ -9,12 +9,6 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Fetch static env once at startup
-let cachedEnv = {};
-ipcRenderer.invoke('env:get').then((env) => {
-  cachedEnv = env ?? {};
-});
-
 // Expose the bridge
 contextBridge.exposeInMainWorld('electron', {
   /**
@@ -26,6 +20,13 @@ contextBridge.exposeInMainWorld('electron', {
   invoke: (cmd, ...args) => ipcRenderer.invoke(cmd, ...args),
 });
 
-// Expose env synchronously (values are set after first invoke resolves,
-// but we also attach to window so renderers can read it once available).
-contextBridge.exposeInMainWorld('env', cachedEnv);
+// Fetch env synchronously — exposeInMainWorld clones its value at call time,
+// so an async ipcRenderer.invoke() here would resolve too late to matter
+// (the renderer would only ever see the pre-resolution placeholder). This
+// blocking round-trip is a single fast main-process computation, done once
+// at preload time.
+let envPayload = {};
+try {
+  envPayload = ipcRenderer.sendSync('env:get:sync') ?? {};
+} catch { /* main process not ready to answer yet — fall back to {} */ }
+contextBridge.exposeInMainWorld('env', envPayload);

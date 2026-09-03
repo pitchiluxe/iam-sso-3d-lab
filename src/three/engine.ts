@@ -17,6 +17,7 @@ export interface Engine {
   enterZone(zoneId: ZoneId): void;
   onConsolePrompt: ((c: ConsoleAnchor | null) => void) | null;
   onConsoleActivate: ((c: ConsoleAnchor) => void) | null;
+  onWorkstationPrompt: ((show: boolean) => void) | null;
   onWorkstationActivate: (() => void) | null;
 }
 
@@ -39,12 +40,7 @@ export function initEngine(container: HTMLElement): Engine {
   scene.fog = new THREE.Fog('#0e1116', 12, 36);
 
   // Camera
-  const camera = new THREE.PerspectiveCamera(
-    70,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    200,
-  );
+  const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
   camera.position.set(0, 1.7, 8);
 
   // Lighting
@@ -68,15 +64,21 @@ export function initEngine(container: HTMLElement): Engine {
   // Player
   const player = new PlayerController(camera, renderer.domElement);
   player.setConsoles(sceneMgr.getConsoles());
+  player.setWorkstations(sceneMgr.getWorkstations());
 
-  // Sync: when SceneManager loads a new zone, re-sync consoles
-  sceneMgr.onEntered = (_zoneId, consoles) => {
+  // Sync: when SceneManager loads a new zone, re-sync consoles and workstations
+  sceneMgr.onEntered = (_zoneId, consoles, workstations) => {
     player.setConsoles(consoles);
+    player.setWorkstations(workstations);
   };
 
   // Engine interface
   const engine: Engine = {
-    renderer, scene, camera, sceneMgr, player,
+    renderer,
+    scene,
+    camera,
+    sceneMgr,
+    player,
     enterZone(zoneId: ZoneId) {
       const bp = ZONE_BLUEPRINTS[zoneId];
       sceneMgr.enter(zoneId);
@@ -84,11 +86,14 @@ export function initEngine(container: HTMLElement): Engine {
     },
     onConsolePrompt: null,
     onConsoleActivate: null,
+    onWorkstationPrompt: null,
     onWorkstationActivate: null,
   };
 
   player.onPrompt = (c) => engine.onConsolePrompt?.(c);
   player.onActivate = (c) => engine.onConsoleActivate?.(c);
+  player.onWorkstationPrompt = (show) => engine.onWorkstationPrompt?.(show);
+  player.onWorkstationActivate = () => engine.onWorkstationActivate?.();
 
   // Raycasting — detect clicks on workstation meshes regardless of proximity
   const raycaster = new THREE.Raycaster();

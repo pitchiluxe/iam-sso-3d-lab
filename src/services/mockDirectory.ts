@@ -3,14 +3,24 @@
  * Every mutation records an audit event and emits a bus event.
  */
 import { nanoid } from 'nanoid';
-import type { User, Group, RoleRecord, GroupId, RoleId, UserId, MfaMethod, Application, AppId } from '@/domain';
+import type {
+  User,
+  Group,
+  RoleRecord,
+  GroupId,
+  RoleId,
+  UserId,
+  MfaMethod,
+  Application,
+  AppId,
+} from '@/domain';
 import { mkUserId, mkGroupId, mkRoleId, SYSTEM_ACTOR } from '@/domain';
 import type { MockAuditLog } from './mockAuditLog';
 
 export class MockDirectory {
-  private users   = new Map<UserId, User>();
-  private groups  = new Map<GroupId, Group>();
-  private roles   = new Map<RoleId, RoleRecord>();
+  private users = new Map<UserId, User>();
+  private groups = new Map<GroupId, Group>();
+  private roles = new Map<RoleId, RoleRecord>();
   private appIndex = new Map<string, Application>();
 
   constructor(private readonly audit: MockAuditLog) {}
@@ -27,24 +37,38 @@ export class MockDirectory {
     });
   }
 
-  getUser(id: UserId): User | undefined { return this.users.get(id); }
+  getUser(id: UserId): User | undefined {
+    return this.users.get(id);
+  }
   getUserByUsername(username: string): User | undefined {
     return Array.from(this.users.values()).find((u) => u.username === username);
   }
 
   createUser(
     input: {
-      username: string; displayName: string; email: string;
-      department: string; title: string; managerId?: UserId; mfa?: MfaMethod; groupIds?: GroupId[];
+      username: string;
+      displayName: string;
+      email: string;
+      department: string;
+      title: string;
+      managerId?: UserId;
+      mfa?: MfaMethod;
+      groupIds?: GroupId[];
     },
     actor: UserId = SYSTEM_ACTOR,
   ): User {
     const id = mkUserId(input.username + '-' + nanoid(6));
     const user: User = {
-      id, username: input.username, displayName: input.displayName,
-      email: input.email, department: input.department, title: input.title,
-      status: 'active', mfa: input.mfa ?? 'none',
-      groupIds: input.groupIds ?? [], createdAt: Date.now(),
+      id,
+      username: input.username,
+      displayName: input.displayName,
+      email: input.email,
+      department: input.department,
+      title: input.title,
+      status: 'active',
+      mfa: input.mfa ?? 'none',
+      groupIds: input.groupIds ?? [],
+      createdAt: Date.now(),
       ...(input.managerId ? { managerId: input.managerId } : {}),
     };
     this.users.set(id, user);
@@ -78,9 +102,9 @@ export class MockDirectory {
     const u = this.users.get(id);
     if (!u) throw new Error(`[directory] updateUser: user ${id} not found`);
     if (changes.displayName !== undefined) u.displayName = changes.displayName;
-    if (changes.email      !== undefined) u.email       = changes.email;
-    if (changes.department !== undefined) u.department  = changes.department;
-    if (changes.title      !== undefined) u.title       = changes.title;
+    if (changes.email !== undefined) u.email = changes.email;
+    if (changes.department !== undefined) u.department = changes.department;
+    if (changes.title !== undefined) u.title = changes.title;
     this.audit.record({ actorId: actor, action: 'user.updated', targetId: id });
   }
 
@@ -102,8 +126,12 @@ export class MockDirectory {
 
   // --- GROUPS ---------------------------------------------------------------
 
-  listGroups(): Group[] { return Array.from(this.groups.values()); }
-  getGroup(id: GroupId): Group | undefined { return this.groups.get(id); }
+  listGroups(): Group[] {
+    return Array.from(this.groups.values());
+  }
+  getGroup(id: GroupId): Group | undefined {
+    return this.groups.get(id);
+  }
   getGroupByName(name: string): Group | undefined {
     return Array.from(this.groups.values()).find((g) => g.name === name);
   }
@@ -112,7 +140,7 @@ export class MockDirectory {
     const id = mkGroupId(name);
     const g: Group = { id, name, description, memberIds: [] };
     this.groups.set(id, g);
-    this.audit.record({ actorId: actor, action: 'group.add', targetId: id, subjectId: actor });
+    this.audit.record({ actorId: actor, action: 'group.created', targetId: id });
     return g;
   }
 
@@ -123,8 +151,8 @@ export class MockDirectory {
   ): void {
     const g = this.groups.get(id);
     if (!g) throw new Error(`[directory] updateGroup: group ${id} not found`);
-    if (changes.name !== undefined)        g.name        = changes.name;
-    if (changes.description !== undefined)  g.description = changes.description;
+    if (changes.name !== undefined) g.name = changes.name;
+    if (changes.description !== undefined) g.description = changes.description;
     this.audit.record({ actorId: actor, action: 'group.updated', targetId: id });
   }
 
@@ -154,31 +182,50 @@ export class MockDirectory {
     const u = this.users.get(userId);
     if (!g || !u) return;
     g.memberIds = g.memberIds.filter((id) => id !== userId);
-    u.groupIds  = u.groupIds.filter((id) => id !== groupId);
-    this.audit.record({ actorId: by, action: 'group.remove', targetId: groupId, subjectId: userId });
+    u.groupIds = u.groupIds.filter((id) => id !== groupId);
+    this.audit.record({
+      actorId: by,
+      action: 'group.remove',
+      targetId: groupId,
+      subjectId: userId,
+    });
   }
 
   moveUser(userId: UserId, toDepartment: string, by: UserId): void {
     const u = this.users.get(userId);
     if (!u) throw new Error(`[directory] moveUser: user ${userId} not found`);
     u.department = toDepartment;
-    this.audit.record({ actorId: by, action: 'group.remove', targetId: mkGroupId('move'), subjectId: userId });
+    this.audit.record({
+      actorId: by,
+      action: 'group.remove',
+      targetId: mkGroupId('move'),
+      subjectId: userId,
+    });
   }
 
   // --- ROLES ----------------------------------------------------------------
 
-  listRoles(): RoleRecord[] { return Array.from(this.roles.values()); }
-  getRole(id: RoleId): RoleRecord | undefined { return this.roles.get(id); }
+  listRoles(): RoleRecord[] {
+    return Array.from(this.roles.values());
+  }
+  getRole(id: RoleId): RoleRecord | undefined {
+    return this.roles.get(id);
+  }
   getRoleByName(name: string): RoleRecord | undefined {
     return Array.from(this.roles.values()).find((r) => r.name === name);
   }
 
   createRole(
-    name: string, description: string, permissions: string[],
-    appId?: AppId, actor: UserId = SYSTEM_ACTOR,
+    name: string,
+    description: string,
+    permissions: string[],
+    appId?: AppId,
+    actor: UserId = SYSTEM_ACTOR,
   ): RoleRecord {
     const id = mkRoleId(name);
-    const r: RoleRecord = appId ? { id, name, description, permissions, appId } : { id, name, description, permissions };
+    const r: RoleRecord = appId
+      ? { id, name, description, permissions, appId }
+      : { id, name, description, permissions };
     this.roles.set(id, r);
     if (appId) {
       const a = this.appIndex.get(appId);
@@ -213,17 +260,24 @@ export class MockDirectory {
     const u = this.users.get(userId);
     if (!u) return false;
     if (!u.lastSignInAt) return true;
-    return (now - u.lastSignInAt) > days * 24 * 60 * 60 * 1000;
+    return now - u.lastSignInAt > days * 24 * 60 * 60 * 1000;
   }
 
   // --- APP REGISTRY (lightweight) -------------------------------------------
 
-  registerApp(app: Application): void { this.appIndex.set(app.id, app); }
-  getApp(id: string): Application | undefined { return this.appIndex.get(id); }
+  registerApp(app: Application): void {
+    this.appIndex.set(app.id, app);
+  }
+  getApp(id: string): Application | undefined {
+    return this.appIndex.get(id);
+  }
 
   // --- RESET ----------------------------------------------------------------
 
   reset(): void {
-    this.users.clear(); this.groups.clear(); this.roles.clear(); this.appIndex.clear();
+    this.users.clear();
+    this.groups.clear();
+    this.roles.clear();
+    this.appIndex.clear();
   }
 }

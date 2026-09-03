@@ -5,28 +5,20 @@
  * After the conductor verifies all 5 steps, the baseline is applied so
  * later labs have something to mutate.
  */
-import type { UserId } from '@/domain';
 import type { MockDirectory } from '@/services';
 import type { MockIdP } from '@/services';
 import type { MockAppServer } from '@/services';
 
-export function applyLab01Seed(
-  dir: MockDirectory,
-  idp: MockIdP,
-  _apps: MockAppServer,
-): void {
+export function applyLab01Seed(_dir: MockDirectory, idp: MockIdP, _apps: MockAppServer): void {
   // Lab 01 starts with an empty directory: no users, no groups, no apps.
-  // The conductor will guide the learner to call dir.createGroup, dir.createUser, etc.
-  // For the thin slice, we still pre-create a stub IdP admin so the learner
-  // can sign in at the end. The actual baseline is set after Lab 01 completes.
-  const _admin = dir.createUser({
-    username:    'admin',
-    displayName: 'IAM Admin',
-    email:       'admin@northwind.example',
-    department:  'IT',
-    title:       'IAM Administrator',
-    mfa:         'totp',
-  }, 'system' as UserId);
-  void _admin;
+  // The conductor guides the learner to call dir.createGroup, dir.createUser, etc.
+  //
+  // Step 3 explicitly asks the learner to create the admin user themselves —
+  // pre-seeding an 'admin' account here would collide with that: usernames
+  // aren't unique in MockDirectory, and getUserByUsername() always resolves
+  // to the first match, so the learner's own admin.created event would never
+  // match the step validator (it'd keep resolving back to this seeded one).
+  // Only the password is pre-set, ready for whichever admin account the
+  // learner ends up creating.
   idp.seedPasswords({ admin: 'admin123' });
 }

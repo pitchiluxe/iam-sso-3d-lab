@@ -16,14 +16,40 @@ import { getHintLadder } from '@/tutor/hintLadder';
 
 const SUPERVISOR = new OllamaSupervisor();
 
+// One-time style injection for the "thinking" bubble's bouncing dots.
+if (!document.getElementById('ollama-thinking-style')) {
+  const style = document.createElement('style');
+  style.id = 'ollama-thinking-style';
+  style.textContent = `
+    .ollama-thinking-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--muted, #8b95a1);
+      display: inline-block;
+      animation: ollama-thinking-bounce 1s infinite ease-in-out both;
+    }
+    @keyframes ollama-thinking-bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 interface ChatMessage {
   from: 'user' | 'supervisor' | 'system';
   at: number;
   body: string;
+  /** Transient placeholder shown while awaiting the LLM/local-hint response. */
+  thinking?: boolean;
   // optional structured data
   score?: {
-    exec: number; troubleshoot: number; leastPrivilege: number;
-    docs: number; evidence: number; comms: number; total: number;
+    exec: number;
+    troubleshoot: number;
+    leastPrivilege: number;
+    docs: number;
+    evidence: number;
+    comms: number;
+    total: number;
     passed: boolean;
   };
 }
@@ -34,12 +60,26 @@ function formatTime(at: number): string {
   return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function summarizeStepContext(): { labTitle: string; labNumber: number; stepTitle: string; stepBrief: string; stepIdx: number; totalSteps: number } | null {
+function summarizeStepContext(): {
+  labTitle: string;
+  labNumber: number;
+  stepTitle: string;
+  stepBrief: string;
+  stepIdx: number;
+  totalSteps: number;
+} | null {
   const lab = labStore.getState().current;
   const idx = labStore.getState().stepIndex;
   if (!lab || !lab.steps[idx]) return null;
   const step = lab.steps[idx]!;
-  return { labTitle: lab.title, labNumber: lab.number, stepTitle: step.title, stepBrief: step.brief, stepIdx: idx, totalSteps: lab.steps.length };
+  return {
+    labTitle: lab.title,
+    labNumber: lab.number,
+    stepTitle: step.title,
+    stepBrief: step.brief,
+    stepIdx: idx,
+    totalSteps: lab.steps.length,
+  };
 }
 
 async function callSupervisorDirect(prompt: string): Promise<string> {
@@ -55,8 +95,11 @@ async function callSupervisorDirect(prompt: string): Promise<string> {
   }
 
   try {
-    const baseUrl = (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ?? 'http://localhost:11434';
-    const model   = (window as unknown as { env?: { OLLAMA_MODEL?: string } }).env?.OLLAMA_MODEL ?? 'llama3.2';
+    const baseUrl =
+      (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ??
+      'http://localhost:11434';
+    const model =
+      (window as unknown as { env?: { OLLAMA_MODEL?: string } }).env?.OLLAMA_MODEL ?? 'llama3.2';
     const res = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -71,10 +114,13 @@ async function callSupervisorDirect(prompt: string): Promise<string> {
         ],
         stream: false,
       }),
-      signal: AbortSignal.timeout(30000),
+      // 90s: a cold Ollama model load (first request after idle eviction) can
+      // take well past 30s, which was aborting real replies into the local-hint
+      // fallback even though the server was up and would have answered.
+      signal: AbortSignal.timeout(90000),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json() as { message?: { content?: string } };
+    const data = (await res.json()) as { message?: { content?: string } };
     return data.message?.content ?? 'No response from AI supervisor.';
   } catch {
     const ladder = getHintLadder(labId, stepId);
@@ -96,20 +142,36 @@ async function runScoring(): Promise<void> {
   const stepEvents = allEvents.slice(-20); // last 20 events as a reasonable proxy
 
   const score = await SUPERVISOR.scoreStep(lab, step, idx, stepEvents);
-  const total = score.exec + score.troubleshoot + score.leastPrivilege + score.docs + score.evidence + score.comms;
+  const total =
+    score.exec +
+    score.troubleshoot +
+    score.leastPrivilege +
+    score.docs +
+    score.evidence +
+    score.comms;
 
   chatLog.push({
     from: 'supervisor',
     at: Date.now(),
     body: score.coaching,
     score: {
-      exec: score.exec, troubleshoot: score.troubleshoot, leastPrivilege: score.leastPrivilege,
-      docs: score.docs, evidence: score.evidence, comms: score.comms,
-      total, passed: score.passed,
+      exec: score.exec,
+      troubleshoot: score.troubleshoot,
+      leastPrivilege: score.leastPrivilege,
+      docs: score.docs,
+      evidence: score.evidence,
+      comms: score.comms,
+      total,
+      passed: score.passed,
     },
   });
   tutorStore.getState().addDialog({ from: 'tutor', body: score.coaching });
   render();
+}
+
+function scrollChatToBottom(): void {
+  const chat = document.getElementById('ollama-chat');
+  if (chat) chat.scrollTop = chat.scrollHeight;
 }
 
 function render() {
@@ -123,6 +185,7 @@ function render() {
   const tutorDialog = tutorStore.getState().dialog;
 
   const score = scoreStore.getState().current;
+  const isThinking = chatLog.some((m) => m.thinking);
 
   body.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;font-size:13px;">
@@ -134,55 +197,81 @@ function render() {
           <span style="font-size:10px;color:var(--muted);">Ollama • llama3.2</span>
           <button id="ollama-health" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:2px 6px;border-radius:3px;cursor:pointer;">Check status</button>
         </div>
-        ${lab && step
-          ? (() => {
-              const ctx = summarizeStepContext();
-              return ctx
-                ? `<div style="font-size:11px;color:var(--muted);line-height:1.4;">
+        ${
+          lab && step
+            ? (() => {
+                const ctx = summarizeStepContext();
+                return ctx
+                  ? `<div style="font-size:11px;color:var(--muted);line-height:1.4;">
                     Lab ${ctx.labNumber}: ${ctx.labTitle} — Step ${ctx.stepIdx + 1}/${ctx.totalSteps}: ${ctx.stepTitle}
                   </div>`
-                : `<div style="font-size:11px;color:var(--muted);line-height:1.4;">
+                  : `<div style="font-size:11px;color:var(--muted);line-height:1.4;">
                     Step ${labStore.getState().stepIndex + 1}: ${step.title}
                   </div>`;
-            })()
-          : '<div style="font-size:11px;color:var(--muted);">No active lab.</div>'}
+              })()
+            : '<div style="font-size:11px;color:var(--muted);">No active lab.</div>'
+        }
       </div>
 
       <div id="ollama-chat" style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
-        ${chatLog.length === 0
-          ? `<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">
+        ${
+          chatLog.length === 0
+            ? `<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px;">
               <div style="font-size:32px;margin-bottom:8px;">🤖</div>
               <div><strong style="color:var(--accent);">Hello, I'm your AI supervisor.</strong></div>
               <div style="margin-top:6px;line-height:1.5;">I oversee your work, score your performance,<br/>and guide you to the correct path.</div>
               <div style="margin-top:12px;font-size:11px;">Try: "Where am I stuck?" or click "Score my step".</div>
             </div>`
-          : chatLog.map((m) => {
-              const isUser = m.from === 'user';
-              const isSystem = m.from === 'system';
-              const bubbleColor = isSystem
-                ? 'var(--panel-2);color:var(--muted);font-style:italic;'
-                : isUser
-                  ? 'var(--accent);color:var(--bg);'
-                  : 'var(--panel);color:var(--fg);border:1px solid var(--border);';
-              return `
+            : chatLog
+                .map((m) => {
+                  const isUser = m.from === 'user';
+                  const isSystem = m.from === 'system';
+                  const bubbleColor = isSystem
+                    ? 'var(--panel-2);color:var(--muted);font-style:italic;'
+                    : isUser
+                      ? 'var(--accent);color:var(--bg);'
+                      : 'var(--panel);color:var(--fg);border:1px solid var(--border);';
+                  if (m.thinking) {
+                    return `
+                  <div style="display:flex;justify-content:flex-start;">
+                    <div style="max-width:80%;background:${bubbleColor};border-radius:8px;padding:8px 10px;">
+                      <div style="font-size:10px;opacity:0.7;margin-bottom:2px;">🤖 Supervisor • ${formatTime(m.at)}</div>
+                      <div style="display:flex;gap:3px;align-items:center;padding:2px 0;">
+                        <span class="ollama-thinking-dot" style="animation-delay:0ms;"></span>
+                        <span class="ollama-thinking-dot" style="animation-delay:160ms;"></span>
+                        <span class="ollama-thinking-dot" style="animation-delay:320ms;"></span>
+                      </div>
+                    </div>
+                  </div>
+                `;
+                  }
+                  return `
                 <div style="display:flex;justify-content:${isUser ? 'flex-end' : 'flex-start'};">
                   <div style="max-width:80%;background:${bubbleColor};border-radius:8px;padding:8px 10px;">
                     <div style="font-size:10px;opacity:0.7;margin-bottom:2px;">${isUser ? 'You' : isSystem ? 'System' : '🤖 Supervisor'} • ${formatTime(m.at)}</div>
                     <div style="line-height:1.5;white-space:pre-wrap;">${escapeHtml(m.body)}</div>
-                    ${m.score ? `
+                    ${
+                      m.score
+                        ? `
                       <div style="margin-top:6px;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;font-size:10px;font-family:monospace;line-height:1.6;">
                         <div style="color:${m.score.passed ? 'var(--accent)' : 'var(--warn)'};font-weight:bold;margin-bottom:3px;">${m.score.passed ? '✓ PASS' : '✗ REVIEW'} • ${m.score.total}/100</div>
                         <div>exec: ${m.score.exec}/25 · troubleshoot: ${m.score.troubleshoot}/20 · least-priv: ${m.score.leastPrivilege}/15</div>
                         <div>docs: ${m.score.docs}/15 · evidence: ${m.score.evidence}/15 · comms: ${m.score.comms}/10</div>
                       </div>
-                    ` : ''}
+                    `
+                        : ''
+                    }
                   </div>
                 </div>
               `;
-            }).join('')}
+                })
+                .join('')
+        }
       </div>
 
-      ${score ? `
+      ${
+        score
+          ? `
         <div style="padding:8px 12px;background:var(--panel-2);border-top:1px solid var(--border);font-size:11px;">
           <div style="color:var(--accent);margin-bottom:4px;">Lab Score</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -195,12 +284,14 @@ function render() {
             <span style="margin-left:auto;color:var(--accent);"><strong>${score.total}/100</strong></span>
           </div>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
 
       <div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:6px;">
-        <input id="ollama-input" type="text" placeholder="Ask: what should I check next?"
-               style="flex:1;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:inherit;" />
-        <button id="ollama-send" style="background:var(--accent);color:var(--bg);border:none;border-radius:4px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600;">Send</button>
+        <input id="ollama-input" type="text" placeholder="Ask: what should I check next?" ${isThinking ? 'disabled' : ''}
+               style="flex:1;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:inherit;${isThinking ? 'opacity:0.5;' : ''}" />
+        <button id="ollama-send" ${isThinking ? 'disabled' : ''} style="background:var(--accent);color:var(--bg);border:none;border-radius:4px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600;${isThinking ? 'opacity:0.5;cursor:default;' : ''}">Send</button>
       </div>
 
       <div style="padding:6px 12px;display:flex;gap:6px;border-top:1px solid var(--border);background:var(--panel-2);">
@@ -222,15 +313,22 @@ function render() {
     if (!text) return;
     input.value = '';
     chatLog.push({ from: 'user', at: Date.now(), body: text });
+    const thinkingMsg: ChatMessage = {
+      from: 'supervisor',
+      at: Date.now(),
+      body: '',
+      thinking: true,
+    };
+    chatLog.push(thinkingMsg);
     render();
-    // Scroll to bottom
-    const chat = body.querySelector('#ollama-chat');
-    if (chat) chat.scrollTop = chat.scrollHeight;
+    scrollChatToBottom();
 
     const response = await callSupervisorDirect(text);
-    chatLog.push({ from: 'supervisor', at: Date.now(), body: response });
+    const idx = chatLog.indexOf(thinkingMsg);
+    if (idx !== -1) chatLog.splice(idx, 1, { from: 'supervisor', at: Date.now(), body: response });
+    else chatLog.push({ from: 'supervisor', at: Date.now(), body: response });
     render();
-    if (chat) chat.scrollTop = chat.scrollHeight;
+    scrollChatToBottom();
   });
 
   body.querySelector('#ollama-input')?.addEventListener('keydown', (e) => {
@@ -239,13 +337,28 @@ function render() {
     }
   });
 
-  body.querySelector('#ollama-score')?.addEventListener('click', () => { void runScoring(); });
+  body.querySelector('#ollama-score')?.addEventListener('click', () => {
+    void runScoring();
+  });
   body.querySelector('#ollama-where')?.addEventListener('click', async () => {
     chatLog.push({ from: 'user', at: Date.now(), body: 'Where am I stuck?' });
+    const thinkingMsg: ChatMessage = {
+      from: 'supervisor',
+      at: Date.now(),
+      body: '',
+      thinking: true,
+    };
+    chatLog.push(thinkingMsg);
     render();
-    const r = await callSupervisorDirect('Where am I stuck? What is the smallest verifiable step I can take right now?');
-    chatLog.push({ from: 'supervisor', at: Date.now(), body: r });
+    scrollChatToBottom();
+    const r = await callSupervisorDirect(
+      'Where am I stuck? What is the smallest verifiable step I can take right now?',
+    );
+    const idx = chatLog.indexOf(thinkingMsg);
+    if (idx !== -1) chatLog.splice(idx, 1, { from: 'supervisor', at: Date.now(), body: r });
+    else chatLog.push({ from: 'supervisor', at: Date.now(), body: r });
     render();
+    scrollChatToBottom();
   });
   body.querySelector('#ollama-clear')?.addEventListener('click', () => {
     chatLog.length = 0;

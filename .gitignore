@@ -9,6 +9,7 @@ coverage
 build/
 dist-installer/
 test-results/
+.playwright-mcp/
 
 # Local verification scripts (regenerate from working dir if needed)
 verify_app_features.cjs
