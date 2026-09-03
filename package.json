@@ -3,6 +3,9 @@
   "type": "module",
   "version": "0.3.0",
   "main": "electron/main.cjs",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
