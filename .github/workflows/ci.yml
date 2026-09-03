@@ -177,13 +177,3 @@ jobs:
           asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.2.1.exe
           asset_name: IAM-SSO-3D-Lab-Setup-0.2.1.exe
           asset_content_type: application/octet-stream
-
-      - name: Upload 7z archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/iam-sso-3d-lab-0.2.1-x64.nsis.7z
-          asset_name: iam-sso-3d-lab-0.2.1-x64.nsis.7z
-          asset_content_type: application/x-7z-compressed

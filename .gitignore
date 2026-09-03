@@ -15,7 +15,6 @@ test-results/
 verify_app_features.cjs
 verify_landing.cjs
 capture_screenshots.cjs
-build-icons.cjs
 
 # Stray Windows files
 nul
