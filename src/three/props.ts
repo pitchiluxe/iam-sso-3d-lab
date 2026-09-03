@@ -202,9 +202,17 @@ export function makeWallSign(
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, 512, 128);
   ctx.fillStyle = fgColor;
-  ctx.font = 'bold 52px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  // Shrink the font until the full text fits within the canvas (minus
+  // padding) instead of letting long company names run off the edges.
+  const maxTextWidth = 512 - 40;
+  let fontSize = 52;
+  ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  while (ctx.measureText(text).width > maxTextWidth && fontSize > 16) {
+    fontSize -= 2;
+    ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  }
   ctx.fillText(text, 256, 64);
   const tex = new THREE.CanvasTexture(canvas);
   const mesh = new THREE.Mesh(
