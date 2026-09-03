@@ -5,8 +5,17 @@
  * Includes a footer with Export, Import, and Reset buttons so the learner
  * can save their progress between sessions.
  */
-import { progressStore } from '@/stores';
+import { progressStore, generatedLabsStore } from '@/stores';
 import { showToast } from './toast';
+
+/** Escapes HTML-significant characters. Used for any text originating from
+ * the AI flavor generator (LLM output is untrusted) before interpolating it
+ * into innerHTML — the 13 hand-authored core lab titles/briefs don't need this. */
+function escapeHtml(s: string): string {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
 
 const LABS = [
   {
@@ -118,6 +127,24 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
         ).join('')}
       </div>
 
+      <div style="margin-top:32px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            <h2 style="color:#e6e6e6;font-size:16px;margin:0;">Daily IT Support Tickets</h2>
+            <div style="color:#8b95a1;font-size:11px;margin-top:2px;">AI-generated — real-world help-desk scenarios, never repeated</div>
+          </div>
+          <button id="ss-generate" style="background:#4ec9b0;color:#0e1116;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;min-height:36px;white-space:nowrap;">
+            🤖 Generate 10 More
+          </button>
+        </div>
+        <div id="ss-generated-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
+        <div id="ss-generated-pager" style="display:none;justify-content:center;gap:8px;margin-top:12px;">
+          <button id="ss-gen-prev" style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">← Prev</button>
+          <span id="ss-gen-page-label" style="color:#8b95a1;font-size:12px;align-self:center;"></span>
+          <button id="ss-gen-next" style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">Next →</button>
+        </div>
+      </div>
+
       <div style="margin-top:32px;text-align:center;color:#8b95a1;font-size:12px;">
         Click a lab to start · <span style="color:#4ec9b0;">WASD</span> to move · <span style="color:#4ec9b0;">E</span> to open console · <span style="color:#4ec9b0;">ESC</span> to close
       </div>
@@ -160,6 +187,88 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
   }
 
   document.body.appendChild(overlay);
+
+  const PAGE_SIZE = 10;
+  let genPage = 0;
+
+  function renderGeneratedGrid(): void {
+    const grid = overlay.querySelector('#ss-generated-grid') as HTMLElement;
+    const pager = overlay.querySelector('#ss-generated-pager') as HTMLElement;
+    const pageLabel = overlay.querySelector('#ss-gen-page-label') as HTMLElement;
+    const labs = generatedLabsStore.getState().labs;
+
+    if (labs.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;color:#8b95a1;font-size:12px;padding:12px 0;">No generated tickets yet — click "Generate 10 More" to create your first batch.</div>`;
+      pager.style.display = 'none';
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(labs.length / PAGE_SIZE));
+    genPage = Math.min(genPage, totalPages - 1);
+    const pageLabs = labs.slice(genPage * PAGE_SIZE, genPage * PAGE_SIZE + PAGE_SIZE);
+
+    // l.title/l.brief may originate from the local LLM's text response
+    // (see src/services/labFlavorGenerator.ts) — treat as untrusted and escape.
+    grid.innerHTML = pageLabs
+      .map(
+        (l) => `
+        <div class="gen-lab-card" data-id="${l.id}"
+             style="background:#1b1f24;border:1px solid #2d343d;border-radius:8px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s,transform 0.1s;">
+          <div style="color:#4ec9b0;font-size:13px;font-weight:700;margin-bottom:4px;">${escapeHtml(l.title)}</div>
+          <div style="color:#8b95a1;font-size:12px;line-height:1.5;">${escapeHtml(l.brief)}</div>
+        </div>
+      `,
+      )
+      .join('');
+
+    for (const card of grid.querySelectorAll('.gen-lab-card')) {
+      card.addEventListener('mouseenter', () => {
+        (card as HTMLElement).style.borderColor = '#4ec9b0';
+      });
+      card.addEventListener('mouseleave', () => {
+        (card as HTMLElement).style.borderColor = '#2d343d';
+      });
+      card.addEventListener('click', () => {
+        const id = (card as HTMLElement).dataset['id']!;
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s';
+        setTimeout(() => {
+          overlay.remove();
+          onStart(id);
+        }, 300);
+      });
+    }
+
+    pager.style.display = totalPages > 1 ? 'flex' : 'none';
+    pageLabel.textContent = `Page ${genPage + 1} of ${totalPages}`;
+  }
+
+  renderGeneratedGrid();
+
+  overlay.querySelector('#ss-gen-prev')?.addEventListener('click', () => {
+    genPage = Math.max(0, genPage - 1);
+    renderGeneratedGrid();
+  });
+  overlay.querySelector('#ss-gen-next')?.addEventListener('click', () => {
+    genPage += 1;
+    renderGeneratedGrid();
+  });
+  overlay.querySelector('#ss-generate')?.addEventListener('click', async () => {
+    const btn = overlay.querySelector('#ss-generate') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+      await generatedLabsStore.getState().generateBatch(10);
+      genPage = Math.ceil(generatedLabsStore.getState().labs.length / PAGE_SIZE) - 1;
+      renderGeneratedGrid();
+      showToast('10 new daily tickets generated.', { kind: 'success' });
+    } catch {
+      showToast('Could not generate new tickets. Try again.', { kind: 'error' });
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🤖 Generate 10 More';
+    }
+  });
 
   // Add hover effect via JS (no CSS class needed)
   for (const card of overlay.querySelectorAll('.lab-card')) {
