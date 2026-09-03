@@ -10,6 +10,10 @@ import { renderIAMConsole } from './consoles/iamConsole';
 import { renderTicketConsole } from './consoles/ticketConsole';
 import { renderSecOpsDashboard } from './consoles/secOpsDashboard';
 import { renderOllamaConsole } from './consoles/ollamaConsole';
+import { renderObjectivesWindow } from './consoles/objectivesWindow';
+import { renderNotepadWindow } from './consoles/notepadWindow';
+import { renderStickyNotesWindow } from './consoles/stickyNotesWindow';
+import { renderFileExplorerWindow } from './consoles/fileExplorerWindow';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,6 +40,10 @@ const DESKTOP_APPS: WindowDef[] = [
   { id: 'ticket-console',  title: 'Ticket Queue',     icon: '🎫', width: 680, height: 560, render: (c, b) => renderTicketConsole(b, c) },
   { id: 'secops-dashboard', title: 'SecOps Dashboard', icon: '🛡️', width: 740, height: 600, render: (c, b) => renderSecOpsDashboard(b, c) },
   { id: 'ollama-console',  title: 'AI Supervisor',    icon: '🤖', width: 640, height: 600, render: (c, b) => renderOllamaConsole(b, c) },
+  { id: 'objectives',      title: 'Objectives',        icon: '📋', width: 380, height: 560, render: (c, b) => renderObjectivesWindow(b, c) },
+  { id: 'notepad',         title: 'Notepad',           icon: '📝', width: 560, height: 480, render: (_c, b) => renderNotepadWindow(b) },
+  { id: 'sticky-notes',    title: 'Sticky Notes',      icon: '📌', width: 480, height: 400, render: (_c, b) => renderStickyNotesWindow(b) },
+  { id: 'explorer',        title: 'File Explorer',     icon: '📁', width: 700, height: 500, render: (_c, b) => renderFileExplorerWindow(b) },
 ];
 
 const APP_BY_ID: Record<string, WindowDef> =
@@ -522,10 +530,16 @@ export function createDesktopOverlay(): DesktopOverlay {
         container = buildContainer();
         buildDesktop(container);
         buildTaskbar(container, conductor);
+        // Auto-open AI Supervisor + Objectives inside the VM
+        wmCtx.current?.openById('ollama-console');
+        wmCtx.current?.openById('objectives');
       } else {
         // Update the WindowManager for a fresh conductor
         wmCtx.current = new WindowManager(conductor, container);
         wmCtx.current.updateTaskbar();
+        // Re-open default windows for the new conductor
+        wmCtx.current?.openById('ollama-console');
+        wmCtx.current?.openById('objectives');
       }
       if (container) container.style.display = 'flex';
       visible = true;
