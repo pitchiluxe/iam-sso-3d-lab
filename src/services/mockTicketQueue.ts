@@ -1,13 +1,13 @@
 /**
  * services/mockTicketQueue.ts — in-memory queue of tickets.
  */
-import { nanoid } from 'nanoid';
 import type { Ticket, TicketId, TicketKind, UserId } from '@/domain';
 import { mkTicketId } from '@/domain';
 import type { MockAuditLog } from './mockAuditLog';
 
 export type NewTicket =
   | {
+      id?: TicketId;
       kind: 'onboarding';
       requesterId: UserId;
       subject: string;
@@ -17,6 +17,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'mover';
       requesterId: UserId;
       subject: string;
@@ -26,6 +27,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'leaver';
       requesterId: UserId;
       subject: string;
@@ -35,6 +37,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'transfer';
       requesterId: UserId;
       subject: string;
@@ -44,6 +47,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'termination';
       requesterId: UserId;
       subject: string;
@@ -53,6 +57,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'access-request';
       requesterId: UserId;
       subject: string;
@@ -62,6 +67,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'password-reset';
       requesterId: UserId;
       subject: string;
@@ -71,6 +77,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'mfa-issue';
       requesterId: UserId;
       subject: string;
@@ -80,6 +87,7 @@ export type NewTicket =
       relatedUserIds?: UserId[];
     }
   | {
+      id?: TicketId;
       kind: 'incident';
       requesterId: UserId;
       subject: string;
@@ -109,7 +117,7 @@ export class MockTicketQueue {
   }
 
   create(t: NewTicket): Ticket {
-    const id = mkTicketId(nanoid(10));
+    const id = t.id ?? mkTicketId();
     const now = Date.now();
     const base = {
       id,

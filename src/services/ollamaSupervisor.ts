@@ -47,17 +47,23 @@ export interface StepScore {
 }
 
 function ollamaBaseUrl(): string {
+  if (typeof window === 'undefined') return DEFAULT_BASE_URL;
   return (
     (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ??
     DEFAULT_BASE_URL
   );
 }
 function ollamaModel(): string {
+  if (typeof window === 'undefined') return DEFAULT_MODEL;
   return (
     (window as unknown as { env?: { OLLAMA_MODEL?: string } }).env?.OLLAMA_MODEL ?? DEFAULT_MODEL
   );
 }
 function isDisabled(): boolean {
+  // No `window` (e.g. running under Vitest's node environment, as
+  // tests/generatedTemplates.test.ts does when it imports conductor.ts for
+  // registerLabSeed) — treat the supervisor as disabled rather than throwing.
+  if (typeof window === 'undefined') return true;
   return (
     (window as unknown as { env?: { OLLAMA_DISABLED?: string } }).env?.OLLAMA_DISABLED === 'true'
   );
