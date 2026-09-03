@@ -116,15 +116,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.3.0
-          release_name: IAM SSO 3D Lab v0.3.0
+          tag_name: v0.3.1
+          release_name: IAM SSO 3D Lab v0.3.1
           body: |
-            ## IAM & SSO 3D Lab v0.3.0
+            ## IAM & SSO 3D Lab v0.3.1
 
-            ### What's new in v0.3.0
-            - Fresh installer build — clean rebuild of the Windows installer from a clean working tree
-            - All build artifacts (previous `dist/` and `dist-installer/`) were purged before this build to guarantee a clean artifact
-            - All changes shipped in v0.2.1 (Windows-style lock screens, drag-to-reorder desktop icons, VM app suite, Lab 1 validator fixes, etc.) are included
+            ### What's new in v0.3.1
+            - **Generate 10 More button** — generates additional AI labs in the start screen grid
+            - **AI-generated daily ticket labs** — 15 real-world IT support scenarios auto-generated per session
+            - **Persisted-state v3** — improved state envelope with generatedLabs slice
+            - **Bug fixes** — Objectives window deduplication, wall-sign text auto-shrinking, window guards, and more
 
             ### Features
             - 13 hands-on labs (IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass)
@@ -133,7 +134,7 @@ jobs:
             - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass)
 
             ### Run the installer
-            Download `IAM-SSO-3D-Lab-Setup-0.3.0.exe` and run it on any Windows 10/11 64-bit machine.
+            Download `IAM-SSO-3D-Lab-Setup-0.3.1.exe` and run it on any Windows 10/11 64-bit machine.
 
             ### AI Supervisor setup
             1. Install [Ollama](https://ollama.com)
@@ -168,6 +169,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.3.0.exe
-          asset_name: IAM-SSO-3D-Lab-Setup-0.3.0.exe
+          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.3.1.exe
+          asset_name: IAM-SSO-3D-Lab-Setup-0.3.1.exe
           asset_content_type: application/octet-stream
