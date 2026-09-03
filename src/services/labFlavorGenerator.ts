@@ -30,17 +30,20 @@ Respond with strict JSON only, no other text:
 {"narrative": "<2-3 sentence realistic ticket description, written from the reporter's or IT's point of view>", "coachingQuestion": "<one Socratic diagnostic question a mentor would ask the learner — never reveal the answer>"}`;
 
 function ollamaDisabled(): boolean {
+  if (typeof window === 'undefined') return true;
   return (
     (window as unknown as { env?: { OLLAMA_DISABLED?: string } }).env?.OLLAMA_DISABLED === 'true'
   );
 }
 function ollamaBaseUrl(): string {
+  if (typeof window === 'undefined') return 'http://localhost:11434';
   return (
     (window as unknown as { env?: { OLLAMA_BASE_URL?: string } }).env?.OLLAMA_BASE_URL ??
     'http://localhost:11434'
   );
 }
 function ollamaModel(): string {
+  if (typeof window === 'undefined') return 'llama3.2';
   return (window as unknown as { env?: { OLLAMA_MODEL?: string } }).env?.OLLAMA_MODEL ?? 'llama3.2';
 }
 

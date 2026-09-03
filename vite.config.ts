@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     include: ['tests/**/*.test.ts'],
   },
 });

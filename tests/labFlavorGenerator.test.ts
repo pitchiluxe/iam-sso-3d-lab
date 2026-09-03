@@ -4,9 +4,17 @@
  * Only tests the offline/fallback path — no real network call. Mirrors how
  * ollamaSupervisor.ts is designed (window.env.OLLAMA_DISABLED short-circuits
  * before any fetch).
+ *
+ * Vitest runs this under the `node` test environment (see vite.config.ts),
+ * which has no global `window`. We provide a minimal in-memory shim here
+ * rather than pulling in jsdom project-wide.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { generateFlavor } from '@/services/labFlavorGenerator';
+
+if (typeof globalThis.window === 'undefined') {
+  (globalThis as unknown as { window: unknown }).window = {};
+}
 
 describe('generateFlavor (offline fallback)', () => {
   beforeEach(() => {
