@@ -326,7 +326,8 @@ export type ValidatorKind =
   | 'fault-cleared'
   | 'audit-note-written'
   | 'user-enabled'
-  | 'user-moved';
+  | 'user-moved'
+  | 'user-deleted';
 
 export interface LabStep {
   id: string;

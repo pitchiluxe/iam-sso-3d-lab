@@ -257,6 +257,8 @@ export class Conductor {
         return e.action === 'user.unlocked' && e.targetId === userId;
       case 'user-created':
         return e.action === 'user.created' && e.targetId === userId;
+      case 'user-deleted':
+        return e.action === 'user.deleted' && e.targetId === userId;
       case 'group-created':
         return e.action === 'group.created' && e.targetId === groupId;
       case 'group-added':

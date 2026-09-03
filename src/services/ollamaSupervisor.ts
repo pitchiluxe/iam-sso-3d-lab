@@ -179,6 +179,7 @@ const STEP_PASS_THRESHOLDS: Record<string, number> = {
   'session-revoked': 1,
   'fault-cleared': 1,
   'evidence-collected': 1,
+  'user-deleted': 1,
 };
 
 function localFallbackScore(

@@ -28,6 +28,7 @@ const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'evidence-collected': 'Capture evidence for this step',
   'audit-note-written': 'Write a note in the audit log',
   'review-decisions-recorded': 'Record access review decisions',
+  'user-deleted': 'Delete the duplicate account in IAM Console',
 };
 
 export function renderObjectivesWindow(body: HTMLElement): void {
