@@ -11,7 +11,7 @@ import { initBriefingPanel } from './ui/briefingPanel';
 import { initTutorPanel } from './ui/tutorPanel';
 import { initDebriefScreen } from './ui/debriefScreen';
 import { blip } from './ui/audio';
-import { listZones, type ZoneId, ZONE_BLUEPRINTS } from './three/zones';
+import { listZones, type ZoneId, ZONE_BLUEPRINTS, IT_ZONE_IDS } from './three/zones';
 import { Conductor } from './conductor/conductor';
 import { findLab } from './labs/registry';
 import { mkLabId } from './domain';
@@ -248,7 +248,9 @@ async function bootstrap() {
   };
   engine.onWorkstationActivate = () => {
     if (document.pointerLockElement) document.exitPointerLock();
-    desktop.show(conductor);
+    const zoneId = engine.sceneMgr.getCurrentZoneId();
+    const isIT = zoneId !== null && IT_ZONE_IDS.has(zoneId);
+    desktop.show(conductor, isIT);
     overlayMgr.setActive('desktop');
     blip(800, 80, 0.05);
   };

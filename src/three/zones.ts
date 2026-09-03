@@ -360,12 +360,14 @@ const HR: ZoneBlueprint = {
       const screen = props.makeLockScreenMonitor(1.0, 0.7);
       screen.position.set(cx, 0.85, cz - 0.55);
       g.add(screen);
-      // Cubicle partition
+      // Cubicle partition — behind the monitor as a backdrop, not blocking
+      // the approach from the spawn side (was in front of the desk, walling
+      // off access to the monitor).
       const part = new THREE.Mesh(
         new THREE.BoxGeometry(2.2, 1.2, 0.04),
         new THREE.MeshStandardMaterial({ color: '#c9a96e', roughness: 0.9 }),
       );
-      part.position.set(cx, 1.5, cz + 0.6);
+      part.position.set(cx, 1.5, cz - 1.3);
       g.add(part);
       g.add(
         props.makeChair(
@@ -373,7 +375,9 @@ const HR: ZoneBlueprint = {
           new THREE.MeshStandardMaterial({ color: '#8b7355', roughness: 0.9 }),
         ),
       );
-      g.children[g.children.length - 1]!.position.set(cx, 0, cz - 1.1);
+      // Chair sits between spawn and desk (facing the monitor), matching
+      // every other zone's desk/chair layout.
+      g.children[g.children.length - 1]!.position.set(cx, 0, cz + 1.1);
       g.children[g.children.length - 1]!.rotation.y = Math.PI; // face the monitor, not away from it
     }
 
@@ -511,7 +515,7 @@ const HELP_DESK: ZoneBlueprint = {
     g.children[g.children.length - 1]!.position.set(8, 0, 3);
 
     // Help desk workstation (clickable)
-    const hdWs = props.makeWorkstation('Help Desk — service console');
+    const hdWs = props.makeWorkstation();
     hdWs.position.set(0, 0, 3);
     hdWs.rotation.y = 0; // face the player (player spawns at +z)
     g.add(hdWs);
@@ -575,6 +579,7 @@ const FINANCE: ZoneBlueprint = {
     g.add(execDesk);
     const execScreen = props.makeLockScreenMonitor(1.4, 0.9);
     execScreen.position.set(0, 0.9, -3.75);
+    execScreen.userData.interactable = 'workstation'; // walk up, face the monitor, press E
     g.add(execScreen);
 
     // Filing cabinet
@@ -736,7 +741,7 @@ const ENGINEERING: ZoneBlueprint = {
     g.children[g.children.length - 1]!.position.set(8, 0, 3);
 
     // Engineering workstation (clickable)
-    const engWs = props.makeWorkstation('Engineering — dev corner');
+    const engWs = props.makeWorkstation();
     engWs.position.set(0, 0, 3);
     engWs.rotation.y = 0;
     g.add(engWs);
@@ -810,14 +815,19 @@ const APP_CENTER: ZoneBlueprint = {
     pedestalTop.position.set(0, 1.05, -3);
     g.add(pedestalTop);
 
-    // 4 kiosk monitors in a row
+    // 4 kiosk monitors in a row — a bare panel (no built-in stand) mounted
+    // directly on top of the pole. makeLockScreenMonitor's own stand+post
+    // would otherwise stack on top of this pole, floating the screen ~0.4m
+    // above where the pole actually ends.
+    const kioskPanelH = 0.7;
     for (let i = 0; i < 4; i++) {
       const kx = -4.5 + i * 3;
-      const kStand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.8, 0.06), mAccent);
-      kStand.position.set(kx, 0.4, -6);
+      const kStandH = 0.8;
+      const kStand = new THREE.Mesh(new THREE.BoxGeometry(0.06, kStandH, 0.06), mAccent);
+      kStand.position.set(kx, kStandH / 2, -6);
       g.add(kStand);
-      const kScreen = props.makeLockScreenMonitor(0.9, 0.7);
-      kScreen.position.set(kx, 0.8, -6.35);
+      const kScreen = props.makeLockScreenPanel(0.9, kioskPanelH);
+      kScreen.position.set(kx, kStandH + kioskPanelH / 2, -6);
       g.add(kScreen);
       const kBase = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.4), mAccent);
       kBase.position.set(kx, 0.03, -6);
@@ -900,7 +910,14 @@ const RECEPTION: ZoneBlueprint = {
     np.position.set(0, 0.95, -2.3);
     g.add(np);
 
-    // Bench seating
+    // Receptionist's monitor — sits near the front edge of the desk, turned
+    // to face the receptionist standing behind the desk (not the visitor).
+    const receptionScreen = props.makeLockScreenMonitor(1.0, 0.65);
+    receptionScreen.position.set(0, 1.06, -2.7);
+    receptionScreen.rotation.y = Math.PI;
+    g.add(receptionScreen);
+
+    // Bench seating — facing the reception desk, not the entrance behind them
     g.add(
       props.makeChair(
         'bench',
@@ -908,6 +925,7 @@ const RECEPTION: ZoneBlueprint = {
       ),
     );
     g.children[g.children.length - 1]!.position.set(0, 0, 2);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI;
     g.add(
       props.makeChair(
         'bench',
@@ -915,6 +933,7 @@ const RECEPTION: ZoneBlueprint = {
       ),
     );
     g.children[g.children.length - 1]!.position.set(-5, 0, 2);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI;
     g.add(
       props.makeChair(
         'bench',
@@ -922,6 +941,7 @@ const RECEPTION: ZoneBlueprint = {
       ),
     );
     g.children[g.children.length - 1]!.position.set(5, 0, 2);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI;
 
     // Warm recessed lighting
     const warmLight = new THREE.PointLight(0xffe8a0, 0.4, 10);
@@ -957,3 +977,14 @@ export const ZONE_BLUEPRINTS: Record<ZoneId, ZoneBlueprint> = {
 };
 
 export const listZones = (): ZoneId[] => Object.keys(ZONE_BLUEPRINTS) as ZoneId[];
+
+/** Zones staffed by IT — their workstations open the full IAM/SecOps/Ticket
+ * tooling VM. Every other zone's workstation opens a plain consumer desktop
+ * instead, since e.g. Finance's PC realistically wouldn't have the IAM
+ * Console installed on it. */
+export const IT_ZONE_IDS: ReadonlySet<ZoneId> = new Set<ZoneId>([
+  'iam-ops',
+  'sec-ops',
+  'help-desk',
+  'engineering',
+]);

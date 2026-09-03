@@ -52,7 +52,7 @@ export function makeDesk(
  * snapshot, not a ticking clock, same tradeoff as the other zone-build-time
  * canvas textures (wall signs, workstation screen).
  */
-function makeLockScreenTexture(): THREE.CanvasTexture {
+export function makeLockScreenTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 320;
@@ -94,13 +94,14 @@ function makeLockScreenTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-/** A monitor showing a Windows-style lock screen — used for decorative desk
- * monitors across every zone so the workspace looks like real signed-out PCs.
- * Only the face pointing toward the desk's chair (local +z) shows the lock
- * screen; the back, sides, top and bottom are a plain dark plastic bezel —
- * a BoxGeometry with a single material would otherwise wrap the screen
- * texture around every face, including the one facing away from the player. */
-export function makeLockScreenMonitor(w = 1.4, h = 0.9): THREE.Group {
+/** Just the lock-screen panel itself (no stand/post) — a box centered on its
+ * own origin so the caller can mount it anywhere (on a desk stand, a wall
+ * bracket, a kiosk pole, etc.) without inheriting any built-in mounting
+ * hardware. Only the face pointing local +z shows the lock screen; the back,
+ * sides, top and bottom are a plain dark plastic bezel — a BoxGeometry with
+ * a single material would otherwise wrap the screen texture onto every
+ * face, including the one facing away from the viewer. */
+export function makeLockScreenPanel(w = 1.4, h = 0.9): THREE.Group {
   const g = new THREE.Group();
   const tex = makeLockScreenTexture();
   const screenFaceMat = new THREE.MeshStandardMaterial({
@@ -110,13 +111,10 @@ export function makeLockScreenMonitor(w = 1.4, h = 0.9): THREE.Group {
     emissiveIntensity: 0.7,
     roughness: 0.4,
   });
-  const bmMat = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 });
   const bezelMat = new THREE.MeshStandardMaterial({ color: '#0d1014', roughness: 0.75 });
 
   // BoxGeometry material groups, in order: +x, -x, +y, -y, +z, -z.
-  // Every decorative monitor is placed with the chair on its +z side, so the
-  // lock screen goes on the +z face only.
-  const screen = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), [
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), [
     bezelMat,
     bezelMat,
     bezelMat,
@@ -124,8 +122,21 @@ export function makeLockScreenMonitor(w = 1.4, h = 0.9): THREE.Group {
     screenFaceMat,
     bezelMat,
   ]);
+  panel.castShadow = true;
+  g.add(panel);
+  return g;
+}
+
+/** A monitor showing a Windows-style lock screen, complete with its own
+ * desk stand and post — used for decorative desk monitors across every
+ * zone so the workspace looks like real signed-out PCs. Position the
+ * group's origin at the desk surface; the stand rests directly on it. */
+export function makeLockScreenMonitor(w = 1.4, h = 0.9): THREE.Group {
+  const g = new THREE.Group();
+  const bmMat = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 });
+
+  const screen = makeLockScreenPanel(w, h);
   screen.position.y = h / 2 + 0.08;
-  screen.castShadow = true;
   g.add(screen);
 
   const stand = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.3), bmMat);
@@ -382,6 +393,8 @@ export function makeReceptionDesk(w = 3, h = 1.1, d = 1, deskMat?: THREE.Materia
  * A full computer workstation: desk with dual monitors, keyboard, and mouse.
  * The monitor group is tagged with `userData.interactable = 'workstation'` so
  * the engine raycaster can detect a click and open the desktop overlay.
+ * Screens show the same Windows-style lock screen as every other monitor
+ * across the workspace, for a consistent, signed-out-PC look.
  *
  * Layout (looking down at the desk from above):
  *
@@ -389,7 +402,7 @@ export function makeReceptionDesk(w = 3, h = 1.1, d = 1, deskMat?: THREE.Materia
  *   [    keyboard + mouse    ]   <- in the middle
  *   [ desk surface (1.8 x 1.0) ]  <- at the front
  */
-export function makeWorkstation(screenLabel = 'APEX OS — sign in to begin'): THREE.Group {
+export function makeWorkstation(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'workstation';
 
@@ -410,59 +423,13 @@ export function makeWorkstation(screenLabel = 'APEX OS — sign in to begin'): T
   });
 
   // ---- Screen content texture (shared by both monitors) ----
-  const screenCanvas = document.createElement('canvas');
-  screenCanvas.width = 512;
-  screenCanvas.height = 320;
-  const sctx = screenCanvas.getContext('2d')!;
-  sctx.fillStyle = '#0a3a32';
-  sctx.fillRect(0, 0, 512, 320);
-  // Taskbar band
-  sctx.fillStyle = '#1b1f24';
-  sctx.fillRect(0, 296, 512, 24);
-  // Apex logo tile
-  sctx.fillStyle = '#4ec9b0';
-  sctx.fillRect(20, 20, 60, 60);
-  sctx.fillStyle = '#0e1116';
-  sctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
-  sctx.textAlign = 'center';
-  sctx.textBaseline = 'middle';
-  sctx.fillText('A', 50, 50);
-  // Title text
-  sctx.fillStyle = '#e6e6e6';
-  sctx.textAlign = 'left';
-  sctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
-  sctx.fillText('APEX IDENTITY', 100, 36);
-  sctx.fillStyle = '#8b95a1';
-  sctx.font = '14px -apple-system, BlinkMacSystemFont, sans-serif';
-  sctx.fillText(screenLabel, 100, 62);
-  // Status tiles
-  for (let i = 0; i < 3; i++) {
-    sctx.fillStyle = '#232830';
-    sctx.fillRect(20 + i * 160, 110, 140, 80);
-    sctx.strokeStyle = '#4ec9b0';
-    sctx.lineWidth = 2;
-    sctx.strokeRect(20 + i * 160, 110, 140, 80);
-    sctx.fillStyle = '#4ec9b0';
-    sctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
-    sctx.fillText(['USERS', 'APPS', 'EVENTS'][i] ?? '', 30 + i * 160, 130);
-    sctx.fillStyle = '#e6e6e6';
-    sctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, sans-serif';
-    sctx.fillText(String([42, 12, 1287][i] ?? 0), 30 + i * 160, 168);
-  }
-  // Login prompt
-  sctx.fillStyle = '#232830';
-  sctx.fillRect(20, 210, 472, 70);
-  sctx.fillStyle = '#8b95a1';
-  sctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
-  sctx.fillText('Click to open workstation', 36, 250);
-  sctx.fillStyle = '#4ec9b0';
-  sctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
-  sctx.fillText('› workstation', 36, 270);
-  const screenTex = new THREE.CanvasTexture(screenCanvas);
+  const tex = makeLockScreenTexture();
   const mScreenWithTex = new THREE.MeshStandardMaterial({
-    map: screenTex,
-    emissive: '#4ec9b0',
-    emissiveIntensity: 0.5,
+    map: tex,
+    emissive: '#1e3a5f',
+    emissiveMap: tex,
+    emissiveIntensity: 0.7,
+    roughness: 0.4,
   });
 
   // ---- Desk top ----
@@ -499,22 +466,31 @@ export function makeWorkstation(screenLabel = 'APEX OS — sign in to begin'): T
   monitorGroup.name = 'workstation-monitor';
   monitorGroup.userData.interactable = 'workstation';
 
-  // Two monitors side by side
+  // Two monitors side by side, stacked to actually rest on the desk surface
+  // (deskTopY ≈ 0.77 — desk box at y=0.75, half-height 0.02) instead of
+  // floating well above it: base sits directly on the desk, a short post
+  // carries the screen. The face plane sits 0.005 in front of the bezel's
+  // front face (bezel front = -0.41) rather than exactly on it — coincident
+  // z at the same depth was causing z-fighting/flicker on the screen.
   const monW = 0.55,
     monH = 0.35;
+  const deskTopY = 0.77;
+  const standY = deskTopY + 0.01; // base, height 0.02 → sits flush on the desk
+  const postY = deskTopY + 0.02 + 0.07; // post, height 0.14, resting on the base
+  const screenY = postY + 0.07 + monH / 2; // screen center, resting on the post
   for (const mx of [-0.32, 0.32]) {
     const bezel = new THREE.Mesh(new THREE.BoxGeometry(monW + 0.04, monH + 0.04, 0.02), mBezel);
-    bezel.position.set(mx, 1.2, -0.42);
+    bezel.position.set(mx, screenY, -0.42);
     bezel.castShadow = true;
     monitorGroup.add(bezel);
     const face = new THREE.Mesh(new THREE.PlaneGeometry(monW, monH), mScreenWithTex);
-    face.position.set(mx, 1.2, -0.41);
+    face.position.set(mx, screenY, -0.405);
     monitorGroup.add(face);
-    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.08), mEdge);
-    stand.position.set(mx, 1.02, -0.42);
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.08), mEdge);
+    stand.position.set(mx, standY, -0.42);
     monitorGroup.add(stand);
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.04), mEdge);
-    post.position.set(mx, 1.1, -0.42);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 0.04), mEdge);
+    post.position.set(mx, postY, -0.42);
     monitorGroup.add(post);
   }
   g.add(monitorGroup);

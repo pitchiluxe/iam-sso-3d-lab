@@ -41,7 +41,10 @@ export interface WindowDef {
 }
 
 export interface DesktopOverlay {
-  show(conductor: Conductor): void;
+  /** @param isIT Whether this workstation's zone is IT-staffed (defaults to
+   *  true) — decides whether the full IAM/SecOps/Ticket VM opens or a plain
+   *  consumer desktop. */
+  show(conductor: Conductor, isIT?: boolean): void;
   hide(): void;
   isVisible(): boolean;
   openWindow(id: string, conductor: Conductor): void;
@@ -158,6 +161,16 @@ const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map
  * clobbering in-progress local state (e.g. an unsaved Notepad draft) for no
  * benefit. */
 const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
+  'iam-console',
+  'ticket-console',
+  'secops-dashboard',
+  'ollama-console',
+  'objectives',
+]);
+
+/** Apps only an IT workstation has installed — hidden from the desktop
+ * icons, Start menu, and default layout on a non-IT zone's "computer". */
+const IT_ONLY_APP_IDS = new Set([
   'iam-console',
   'ticket-console',
   'secops-dashboard',
@@ -421,6 +434,12 @@ export function createDesktopOverlay(): DesktopOverlay {
   let visible = false;
   let container: HTMLElement | null = null;
   let clockInterval: number | null = null;
+  // Whether the current workstation is an IT one (full IAM/SecOps/Ticket
+  // tooling) or a plain consumer PC — set on every show() call so exiting an
+  // IT zone's VM and entering a non-IT one's swaps the app set correctly.
+  let currentIsIT = true;
+  let iconColEl: HTMLElement | null = null;
+  let renderStartMenuApps: (() => void) | null = null;
 
   function buildContainer(): HTMLElement {
     const c = document.createElement('div');
@@ -473,6 +492,7 @@ export function createDesktopOverlay(): DesktopOverlay {
       gap: 8px; justify-items: center;
     `;
     bg.appendChild(iconCol);
+    iconColEl = iconCol;
     renderDesktopIcons(iconCol);
     onDesktopIconsChanged(() => renderDesktopIcons(iconCol));
   }
@@ -484,7 +504,9 @@ export function createDesktopOverlay(): DesktopOverlay {
   }
 
   function allDesktopIconEntries(): DesktopIconEntry[] {
-    return DESKTOP_APPS.map((a): DesktopIconEntry => ({ id: a.id, title: a.title, icon: a.icon }));
+    return DESKTOP_APPS.filter((a) => currentIsIT || !IT_ONLY_APP_IDS.has(a.id)).map(
+      (a): DesktopIconEntry => ({ id: a.id, title: a.title, icon: a.icon }),
+    );
   }
 
   /** Resolve the visible, ordered, non-deleted list of desktop icons. */
@@ -799,7 +821,7 @@ export function createDesktopOverlay(): DesktopOverlay {
         </div>
         <div>
           <div style="font-size:14px;font-weight:600;color:#e6e6e6;">Apex Identity</div>
-          <div style="font-size:11px;color:#8b95a1;">IAM Operations Workstation</div>
+          <div id="sm-subtitle" style="font-size:11px;color:#8b95a1;">Workstation</div>
         </div>
       </div>
     `;
@@ -817,29 +839,40 @@ export function createDesktopOverlay(): DesktopOverlay {
     const appsGrid = document.createElement('div');
     appsGrid.style.cssText =
       'padding: 0 8px 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px;';
-    for (const app of DESKTOP_APPS) {
-      const appBtn = document.createElement('button');
-      appBtn.style.cssText = `
-        display: flex; align-items: center; gap: 10px;
-        padding: 10px 12px; border-radius: 6px; border: none; cursor: pointer;
-        background: transparent; color: #e6e6e6; font-size: 13px; text-align: left;
-        transition: background 0.15s;
-      `;
-      appBtn.innerHTML = `<span style="font-size:20px;">${app.icon}</span><span>${app.title}</span>`;
-      appBtn.addEventListener('mouseenter', () => {
-        appBtn.style.background = '#232830';
-      });
-      appBtn.addEventListener('mouseleave', () => {
-        appBtn.style.background = 'transparent';
-      });
-      appBtn.addEventListener('click', () => {
-        wm.open(app);
-        const sm2 = document.getElementById('start-menu');
-        if (sm2) sm2.style.display = 'none';
-      });
-      appsGrid.appendChild(appBtn);
-    }
     sm.appendChild(appsGrid);
+
+    // Re-run whenever isIT changes (entering a different zone's VM) so the
+    // pinned app list matches what that "computer" actually has installed.
+    renderStartMenuApps = () => {
+      const subtitle = header.querySelector('#sm-subtitle');
+      if (subtitle)
+        subtitle.textContent = currentIsIT ? 'IT Operations Workstation' : 'Workstation';
+      appsGrid.innerHTML = '';
+      const apps = DESKTOP_APPS.filter((a) => currentIsIT || !IT_ONLY_APP_IDS.has(a.id));
+      for (const app of apps) {
+        const appBtn = document.createElement('button');
+        appBtn.style.cssText = `
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 12px; border-radius: 6px; border: none; cursor: pointer;
+          background: transparent; color: #e6e6e6; font-size: 13px; text-align: left;
+          transition: background 0.15s;
+        `;
+        appBtn.innerHTML = `<span style="font-size:20px;">${app.icon}</span><span>${app.title}</span>`;
+        appBtn.addEventListener('mouseenter', () => {
+          appBtn.style.background = '#232830';
+        });
+        appBtn.addEventListener('mouseleave', () => {
+          appBtn.style.background = 'transparent';
+        });
+        appBtn.addEventListener('click', () => {
+          wm.open(app);
+          const sm2 = document.getElementById('start-menu');
+          if (sm2) sm2.style.display = 'none';
+        });
+        appsGrid.appendChild(appBtn);
+      }
+    };
+    renderStartMenuApps();
 
     const footer = document.createElement('div');
     footer.style.cssText = `
@@ -895,13 +928,17 @@ export function createDesktopOverlay(): DesktopOverlay {
   }
 
   const api: DesktopOverlay = {
-    show(conductor: Conductor) {
+    show(conductor: Conductor, isIT = true) {
+      currentIsIT = isIT;
+
       if (!container) {
         container = buildContainer();
         buildDesktop(container);
         buildTaskbar(container, conductor);
-        // Auto-open IAM Console + Objectives inside the VM (2-pane default layout)
-        layoutDefaultWindows(wmCtx.current);
+        // Auto-open IAM Console + Objectives inside the VM (2-pane default
+        // layout) — but only on an IT workstation; a consumer PC (Finance,
+        // HR, Reception, App Center) starts with a plain empty desktop.
+        if (isIT) layoutDefaultWindows(wmCtx.current);
       } else {
         // Re-entering the VM: reuse the existing WindowManager and its DOM
         // instead of building a new one. Recreating the WindowManager here
@@ -910,7 +947,14 @@ export function createDesktopOverlay(): DesktopOverlay {
         // Objectives on top of them every single time the learner exited
         // and re-entered, duplicating windows without bound.
         const wm = wmCtx.current;
-        if (wm && wm.getOpenIds().length > 0) {
+        if (wm && !isIT) {
+          // Consumer desktop — this "computer" doesn't have IT tooling
+          // installed, so close any IT-only windows left open from a
+          // previous IT-zone visit rather than showing them here.
+          for (const id of wm.getOpenIds()) {
+            if (IT_ONLY_APP_IDS.has(id)) wm.close(id);
+          }
+        } else if (wm && wm.getOpenIds().length > 0) {
           // Windows are already open — refresh the conductor-backed ones so
           // they reflect the current lab state (e.g. after Reset Lab) rather
           // than whatever was rendered when they were first opened.
@@ -918,12 +962,18 @@ export function createDesktopOverlay(): DesktopOverlay {
             if (CONDUCTOR_BACKED_WINDOW_IDS.has(id)) wm.refresh(id);
           }
           wm.updateTaskbar();
-        } else {
+        } else if (wm) {
           // Desktop was opened before but everything got closed — restore
           // the default layout.
           layoutDefaultWindows(wm);
         }
       }
+
+      // The app set (icons, Start menu) depends on isIT, which can differ
+      // from the last time this desktop was shown — refresh both to match.
+      if (iconColEl) renderDesktopIcons(iconColEl);
+      renderStartMenuApps?.();
+
       if (container) container.style.display = 'flex';
       visible = true;
     },
@@ -940,6 +990,10 @@ export function createDesktopOverlay(): DesktopOverlay {
     },
     openWindow(id: string, conductor: Conductor) {
       if (!visible) this.show(conductor);
+      // Belt-and-suspenders: even if something (e.g. the File Explorer's
+      // Program Files listing) tries to open an IT app by id directly, a
+      // consumer desktop still won't actually launch it.
+      if (!currentIsIT && IT_ONLY_APP_IDS.has(id)) return;
       wmCtx.current?.openById(id);
     },
     onExit: null,
