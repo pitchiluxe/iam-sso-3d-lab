@@ -31,7 +31,18 @@ const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'user-deleted': 'Delete the duplicate account in IAM Console',
 };
 
+// WindowManager.refresh() calls renderObjectivesWindow(body) again on the
+// same body element every time the VM is re-entered (see desktopOverlay.ts's
+// CONDUCTOR_BACKED_WINDOW_IDS). Without clearing body and unsubscribing the
+// previous call's listener first, each re-entry stacked another full render
+// on top of the last (visible duplicate objectives) and leaked another
+// labStore subscription forever.
+const activeUnsubscribes = new WeakMap<HTMLElement, () => void>();
+
 export function renderObjectivesWindow(body: HTMLElement): void {
+  activeUnsubscribes.get(body)?.();
+  body.innerHTML = '';
+
   // Use a container that fills the body
   const container = document.createElement('div');
   container.style.cssText = `
@@ -174,5 +185,5 @@ export function renderObjectivesWindow(body: HTMLElement): void {
   }
 
   render();
-  labStore.subscribe(render);
+  activeUnsubscribes.set(body, labStore.subscribe(render));
 }
