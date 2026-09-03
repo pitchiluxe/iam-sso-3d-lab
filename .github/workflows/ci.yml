@@ -107,6 +107,11 @@ jobs:
   create_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    # Gate the release on every test+build job passing. Otherwise an
+    # early-failing E2E (or any other job) creates a release that
+    # later passes can't recreate — `actions/create-release` fails with
+    # "tag_name already_exists".
+    needs: [lint, type-check, unit, build, e2e]
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
@@ -146,7 +151,7 @@ jobs:
   release_installer:
     name: Build & Upload Installer (Windows)
     runs-on: windows-latest
-    needs: [create_release, unit, build]
+    needs: [create_release, lint, type-check, unit, build, e2e]
     steps:
       - uses: actions/checkout@v4
 
