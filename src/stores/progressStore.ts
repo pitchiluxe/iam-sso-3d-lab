@@ -20,7 +20,7 @@ function loadProgress(): PersistedProgress {
 
 function saveProgress(snap: PersistedProgress): void {
   const current = loadPersistedState();
-  saveEnvelope({ ...current, version: 2, progress: snap });
+  saveEnvelope({ ...current, progress: snap });
 }
 
 type ProgressState = PersistedProgress & {
@@ -70,7 +70,6 @@ export const progressStore = create<ProgressState>()((set) => {
     reset() {
       saveEnvelope({
         ...loadPersistedState(),
-        version: 2,
         progress: { completedLabIds: [], bestScores: {}, startedAt: {} },
       });
       set({ completedLabIds: [], bestScores: {}, startedAt: {} });

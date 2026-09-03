@@ -1,22 +1,19 @@
 /**
  * util/persistence.ts — versioned localStorage envelope for all persisted state.
  *
- * Schema v2 unifies what was previously split across:
- *   - iam-lab-progress-v1  (progressStore only: completedLabIds + bestScores)
+ * Schema history:
+ *   v1 — iam-lab-progress-v1 (progressStore only)
+ *   v2 — unified progress + resume + evidence under iam-lab-state-v2
+ *   v3 — adds generatedLabs (AI-generated daily-ticket labs + dedup ledger)
  *
- * The v2 envelope holds:
- *   - progress: migrated from v1
- *   - resume:  current lab + step index + step statuses (labStore)
- *   - evidence: collected evidence items (evidenceStore)
- *
- * Migration: on load, if only v1 exists, its data is migrated into v2 and
- * the v1 key is deleted. Future reads always read v2.
+ * Migration: on load, older versions are upgraded in place and re-saved
+ * under the current key. Future reads always read the current version.
  */
-import type { LabId, ScoreBreakdown } from '@/domain';
+import type { LabId, ScoreBreakdown, Lab } from '@/domain';
 import type { StepStatus } from '@/stores/labStore';
 import type { Evidence } from '@/domain';
 
-const V2_KEY = 'iam-lab-state-v2';
+const CURRENT_KEY = 'iam-lab-state-v2';
 const V1_KEY = 'iam-lab-progress-v1';
 
 // ---------------------------------------------------------------------------
@@ -36,11 +33,26 @@ export interface PersistedResume {
   failed: boolean;
 }
 
+export interface PersistedGeneratedLabs {
+  /** Every AI-generated lab ever created, for pagination on the start screen. */
+  labs: Lab[];
+  /** Every template id used so far, oldest first — grows forever so a
+   * template is never repeated until all 15 have been used at least once. */
+  usedTemplateIds: string[];
+  /** Every fresh onboarding/contractor name used so far, oldest first. */
+  usedNames: string[];
+}
+
 export interface PersistedState {
-  version: 2;
+  version: 3;
   progress: PersistedProgress;
   resume: PersistedResume | null;
   evidence: Evidence[];
+  generatedLabs: PersistedGeneratedLabs;
+}
+
+function emptyGeneratedLabs(): PersistedGeneratedLabs {
+  return { labs: [], usedTemplateIds: [], usedNames: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -68,28 +80,42 @@ function migrateFromV1(): PersistedProgress {
 
 export function loadPersistedState(): PersistedState {
   try {
-    const raw = localStorage.getItem(V2_KEY);
+    const raw = localStorage.getItem(CURRENT_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as PersistedState;
-      if (parsed.version === 2) return parsed;
+      const parsed = JSON.parse(raw) as Partial<PersistedState> & { version?: number };
+      if (parsed.version === 3) return parsed as PersistedState;
+      if (parsed.version === 2) {
+        // v2 → v3: same shape, just add the new slice.
+        const upgraded: PersistedState = {
+          version: 3,
+          progress: parsed.progress ?? { completedLabIds: [], bestScores: {}, startedAt: {} },
+          resume: parsed.resume ?? null,
+          evidence: parsed.evidence ?? [],
+          generatedLabs: emptyGeneratedLabs(),
+        };
+        saveEnvelope(upgraded);
+        return upgraded;
+      }
     }
-    // Fall back to v1 and migrate
+    // Fall back to v1 and migrate all the way to v3.
     const progress = migrateFromV1();
     const state: PersistedState = {
-      version: 2,
+      version: 3,
       progress,
       resume: null,
       evidence: [],
+      generatedLabs: emptyGeneratedLabs(),
     };
     saveEnvelope(state);
     localStorage.removeItem(V1_KEY);
     return state;
   } catch {
     return {
-      version: 2,
+      version: 3,
       progress: { completedLabIds: [], bestScores: {}, startedAt: {} },
       resume: null,
       evidence: [],
+      generatedLabs: emptyGeneratedLabs(),
     };
   }
 }
@@ -100,8 +126,7 @@ export function loadPersistedState(): PersistedState {
 
 export function saveEnvelope(state: PersistedState): void {
   try {
-    localStorage.setItem(V2_KEY, JSON.stringify(state));
-    // Clean up v1 if it still exists (migration)
+    localStorage.setItem(CURRENT_KEY, JSON.stringify(state));
     localStorage.removeItem(V1_KEY);
   } catch {
     /* quota exceeded or private mode */
@@ -156,9 +181,10 @@ function isPersistedState(v: unknown): v is PersistedState {
   if (typeof v !== 'object' || v === null) return false;
   const s = v as Record<string, unknown>;
   return (
-    s['version'] === 2 &&
+    s['version'] === 3 &&
     typeof s['progress'] === 'object' &&
     (s['resume'] === null || typeof s['resume'] === 'object') &&
-    Array.isArray(s['evidence'])
+    Array.isArray(s['evidence']) &&
+    typeof s['generatedLabs'] === 'object'
   );
 }

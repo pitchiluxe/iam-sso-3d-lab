@@ -17,7 +17,7 @@ function loadEvidence(): Evidence[] {
 
 function saveEvidence(items: Evidence[]): void {
   const current = loadPersistedState();
-  saveEnvelope({ ...current, version: 2, evidence: items });
+  saveEnvelope({ ...current, evidence: items });
 }
 
 interface EvidenceState {

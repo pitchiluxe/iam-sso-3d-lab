@@ -45,12 +45,12 @@ function saveResume(
     failed: s.failed,
   };
   const current = loadPersistedState();
-  saveEnvelope({ ...current, version: 2, resume });
+  saveEnvelope({ ...current, resume });
 }
 
 function clearResume(): void {
   const current = loadPersistedState();
-  saveEnvelope({ ...current, version: 2, resume: null });
+  saveEnvelope({ ...current, resume: null });
 }
 
 export const labStore = create<LabState>()((set, get) => ({
