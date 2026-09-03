@@ -22,4 +22,10 @@ describe('pickUnusedName', () => {
     const picked = pickUnusedName(allUsed);
     expect(picked.displayName).toBe(NAME_POOL[0]!.displayName);
   });
+
+  it('produces a regex-valid username for every name in the pool', () => {
+    for (const entry of NAME_POOL) {
+      expect(entry.username).toMatch(/^[a-z]+\.[a-z]+$/);
+    }
+  });
 });

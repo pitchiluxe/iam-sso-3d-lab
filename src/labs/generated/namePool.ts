@@ -10,7 +10,12 @@ export interface PoolName {
 }
 
 function toUsername(displayName: string): string {
-  return displayName.toLowerCase().split(' ').filter(Boolean).join('.');
+  return displayName
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.replace(/[^a-z]/g, ''))
+    .join('.');
 }
 
 const FULL_NAMES = [
