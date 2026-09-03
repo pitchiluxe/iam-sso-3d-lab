@@ -55,7 +55,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "IAM SSO 3D Lab"
-    }
+    },
+    "publish": null
   },
   "dependencies": {
     "nanoid": "^5.0.0",
