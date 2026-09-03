@@ -116,21 +116,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.2.1
-          release_name: IAM SSO 3D Lab v0.2.1
+          tag_name: v0.3.0
+          release_name: IAM SSO 3D Lab v0.3.0
           body: |
-            ## IAM & SSO 3D Lab v0.2.1 — VM Desktop Fixes & New Apps
+            ## IAM & SSO 3D Lab v0.3.0
 
-            ### What's new in v0.2.1
-            - **Removed AIHub Browser** — it was bundled/pre-installed in prior builds; no longer shipped or referenced anywhere in the app
-            - **New VM apps**: Settings (Windows-11-style, with a working Sound mute toggle and wallpaper picker — including an IAMLab dark wallpaper), classic-style Control Panel, and a Recycle Bin you can drag desktop icons onto to remove them
-            - **Drag-to-reorder desktop icons**, arranged 6-per-column like a real desktop, with order and deletions persisted
-            - Desk monitors in the 3D workspace now show a **Windows-style lock screen** (front face only — the back/sides are a plain dark bezel, not a wraparound texture), and desk chairs now actually face their monitor instead of showing their back to it
-            - **Lab 1 is now actually completable end-to-end** — fixed two validators that could never be satisfied: step 3 (create the admin user) collided with a pre-seeded admin account, and step 4 (MFA policy) checked for an audit event the UI never emitted
-            - **Step completion is now visible**: a step shows a brief greyed-out "Next Step" state before the AI supervisor auto-advances, instead of jumping instantly
-            - Fixed the VM desktop **duplicating windows** every time you exited and re-entered (IAM Console/Objectives would pile up); already-open windows now also refresh instead of showing stale data after a lab reset
-            - Fixed the IAM Console losing its scrollbar
-            - Fixed the AI Supervisor chat silently falling back to canned hints on a cold local-Ollama model load; added a "thinking…" indicator while it's answering
+            ### What's new in v0.3.0
+            - Fresh installer build — clean rebuild of the Windows installer from a clean working tree
+            - All build artifacts (previous `dist/` and `dist-installer/`) were purged before this build to guarantee a clean artifact
+            - All changes shipped in v0.2.1 (Windows-style lock screens, drag-to-reorder desktop icons, VM app suite, Lab 1 validator fixes, etc.) are included
 
             ### Features
             - 13 hands-on labs (IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass)
@@ -139,7 +133,7 @@ jobs:
             - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass)
 
             ### Run the installer
-            Download `IAM-SSO-3D-Lab-Setup-0.2.1.exe` and run it on any Windows 10/11 64-bit machine.
+            Download `IAM-SSO-3D-Lab-Setup-0.3.0.exe` and run it on any Windows 10/11 64-bit machine.
 
             ### AI Supervisor setup
             1. Install [Ollama](https://ollama.com)
@@ -174,6 +168,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.2.1.exe
-          asset_name: IAM-SSO-3D-Lab-Setup-0.2.1.exe
+          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.3.0.exe
+          asset_name: IAM-SSO-3D-Lab-Setup-0.3.0.exe
           asset_content_type: application/octet-stream
