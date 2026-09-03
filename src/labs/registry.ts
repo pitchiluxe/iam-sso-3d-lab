@@ -17,6 +17,7 @@ import { LAB_12 } from './lab12';
 import { LAB_13 } from './lab13';
 
 import type { Lab } from '@/domain';
+import { generatedLabsStore } from '@/stores/generatedLabsStore';
 
 export const LAB_REGISTRY: ReadonlyArray<Lab> = [
   LAB_01,
@@ -34,4 +35,6 @@ export const LAB_REGISTRY: ReadonlyArray<Lab> = [
   LAB_13,
 ] as const;
 
-export const findLab = (id: string): Lab | undefined => LAB_REGISTRY.find((l) => l.id === id);
+export const findLab = (id: string): Lab | undefined =>
+  LAB_REGISTRY.find((l) => l.id === id) ??
+  generatedLabsStore.getState().labs.find((l) => l.id === id);
