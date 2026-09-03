@@ -1,0 +1,176 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run type-check
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm test -- --run
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run e2e
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+  create_release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v0.1.0
+          release_name: IAM SSO 3D Lab v0.1.0
+          body: |
+            ## IAM & SSO 3D Lab — Interactive Training Environment
+
+            A realistic enterprise identity management and SSO training simulation.
+
+            ### What's included
+            - **13 hands-on labs** covering IAM foundations, JML, RBAC, SSO/SAML/OIDC, MFA, access reviews, break/fix, incident response, and more
+            - **3D virtual environment** with interactive IAM, Ticket, and SecOps consoles
+            - **AI Supervisor** — Socratic coaching powered by a local Ollama LLM; guides learners without giving answers
+            - **Full audit trail** — every action recorded with timestamps and actor context
+            - **Evidence collection** — screenshot and log capture for each step
+            - **Scoring rubric** — exec / troubleshoot / least-privilege / docs / evidence / comms
+
+            ### Run the installer
+            Download `IAM-SSO-3D-Lab-Setup-X.X.X.exe` and run it on any Windows 10/11 64-bit machine.
+
+            ### AI Supervisor setup
+            1. Install [Ollama](https://ollama.com)
+            2. Run: `ollama pull llama3.2`
+            3. The AI tutor activates automatically when Ollama is running locally.
+          draft: false
+          prerelease: false
+
+  release_installer:
+    name: Build & Upload Installer (Windows)
+    runs-on: windows-latest
+    needs: [create_release, unit, build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron installer
+        run: npm run build:desktop
+
+      - name: Upload Windows installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.1.0.exe
+          asset_name: IAM-SSO-3D-Lab-Setup.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload 7z archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: dist-installer/iam-sso-3d-lab-0.1.0-x64.nsis.7z
+          asset_name: iam-sso-3d-lab-0.1.0-x64.nsis.7z
+          asset_content_type: application/x-7z-compressed
