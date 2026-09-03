@@ -10,3 +10,4 @@ export { tutorStore, type DialogEntry } from './tutorStore';
 export { evidenceStore } from './evidenceStore';
 export { scoreStore } from './scoreStore';
 export { errorStore, isFatalKind } from './errorStore';
+export { generatedLabsStore } from './generatedLabsStore';

@@ -12,7 +12,14 @@
  *   Model is configured via window.env.OLLAMA_MODEL (default: llama3.2).
  *   Disable via window.env.OLLAMA_DISABLED=true (no network call, uses local hints).
  */
-import { tutorStore } from '@/stores';
+// Import tutorStore from its own module, not the '@/stores' barrel: the
+// barrel now also re-exports generatedLabsStore, which pulls in
+// labs/generated/templates.ts -> conductor/conductor.ts, and conductor.ts
+// imports this very module directly. Going through the barrel here would
+// close that cycle (conductor -> stores -> generatedLabsStore -> templates
+// -> conductor -> this file) and leave OllamaSupervisor undefined when
+// conductor.ts's module-scope `new Conductor()` singleton runs.
+import { tutorStore } from '@/stores/tutorStore';
 import type { Lab, LabStep, AuditEvent } from '@/domain';
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
