@@ -2,7 +2,8 @@
  * e2e/persistence.spec.ts — localStorage progress persistence.
  *
  * Verifies:
- *  - After starting a lab, localStorage has the v2 envelope key
+ *  - After starting a lab, localStorage has the persisted-state envelope
+ *  - The envelope version is v3 (the current schema — v3 added generatedLabs)
  *  - After reload, the same lab remains current in the HUD
  */
 import { test, expect } from '@playwright/test';
@@ -25,11 +26,14 @@ test('progress persists across page reload via localStorage', async ({ page, con
   // Start screen must be gone after the lab starts.
   await expect(page.locator('#start-screen')).toHaveCount(0);
 
-  // Verify the v2 envelope key exists
+  // Verify the persisted-state envelope exists at the current key.
+  // Schema history (see src/util/persistence.ts):
+  //   v2 — progress + resume + evidence under iam-lab-state-v2
+  //   v3 — adds generatedLabs (AI-generated daily-ticket labs + dedup ledger)
   const stored = await page.evaluate(() => localStorage.getItem('iam-lab-state-v2'));
   expect(stored).not.toBeNull();
   const parsed = JSON.parse(stored!);
-  expect(parsed.version).toBe(2);
+  expect(parsed.version).toBe(3);
 
   // Reload the page
   await page.reload();
