@@ -77,6 +77,14 @@ const SEEDS: Record<string, (ctx: SeedContext) => void> = {
   lab13: (ctx) => applyLab13Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
 };
 
+/** Register (or overwrite) one seed function by key — used by the
+ * AI-generated-lab templates so each generated lab can seed baseline
+ * plus its own small extra setup without conductor.ts knowing about
+ * any of the 15 templates. */
+export function registerLabSeed(key: string, fn: (ctx: SeedContext) => void): void {
+  SEEDS[key] = fn;
+}
+
 export interface SeedContext {
   dir: MockDirectory;
   idp: MockIdP;
