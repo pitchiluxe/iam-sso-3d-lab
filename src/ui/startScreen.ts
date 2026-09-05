@@ -324,7 +324,9 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
     const grid = overlay.querySelector('#ss-batch-grid') as HTMLElement;
     const pager = overlay.querySelector('#ss-batch-pager') as HTMLElement;
     const pageLabel = overlay.querySelector('#ss-batch-page-label') as HTMLElement;
-    const labs = generatedLabsStore.getState().labs;
+    // Only show labs that are actual multi-ticket queue labs (10+ steps / tickets).
+    // Single-ticket generated labs go in the regular section instead.
+    const labs = generatedLabsStore.getState().labs.filter((l) => l.steps.length >= 10);
 
     if (labs.length === 0) {
       // Show the template cards as placeholder when no batch labs generated yet
