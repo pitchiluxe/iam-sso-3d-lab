@@ -1,14 +1,23 @@
 /**
  * ui/consoles/ticketConsole.ts — Ticket Queue console.
  * Shows open tickets with subject, kind, and assignee; allows resolving.
+ *
+ * The console subscribes to the ticketStore so it re-renders whenever
+ * tickets are created (e.g. a lab seed) or resolved — the learner
+ * always sees the current queue state.
  */
 import type { Conductor } from '@/conductor/conductor';
-import { evidenceStore } from '@/stores';
+import { evidenceStore, ticketStore } from '@/stores';
 import { mkEvidenceId } from '@/domain';
 import type { Evidence, UserId } from '@/domain';
 
 export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
+  // Reset body style to a known good state so padding always applies.
+  // The console-overlay body starts with padding:14px from consolePanel.ts,
+  // but re-renders from the desktop overlay pass in a bare div — cover both.
+  body.style.cssText = 'padding:16px;min-height:200px;box-sizing:border-box;';
   body.innerHTML = '';
+
   if (!conductor.tickets || !conductor.audit) {
     body.style.cssText = 'padding:24px;color:var(--muted);font-size:13px;line-height:1.6;';
     body.innerHTML = `
@@ -45,28 +54,34 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     evidenceStore.getState().add(ev);
   };
 
-  const refresh = () => {
+  const render = () => {
     const open = queue.list().filter((t) => t.status !== 'resolved');
     const resolved = queue.list().filter((t) => t.status === 'resolved');
     body.innerHTML = '';
 
-    /* Summary */
+    /* Summary — always show, even with 1-2 tickets */
     const sum = document.createElement('div');
     sum.style.cssText =
-      'display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:12px;';
-    sum.innerHTML = `<span style="color:var(--accent)">${open.length} open</span><span>${resolved.length} resolved</span>`;
+      'display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1b1f24;border:1px solid var(--border);border-radius:6px;margin-bottom:12px;';
+    sum.innerHTML = `
+      <span style="font-size:20px;">🎫</span>
+      <div>
+        <div style="font-size:13px;color:var(--accent);font-weight:600;">
+          ${open.length} open · ${resolved.length} resolved
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:1px;">
+          ${open.length > 0 ? 'Resolve tickets to advance the lab' : open.length === 0 && resolved.length > 0 ? 'All tickets resolved — great work!' : 'No tickets in this lab.'}
+        </div>
+      </div>
+    `;
     body.appendChild(sum);
 
-    if (open.length === 0) {
-      body.appendChild(empty('✓ No open tickets'));
-      return;
-    }
-
+    /* Open tickets */
     for (const t of open) {
       const card = document.createElement('div');
       card.style.cssText = `
         background:var(--panel-2);border:1px solid var(--border);border-radius:4px;
-        padding:10px 12px;margin-bottom:8px;font-size:12px;
+        padding:10px 12px;margin-bottom:8px;font-size:12px;min-height:80px;
       `;
       const kindColors: Record<string, string> = {
         onboarding: 'var(--accent)',
@@ -93,9 +108,8 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       actions.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
       actions.appendChild(
         btn('Assign to me', '#60a5fa', () => {
-          // For now, assign to 'player'
           queue.assign(t.id, 'player' as UserId);
-          refresh();
+          render();
         }),
       );
       actions.appendChild(
@@ -106,11 +120,20 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
           } catch (e) {
             alert(String(e));
           }
-          refresh();
+          render();
         }),
       );
       card.appendChild(actions);
       body.appendChild(card);
+    }
+
+    /* Empty state */
+    if (open.length === 0) {
+      const emptyState = document.createElement('div');
+      emptyState.style.cssText =
+        'text-align:center;padding:24px 12px;color:var(--muted);font-size:13px;';
+      emptyState.innerHTML = '✓ No open tickets';
+      body.appendChild(emptyState);
     }
 
     /* Resolved */
@@ -156,7 +179,22 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     body.appendChild(auditList);
   };
 
-  refresh();
+  // Subscribe to the ticket store so the console re-renders whenever tickets
+  // are created (lab seed) or the store is otherwise updated.
+  const unsub = ticketStore.subscribe(render);
+
+  // Also re-render if the console is revisited (e.g. after lab reset/switch).
+  const observer = new MutationObserver(() => {
+    if (document.contains(body)) {
+      // body still in DOM — no-op, unsubscribe will fire when window closes
+    } else {
+      observer.disconnect();
+      unsub();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  render();
 }
 
 function btn(label: string, color: string, onClick: () => void): HTMLElement {
