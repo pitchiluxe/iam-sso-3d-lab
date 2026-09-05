@@ -57,7 +57,13 @@ describe('persistence v3 migration', () => {
     const state = loadPersistedState();
     expect(state.version).toBe(3);
     expect(state.generatedLabs).toEqual({ labs: [], usedTemplateIds: [], usedNames: [] });
-    expect(state.progress).toEqual(v2.progress);
+    // v2→v3 migration also adds achievedBadges: [] to the progress slice.
+    expect(state.progress).toEqual({
+      completedLabIds: [],
+      bestScores: {},
+      startedAt: {},
+      achievedBadges: [],
+    });
   });
 
   it('round-trips a populated generatedLabs slice through saveEnvelope', () => {

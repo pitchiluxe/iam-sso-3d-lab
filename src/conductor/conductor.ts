@@ -59,6 +59,7 @@ import {
   progressStore,
 } from '@/stores';
 import { findLab } from '@/labs/registry';
+import { getAchievement } from '@/util/achievements';
 
 const SEEDS: Record<string, (ctx: SeedContext) => void> = {
   baseline: (ctx) => applyBaseline(ctx.dir, ctx.idp, ctx.apps),
@@ -352,6 +353,19 @@ export class Conductor {
     const score = computeScore(lab, evidenceStore.getState().items, this.dir, this.failCount);
     scoreStore.getState().set(score);
     progressStore.getState().markComplete(lab.id, score);
+
+    // Check for newly earned achievement badges
+    const newBadges = progressStore.getState().checkAndAwardBadges();
+    for (const id of newBadges) {
+      const a = getAchievement(id);
+      if (a) {
+        tutorStore.getState().addDialog({
+          from: 'tutor',
+          body: `🏆 Badge earned: ${a.emoji} ${a.label} — ${a.description}`,
+        });
+      }
+    }
+
     tutorStore.getState().addDialog({
       from: 'tutor',
       body: `Lab complete. Total: ${score.total}/100. Open the debrief to review.`,

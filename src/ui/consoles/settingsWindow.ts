@@ -15,6 +15,28 @@ import { WALLPAPERS, WALLPAPER_STORAGE_KEY, DEFAULT_WALLPAPER_ID } from '@/util/
 import { updateManager, type UpdateStatus } from '@/util/updateManager';
 
 const DENSITY_KEY = 'settings_density';
+const THEME_KEY = 'app_theme';
+
+function getTheme(): 'dark' | 'light' {
+  try {
+    return (localStorage.getItem(THEME_KEY) as 'dark' | 'light') ?? 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+function setTheme(theme: 'dark' | 'light'): void {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    /* ignore */
+  }
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+}
 
 type CategoryId =
   'system' | 'personalization' | 'apps' | 'accounts' | 'sound' | 'updates' | 'about';
@@ -156,6 +178,20 @@ export function renderSettingsWindow(body: HTMLElement): void {
 
     if (active === 'personalization') {
       content.appendChild(sectionTitle('Personalization'));
+
+      // Theme toggle
+      const currentTheme = getTheme();
+      content.appendChild(
+        toggleRow(
+          'Dark / Light theme',
+          `Current: ${currentTheme === 'light' ? 'Light' : 'Dark'} theme`,
+          currentTheme === 'light',
+          (v) => {
+            setTheme(v ? 'light' : 'dark');
+          },
+        ),
+      );
+
       const label = document.createElement('div');
       label.textContent = 'Background';
       label.style.cssText =

@@ -17,6 +17,19 @@
         --panel-2: #232830;
         --border: #2d343d;
       }
+
+      /* Light theme */
+      [data-theme="light"] {
+        --bg: #f0f2f5;
+        --fg: #1a1a2e;
+        --muted: #6b7280;
+        --accent: #0d9488;
+        --warn: #b45309;
+        --err: #dc2626;
+        --panel: #ffffff;
+        --panel-2: #e5e7eb;
+        --border: #d1d5db;
+      }
       * {
         box-sizing: border-box;
       }
@@ -128,7 +141,8 @@
       <div class="pill"><strong>Lab:</strong> <span id="hud-lab">—</span></div>
       <div class="pill"><strong>Step:</strong> <span id="hud-step">—</span></div>
       <div class="pill"><strong>Zone:</strong> <span id="hud-zone">—</span></div>
-      <div class="pill"><strong>Score:</strong> <span id="hud-score">0</span></div>
+      <div class="pill"><strong>⏱️</strong> <span id="hud-timer">00:00</span></div>
+      <div class="pill" id="hud-score-pill" style="cursor:pointer;" title="Click for score breakdown"><strong>Score:</strong> <span id="hud-score">0</span></div>
     </div>
     <div id="fps">0 FPS</div>
     <div id="crosshair"

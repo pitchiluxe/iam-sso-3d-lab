@@ -122,24 +122,35 @@ jobs:
           set -e
           # Delete prior release + tag if they exist, so a re-run after
           # a partial failure doesn't hit "tag_name already_exists".
-          gh release delete v0.3.1 --yes || true
-          git push --delete origin v0.3.1 || true
+          gh release delete v0.3.6 --yes || true
+          git push --delete origin v0.3.6 || true
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v0.3.1
-          release_name: IAM SSO 3D Lab v0.3.1
+          tag_name: v0.3.6
+          release_name: IAM SSO 3D Lab v0.3.6
           body: |
-            ## IAM & SSO 3D Lab v0.3.1
+            ## IAM & SSO 3D Lab v0.3.6
 
-            ### What's new in v0.3.1
-            - **Generate 10 More button** — generates additional AI labs in the start screen grid
-            - **AI-generated daily ticket labs** — 15 real-world IT support scenarios auto-generated per session
-            - **Persisted-state v3** — improved state envelope with generatedLabs slice
-            - **Bug fixes** — Objectives window deduplication, wall-sign text auto-shrinking, window guards, and more
+            ### What's new in v0.3.6
+            - **Ticket Console overhaul** — priority color coding, sort by priority, search/filter, SLA timers with color-shifting countdown, bulk actions (select/resolve/assign)
+            - **Ticket comments** — per-card expand/collapse thread, survives re-renders
+            - **Keyboard shortcuts** — `1-9` jump to a ticket, `R` resolve, `A` assign to me, `F` focus search
+            - **Ticket templates** — Quick Create with 7 pre-filled templates (onboarding, transfer, termination, password reset, MFA, access, incident)
+            - **Notification sounds** — three-tone urgent alert, soft blip, resolution chime
+            - **Lab timer + score breakdown** — live ⏱️ in the HUD; click the score pill for category breakdown
+            - **Lab reset** — wipes current lab state and re-runs the scenario
+            - **Audit log export** — CSV download from the audit panel
+            - **Achievement badges** — 8 unlockable badges (first ticket, perfect score, speed runner, capstone, full graduate, etc.) shown on the start screen and debrief
+            - **Progress dashboard** — per-lab completion strip on the start screen
+            - **Dark / light theme** — toggle in Settings → Personalization, persisted in localStorage
+            - **Interactive tutorial** — 5-step spotlight tour for first-time users (re-runnable from the start screen)
+            - **Windows 11-style Start menu** — user account pill + power button with Sleep / Restart / Shut down / Sign out
+            - **Window control re-order** — minimize, maximize, close (left to right)
+            - **Bug fix** — ticket comment box no longer flashes open/closed on click
 
             ### Features
             - 13 hands-on labs (IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass)
@@ -148,7 +159,7 @@ jobs:
             - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass)
 
             ### Run the installer
-            Download `IAM-SSO-3D-Lab-Setup-0.3.1.exe` and run it on any Windows 10/11 64-bit machine.
+            Download `IAM-SSO-3D-Lab-Setup-0.3.6.exe` and run it on any Windows 10/11 64-bit machine.
 
             ### AI Supervisor setup
             1. Install [Ollama](https://ollama.com)
@@ -183,6 +194,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.3.1.exe
-          asset_name: IAM-SSO-3D-Lab-Setup-0.3.1.exe
+          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.3.6.exe
+          asset_name: IAM-SSO-3D-Lab-Setup-0.3.6.exe
           asset_content_type: application/octet-stream

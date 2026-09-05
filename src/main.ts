@@ -28,6 +28,19 @@ import { createDesktopOverlay, type DesktopOverlay } from './ui/desktopOverlay';
 import { initErrorLog } from './ui/errorLog';
 
 // ---------------------------------------------------------------------------
+// Theme — apply persisted theme preference on startup
+(function applyTheme() {
+  try {
+    const saved = localStorage.getItem('app_theme');
+    if (saved === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  } catch {
+    /* ignore */
+  }
+})();
+
+// ---------------------------------------------------------------------------
 // Overlay manager — single source of truth for which full-screen overlay is
 // currently active. Used to route ESC keypresses to the correct dismiss target.
 // ---------------------------------------------------------------------------

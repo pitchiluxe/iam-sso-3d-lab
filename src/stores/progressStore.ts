@@ -13,6 +13,7 @@ import {
   importFromFile,
   type PersistedProgress,
 } from '@/util/persistence';
+import { checkAchievements } from '@/util/achievements';
 
 function loadProgress(): PersistedProgress {
   return loadPersistedState().progress;
@@ -29,6 +30,7 @@ type ProgressState = PersistedProgress & {
   reset: () => void;
   exportProgress: () => void;
   importProgress: (file: File) => Promise<void>;
+  checkAndAwardBadges: () => string[];
 };
 
 export const progressStore = create<ProgressState>()((set) => {
@@ -50,6 +52,7 @@ export const progressStore = create<ProgressState>()((set) => {
           completedLabIds: next,
           bestScores: newScores,
           startedAt: s.startedAt,
+          achievedBadges: s.achievedBadges,
         };
         saveProgress(snap);
         return snap;
@@ -70,9 +73,9 @@ export const progressStore = create<ProgressState>()((set) => {
     reset() {
       saveEnvelope({
         ...loadPersistedState(),
-        progress: { completedLabIds: [], bestScores: {}, startedAt: {} },
+        progress: { completedLabIds: [], bestScores: {}, startedAt: {}, achievedBadges: [] },
       });
-      set({ completedLabIds: [], bestScores: {}, startedAt: {} });
+      set({ completedLabIds: [], bestScores: {}, startedAt: {}, achievedBadges: [] });
     },
 
     exportProgress() {
@@ -83,6 +86,32 @@ export const progressStore = create<ProgressState>()((set) => {
       const state = await importFromFile(file);
       saveEnvelope(state);
       set({ ...state.progress });
+    },
+
+    checkAndAwardBadges() {
+      const s = loadProgress();
+      const ctx = {
+        completedLabIds: s.completedLabIds,
+        bestScores: s.bestScores,
+        startedAt: s.startedAt,
+        resolvedTicketCount: 0,
+        hintCount: 0,
+      };
+      const newBadges = checkAchievements(ctx);
+      const existing = new Set(s.achievedBadges);
+      const added: string[] = [];
+      for (const b of newBadges) {
+        if (!existing.has(b)) {
+          existing.add(b);
+          added.push(b);
+        }
+      }
+      if (added.length > 0) {
+        const snap: PersistedProgress = { ...s, achievedBadges: Array.from(existing) };
+        saveProgress(snap);
+        set(snap);
+      }
+      return added;
     },
   };
 });

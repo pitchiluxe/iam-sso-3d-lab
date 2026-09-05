@@ -9,9 +9,12 @@
  * 10/15/20 pre-seeded tickets that appear in the Ticket Console when the
  * learner starts the lab.
  */
+import { mkLabId } from '@/domain';
 import { progressStore, generatedLabsStore } from '@/stores';
 import { BATCH_TEMPLATES } from '@/labs/generated/templates';
 import { showToast } from './toast';
+import { isTutorialComplete, showTutorial } from './tutorialOverlay';
+import { getEarnedAchievements } from '@/util/achievements';
 
 /** Escapes HTML-significant characters. Used for any text originating from
  * the AI flavor generator (LLM output is untrusted) before interpolating it
@@ -106,9 +109,33 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   `;
 
+  // Compute progress stats and achievement badges once for the dashboard.
+  const progress = progressStore.getState();
+  const completedCount = progress.completedLabIds.length;
+  const totalBest = Object.values(progress.bestScores).reduce((sum, s) => sum + (s?.total ?? 0), 0);
+  const earnedBadges = getEarnedAchievements(progress.achievedBadges ?? []);
+
+  const progressBars = LABS.map((l) => {
+    const labId = mkLabId(l.id);
+    const completed = progress.completedLabIds.includes(labId);
+    const best = progress.bestScores[labId];
+    return `<div title="${l.title}${completed ? ` — ${best?.total ?? 0} pts` : ' — Not started'}"
+                 style="height:10px;border-radius:3px;background:${completed ? '#4ec9b0' : '#2d343d'};cursor:help;position:relative;display:flex;align-items:center;justify-content:center;font-size:9px;color:#0e1116;font-weight:700;">${completed ? '✓' : ''}</div>`;
+  }).join('');
+
+  const badgesHtml =
+    earnedBadges.length > 0
+      ? earnedBadges
+          .map(
+            (a) =>
+              `<span title="${a.description}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#1b1f24;border:1px solid #2d343d;border-radius:14px;font-size:11px;color:#c8cdd3;">${a.emoji} ${a.label}</span>`,
+          )
+          .join(' ')
+      : '<span style="color:#8b95a1;font-size:11px;font-style:italic;">No badges yet — complete labs to earn them.</span>';
+
   overlay.innerHTML = `
     <div style="max-width:680px;width:100%;">
-      <div style="text-align:center;margin-bottom:40px;position:relative;">
+      <div style="text-align:center;margin-bottom:24px;position:relative;">
         <div style="color:#4ec9b0;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Interactive Training Environment</div>
         <h1 style="color:#e6e6e6;font-size:28px;font-weight:700;margin:0 0 8px;">IAM &amp; SSO 3D Lab</h1>
         <p style="color:#8b95a1;font-size:14px;margin:0;">Northwind Labs · Identity Operations Simulation</p>
@@ -118,18 +145,36 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
         </button>
       </div>
 
+      <!-- My Progress Dashboard -->
+      <div style="background:#1b1f24;border:1px solid #2d343d;border-radius:8px;padding:16px;margin-bottom:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2 style="color:#e6e6e6;font-size:14px;margin:0;text-transform:uppercase;letter-spacing:0.08em;">📊 My Progress</h2>
+          <div style="color:#8b95a1;font-size:11px;">${completedCount} / ${LABS.length} labs · ${totalBest} total pts · ${earnedBadges.length} badges</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(${LABS.length},1fr);gap:3px;margin-bottom:12px;">
+          ${progressBars}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${badgesHtml}
+        </div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        ${LABS.map(
-          (l, i) => `
+        ${LABS.map((l, i) => {
+          const labId = mkLabId(l.id);
+          const completed = progress.completedLabIds.includes(labId);
+          const best = progress.bestScores[labId];
+          return `
           <div class="lab-card" data-id="${l.id}"
-               style="background:#1b1f24;border:1px solid #2d343d;border-radius:8px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s,transform 0.1s;">
+               style="background:#1b1f24;border:1px solid ${completed ? '#4ec9b0' : '#2d343d'};border-radius:8px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s,transform 0.1s;position:relative;">
+            ${completed ? `<div style="position:absolute;top:8px;right:8px;background:#4ec9b0;color:#0e1116;font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px;">✓ ${best?.total ?? 0} pts</div>` : ''}
             <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
               <strong style="color:#4ec9b0;font-size:13px;">${String(i + 1).padStart(2, '0')}. ${l.title}</strong>
             </div>
             <div style="color:#8b95a1;font-size:12px;line-height:1.5;">${l.brief}</div>
           </div>
-        `,
-        ).join('')}
+        `;
+        }).join('')}
       </div>
 
       <div style="margin-top:32px;">
@@ -187,6 +232,10 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
       </div>
 
       <div style="margin-top:16px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
+        <button id="ss-tutorial" class="ss-toolbar-btn"
+                style="background:#1b1f24;color:#4ec9b0;border:1px solid #2d343d;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;min-height:36px;">
+          🎓 ${isTutorialComplete() ? 'Replay tutorial' : 'Start tutorial'}
+        </button>
         <button id="ss-export" class="ss-toolbar-btn"
                 style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;min-height:36px;">
           ⤓ Export progress
@@ -445,6 +494,20 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
 
   // Close button (top-right) — returns to the 3D scene
   overlay.querySelector('#ss-close')?.addEventListener('click', () => dismiss());
+
+  // Tutorial button
+  overlay.querySelector('#ss-tutorial')?.addEventListener('click', () => {
+    dismiss();
+    showTutorial();
+  });
+
+  // Auto-trigger tutorial on first visit
+  if (!isTutorialComplete()) {
+    setTimeout(() => {
+      dismiss();
+      showTutorial();
+    }, 500);
+  }
 
   // Toolbar actions
   overlay.querySelector('#ss-export')?.addEventListener('click', () => {

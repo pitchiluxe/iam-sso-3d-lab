@@ -349,9 +349,9 @@ class WindowManager {
     const lights = document.createElement('div');
     lights.style.cssText = 'display:flex;gap:6px;align-items:center;';
     const lightData = [
-      { color: '#f48771', action: 'close' as const },
       { color: '#d7ba7d', action: 'minimize' as const },
       { color: '#4ec9b0', action: 'maximize' as const },
+      { color: '#f48771', action: 'close' as const },
     ];
     for (const ld of lightData) {
       const btn = document.createElement('button');
@@ -874,14 +874,163 @@ export function createDesktopOverlay(): DesktopOverlay {
     };
     renderStartMenuApps();
 
+    // Windows 11 style: user account on the left, power button on the right
     const footer = document.createElement('div');
     footer.style.cssText = `
       padding: 10px 16px; border-top: 1px solid #2d343d;
-      font-size: 11px; color: #8b95a1; display: flex; justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
     `;
-    footer.innerHTML = `<span>Apex OS 11</span><span>Northwind Holdings</span>`;
-    sm.appendChild(footer);
 
+    // User account pill (left side)
+    const userPill = document.createElement('button');
+    userPill.style.cssText = `
+      display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+      border-radius: 6px; border: none; background: transparent; cursor: pointer;
+      transition: background 0.15s; color: #e6e6e6; flex-shrink: 0;
+    `;
+    userPill.innerHTML = `
+      <div style="width:28px;height:28px;background:#4ec9b0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:#0e1116;font-weight:700;flex-shrink:0;">A</div>
+      <div style="text-align:left;">
+        <div style="font-size:12px;font-weight:500;">admin@northwind.local</div>
+        <div style="font-size:10px;color:#8b95a1;">IAM Administrator</div>
+      </div>
+    `;
+    userPill.addEventListener('mouseenter', () => {
+      userPill.style.background = '#232830';
+    });
+    userPill.addEventListener('mouseleave', () => {
+      userPill.style.background = 'transparent';
+    });
+    footer.appendChild(userPill);
+
+    // Power button + dropdown (right side) — Windows 11 style
+    const powerWrap = document.createElement('div');
+    powerWrap.style.cssText = 'position:relative;';
+
+    const powerBtn = document.createElement('button');
+    powerBtn.title = 'Power';
+    powerBtn.style.cssText = `
+      width: 36px; height: 36px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s; color: #8b95a1;
+    `;
+    powerBtn.textContent = '⏻';
+    powerBtn.addEventListener('mouseenter', () => {
+      powerBtn.style.background = '#232830';
+      powerBtn.style.color = '#e6e6e6';
+    });
+    powerBtn.addEventListener('mouseleave', () => {
+      powerBtn.style.background = 'transparent';
+      powerBtn.style.color = '#8b95a1';
+    });
+    powerWrap.appendChild(powerBtn);
+
+    const powerMenu = document.createElement('div');
+    powerMenu.style.cssText = `
+      display: none; position: absolute; bottom: calc(100% + 4px); right: 0;
+      width: 200px; background: rgba(27, 31, 36, 0.97);
+      border: 1px solid #2d343d; border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6); padding: 6px;
+      z-index: 200;
+    `;
+
+    const powerItems: { icon: string; label: string; action: () => void }[] = [
+      {
+        icon: '💤',
+        label: 'Sleep',
+        action: () => {
+          powerMenu.style.display = 'none';
+          const sm2 = document.getElementById('start-menu');
+          if (sm2) sm2.style.display = 'none';
+          // Dim the desktop to simulate sleep
+          const overlay = document.getElementById('desktop-overlay');
+          if (overlay) {
+            overlay.style.filter = 'brightness(0.3)';
+            setTimeout(() => {
+              overlay.style.filter = '';
+            }, 1500);
+          }
+        },
+      },
+      {
+        icon: '🔄',
+        label: 'Restart',
+        action: () => {
+          powerMenu.style.display = 'none';
+          const sm2 = document.getElementById('start-menu');
+          if (sm2) sm2.style.display = 'none';
+          // Brief fade then reload
+          document.body.style.transition = 'opacity 0.4s';
+          document.body.style.opacity = '0';
+          setTimeout(() => {
+            window.location.reload();
+          }, 400);
+        },
+      },
+      {
+        icon: '⏻',
+        label: 'Shut down',
+        action: () => {
+          powerMenu.style.display = 'none';
+          const sm2 = document.getElementById('start-menu');
+          if (sm2) sm2.style.display = 'none';
+          document.body.style.transition = 'opacity 0.6s';
+          document.body.style.opacity = '0';
+          setTimeout(() => {
+            api.hide();
+            document.body.style.opacity = '1';
+          }, 600);
+        },
+      },
+      {
+        icon: '🔒',
+        label: 'Sign out',
+        action: () => {
+          powerMenu.style.display = 'none';
+          const sm2 = document.getElementById('start-menu');
+          if (sm2) sm2.style.display = 'none';
+          api.hide();
+        },
+      },
+    ];
+
+    for (const item of powerItems) {
+      const row = document.createElement('button');
+      row.style.cssText = `
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        padding: 8px 10px; border-radius: 6px; border: none;
+        background: transparent; cursor: pointer; color: #e6e6e6;
+        font-size: 13px; text-align: left; transition: background 0.15s;
+      `;
+      row.innerHTML = `<span style="font-size:16px;">${item.icon}</span><span>${item.label}</span>`;
+      row.addEventListener('mouseenter', () => {
+        row.style.background = '#232830';
+      });
+      row.addEventListener('mouseleave', () => {
+        row.style.background = 'transparent';
+      });
+      row.addEventListener('click', item.action);
+      powerMenu.appendChild(row);
+    }
+
+    powerWrap.appendChild(powerMenu);
+    footer.appendChild(powerWrap);
+
+    // Toggle power dropdown
+    powerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      powerMenu.style.display = powerMenu.style.display === 'flex' ? 'none' : 'flex';
+    });
+
+    // Close power menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!powerWrap.contains(e.target as Node)) {
+        powerMenu.style.display = 'none';
+      }
+    });
+
+    sm.appendChild(footer);
     c.appendChild(sm);
   }
 

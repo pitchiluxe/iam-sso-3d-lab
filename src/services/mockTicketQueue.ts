@@ -161,6 +161,18 @@ export class MockTicketQueue {
     this.audit.record({ actorId: by, action: 'ticket.resolved', targetId: id });
   }
 
+  /** Update one or more mutable fields on a ticket (e.g. priority change from
+   *  a bulk action). Does not bypass the audit log — the caller is expected
+   *  to record a meaningful event for any change made here. */
+  update(id: TicketId, patch: Partial<Pick<Ticket, 'priority' | 'assigneeId' | 'status'>>): void {
+    const t = this.tickets.get(id);
+    if (!t) return;
+    if (patch.priority !== undefined) t.priority = patch.priority;
+    if (patch.assigneeId !== undefined) t.assigneeId = patch.assigneeId;
+    if (patch.status !== undefined) t.status = patch.status;
+    t.updatedAt = Date.now();
+  }
+
   escalate(id: TicketId, by: UserId): void {
     const t = this.tickets.get(id);
     if (!t) return;

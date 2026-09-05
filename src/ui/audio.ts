@@ -78,3 +78,27 @@ export function fanfare(): void {
   setTimeout(() => blip(659, 120, 0.07), 100);
   setTimeout(() => blip(880, 200, 0.08), 220);
 }
+
+/** A three-tone ascending alert for a newly-arrived urgent ticket. */
+export function urgentAlert(): void {
+  blip(880, 150, 0.08);
+  setTimeout(() => blip(1100, 150, 0.08), 100);
+  setTimeout(() => blip(1320, 200, 0.08), 200);
+}
+
+/** A short two-tone blip for a normal/low-priority ticket. */
+export function ticketBlip(): void {
+  blip(440, 80, 0.04);
+}
+
+/** A short gentle confirmation for a successful ticket resolution. */
+export function ticketResolved(): void {
+  blip(523, 80, 0.04);
+  setTimeout(() => blip(659, 100, 0.04), 60);
+}
+
+/** A descending sad-tone for a failure/error feedback (e.g. SLA overdue). */
+export function errorTone(): void {
+  blip(440, 120, 0.06);
+  setTimeout(() => blip(330, 160, 0.07), 100);
+}

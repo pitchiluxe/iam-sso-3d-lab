@@ -24,6 +24,8 @@ export interface PersistedProgress {
   completedLabIds: LabId[];
   bestScores: Partial<Record<LabId, ScoreBreakdown>>;
   startedAt: Partial<Record<LabId, number>>;
+  /** Achievement badge IDs the learner has earned. */
+  achievedBadges: string[];
 }
 
 export interface PersistedResume {
@@ -62,7 +64,7 @@ function emptyGeneratedLabs(): PersistedGeneratedLabs {
 function migrateFromV1(): PersistedProgress {
   try {
     const raw = localStorage.getItem(V1_KEY);
-    if (!raw) return { completedLabIds: [], bestScores: {}, startedAt: {} };
+    if (!raw) return { completedLabIds: [], bestScores: {}, startedAt: {}, achievedBadges: [] };
     const parsed = JSON.parse(raw) as {
       completedLabIds?: LabId[];
       bestScores?: Partial<Record<LabId, ScoreBreakdown>>;
@@ -72,10 +74,20 @@ function migrateFromV1(): PersistedProgress {
       completedLabIds: parsed.completedLabIds ?? [],
       bestScores: parsed.bestScores ?? {},
       startedAt: parsed.startedAt ?? {},
+      achievedBadges: [],
     };
   } catch {
-    return { completedLabIds: [], bestScores: {}, startedAt: {} };
+    return { completedLabIds: [], bestScores: {}, startedAt: {}, achievedBadges: [] };
   }
+}
+
+function normalizeProgress(p: Partial<PersistedProgress> | undefined): PersistedProgress {
+  return {
+    completedLabIds: p?.completedLabIds ?? [],
+    bestScores: p?.bestScores ?? {},
+    startedAt: p?.startedAt ?? {},
+    achievedBadges: p?.achievedBadges ?? [],
+  };
 }
 
 export function loadPersistedState(): PersistedState {
@@ -83,12 +95,21 @@ export function loadPersistedState(): PersistedState {
     const raw = localStorage.getItem(CURRENT_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<PersistedState> & { version?: number };
-      if (parsed.version === 3) return parsed as PersistedState;
+      if (parsed.version === 3) {
+        // Backfill missing fields from older v3 saves.
+        return {
+          version: 3,
+          progress: normalizeProgress(parsed.progress),
+          resume: parsed.resume ?? null,
+          evidence: parsed.evidence ?? [],
+          generatedLabs: parsed.generatedLabs ?? emptyGeneratedLabs(),
+        };
+      }
       if (parsed.version === 2) {
         // v2 → v3: same shape, just add the new slice.
         const upgraded: PersistedState = {
           version: 3,
-          progress: parsed.progress ?? { completedLabIds: [], bestScores: {}, startedAt: {} },
+          progress: normalizeProgress(parsed.progress),
           resume: parsed.resume ?? null,
           evidence: parsed.evidence ?? [],
           generatedLabs: emptyGeneratedLabs(),
@@ -112,7 +133,7 @@ export function loadPersistedState(): PersistedState {
   } catch {
     return {
       version: 3,
-      progress: { completedLabIds: [], bestScores: {}, startedAt: {} },
+      progress: { completedLabIds: [], bestScores: {}, startedAt: {}, achievedBadges: [] },
       resume: null,
       evidence: [],
       generatedLabs: emptyGeneratedLabs(),

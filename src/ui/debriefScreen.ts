@@ -4,7 +4,8 @@
  * Displays the score breakdown, a pass/fail banner, and the debrief questions.
  */
 import { chime } from './audio';
-import { scoreStore, labStore } from '@/stores';
+import { scoreStore, labStore, progressStore } from '@/stores';
+import { getEarnedAchievements } from '@/util/achievements';
 
 export function initDebriefScreen() {
   const overlay = document.createElement('div');
@@ -33,6 +34,20 @@ export function initDebriefScreen() {
     const passed = score.total >= 85;
     const bannerColor = passed ? '#4ec9b0' : '#d7ba7d';
 
+    // Achievement badges earned so far
+    const earnedBadges = getEarnedAchievements(progressStore.getState().achievedBadges ?? []);
+    const badgesHtml =
+      earnedBadges.length > 0
+        ? `<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
+            ${earnedBadges
+              .map(
+                (a) =>
+                  `<span title="${a.description}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#1b1f24;border:1px solid #4ec9b0;border-radius:14px;font-size:12px;color:#4ec9b0;">${a.emoji} ${a.label}</span>`,
+              )
+              .join('')}
+          </div>`
+        : '';
+
     overlay.style.display = 'flex';
     overlay.innerHTML = `
       <div style="max-width:640px;width:100%;">
@@ -44,6 +59,7 @@ export function initDebriefScreen() {
             ${score.total}<span style="font-size:20px;color:#8b95a1;"> / 100</span>
           </h1>
           <div style="color:#8b95a1;font-size:14px;">${lab.title}</div>
+          ${badgesHtml}
         </div>
 
         <!-- Score breakdown -->

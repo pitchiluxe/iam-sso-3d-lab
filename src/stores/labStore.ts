@@ -16,6 +16,8 @@ interface LabState {
   stepStatuses: Record<string, StepStatus>;
   failed: boolean;
   labId: LabId | null;
+  /** Unix ms when the current lab was started (for the HUD timer). */
+  startedAt: number | null;
 
   load(lab: Lab): void;
   /** Restore a previously persisted resume state. Used on app boot. */
@@ -59,6 +61,7 @@ export const labStore = create<LabState>()((set, get) => ({
   stepStatuses: {},
   failed: false,
   labId: null,
+  startedAt: null,
 
   load(lab) {
     const next: Partial<LabState> = {
@@ -94,7 +97,7 @@ export const labStore = create<LabState>()((set, get) => ({
       ...get().stepStatuses,
       [current.steps[stepIndex]!.id]: 'in-progress',
     };
-    set({ stepStatuses: statuses });
+    set({ stepStatuses: statuses, startedAt: Date.now() });
     saveResume({ ...get() });
   },
 
@@ -128,7 +131,14 @@ export const labStore = create<LabState>()((set, get) => ({
   },
 
   reset() {
-    set({ current: null, stepIndex: 0, stepStatuses: {}, failed: false, labId: null });
+    set({
+      current: null,
+      stepIndex: 0,
+      stepStatuses: {},
+      failed: false,
+      labId: null,
+      startedAt: null,
+    });
     clearResume();
   },
 }));
