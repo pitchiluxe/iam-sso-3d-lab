@@ -12,12 +12,13 @@ test('IAM Console overlay opens via dev hook and renders user list', async ({ pa
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
+  // Tell the app we're in a test environment so it skips auto-triggering the
+  // tutorial overlay (which would block clicks on .lab-card elements).
+  await page.addInitScript(() => {
+    (window as unknown as { __playwright__?: boolean }).__playwright__ = true;
+  });
+
   await page.goto('/');
-  // Dismiss the auto-triggered tutorial if it appeared (blocks lab card clicks).
-  if (await page.locator('#tutorial-overlay').isVisible()) {
-    await page.locator('#tut-skip').click();
-    await page.locator('#tutorial-overlay').waitFor({ state: 'detached' });
-  }
   // Dismiss the start screen by starting a lab through it.
   await page.locator('.lab-card[data-id="lab01"]').click();
   // Wait for the fade-out + start to actually complete.

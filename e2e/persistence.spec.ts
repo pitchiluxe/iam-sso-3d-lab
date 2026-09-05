@@ -11,14 +11,14 @@ import { test, expect } from '@playwright/test';
 test('progress persists across page reload via localStorage', async ({ page, context }) => {
   // Clear storage before the test
   await context.clearCookies();
+  // Tell the app we're in a test environment so it skips auto-triggering the
+  // tutorial overlay (which would block clicks on .lab-card elements).
+  await page.addInitScript(() => {
+    (window as unknown as { __playwright__?: boolean }).__playwright__ = true;
+  });
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  // Dismiss the auto-triggered tutorial if it appeared (blocks lab card clicks).
-  if (await page.locator('#tutorial-overlay').isVisible()) {
-    await page.locator('#tut-skip').click();
-    await page.locator('#tutorial-overlay').waitFor({ state: 'detached' });
-  }
   await page.locator('.lab-card[data-id="lab03"]').click();
 
   // Wait for HUD to reflect Lab 3 (click handler has 300ms fade-out).

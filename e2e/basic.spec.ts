@@ -14,13 +14,13 @@ test('app boots, start screen renders 13 lab cards, starting a lab updates the H
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
-  await page.goto('/');
+  // Tell the app we're in a test environment so it skips auto-triggering the
+  // tutorial overlay (which would block clicks on .lab-card elements).
+  await page.addInitScript(() => {
+    (window as unknown as { __playwright__?: boolean }).__playwright__ = true;
+  });
 
-  // Dismiss the auto-triggered tutorial if it appeared (blocks lab card clicks).
-  if (await page.locator('#tutorial-overlay').isVisible()) {
-    await page.locator('#tut-skip').click();
-    await page.locator('#tutorial-overlay').waitFor({ state: 'detached' });
-  }
+  await page.goto('/');
 
   // The HUD pills are always present in index.html
   await expect(page.locator('#hud')).toBeVisible();

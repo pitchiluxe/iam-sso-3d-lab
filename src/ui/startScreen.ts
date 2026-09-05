@@ -579,8 +579,12 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
     };
   }
 
-  // Auto-trigger tutorial on first visit
-  if (!isTutorialComplete()) {
+  // Auto-trigger tutorial on first visit, but not during automated E2E
+  // tests (the overlay covers the page and blocks any .lab-card click). The
+  // tests explicitly call dismissTutorialIfPresent() before clicking anything,
+  // so the auto-trigger only runs for real user sessions.
+  const isE2ETest = (window as unknown as { __playwright__?: boolean }).__playwright__ === true;
+  if (!isE2ETest && !isTutorialComplete()) {
     setTimeout(() => {
       dismiss();
       showTutorial();

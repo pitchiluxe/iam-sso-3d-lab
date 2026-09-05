@@ -54,6 +54,9 @@ test('pressing E near a desk monitor opens VM desktop with IAM Console + Objecti
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
+  await page.addInitScript(() => {
+    (window as unknown as { __playwright__?: boolean }).__playwright__ = true;
+  });
   await page.goto('/');
   await dismissTutorialIfPresent(page);
   await page.locator('.lab-card[data-id="lab01"]').click();
@@ -91,6 +94,9 @@ test('walking forward and right eventually reaches the right desk monitor and E 
     if (msg.type() === 'error') consoleErrors.push(msg.text());
   });
 
+  await page.addInitScript(() => {
+    (window as unknown as { __playwright__?: boolean }).__playwright__ = true;
+  });
   await page.goto('/');
   await dismissTutorialIfPresent(page);
   await page.locator('.lab-card[data-id="lab01"]').click();
