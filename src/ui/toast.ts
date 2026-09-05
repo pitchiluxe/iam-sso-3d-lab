@@ -3,9 +3,11 @@
  * Toasts appear bottom-center, stack vertically, auto-dismiss after `durationMs`.
  * Imported by startScreen (for import errors) and by service/zone error handlers.
  */
-interface ToastOptions {
+export interface ToastOptions {
   durationMs?: number;
   kind?: 'info' | 'error' | 'warn' | 'success';
+  onClick?: () => void;
+  id?: string;
 }
 
 let container: HTMLDivElement | null = null;
@@ -45,7 +47,16 @@ export function showToast(message: string, opts: ToastOptions = {}): void {
   const duration = opts.durationMs ?? 4000;
   const { bg, border, icon } = KIND_COLORS[kind];
 
+  // If an id is provided, replace any existing toast with the same id (so the
+  // auto-updater can transition "v0.3.6 available" → "downloading 47%" in
+  // place instead of stacking).
+  if (opts.id) {
+    const existing = document.getElementById(`toast-${opts.id}`);
+    if (existing) existing.remove();
+  }
+
   const el = document.createElement('div');
+  if (opts.id) el.id = `toast-${opts.id}`;
   el.style.cssText = `
     display: flex;
     align-items: center;
@@ -62,8 +73,13 @@ export function showToast(message: string, opts: ToastOptions = {}): void {
     pointer-events: all;
     animation: toast-in 0.2s ease-out;
     white-space: nowrap;
+    cursor: ${opts.onClick ? 'pointer' : 'default'};
   `;
   el.textContent = `${icon}  ${message}`;
+
+  if (opts.onClick) {
+    el.addEventListener('click', opts.onClick);
+  }
 
   // Inject keyframes once
   if (!document.getElementById('toast-keyframes')) {
@@ -81,9 +97,15 @@ export function showToast(message: string, opts: ToastOptions = {}): void {
   const cont = getContainer();
   cont.appendChild(el);
 
-  setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transition = 'opacity 0.25s';
-    setTimeout(() => el.remove(), 300);
-  }, duration);
+  // Pin a toast: don't auto-dismiss if durationMs is null (used for the
+  // update-available toast — the user must explicitly act on it).
+  if (duration > 0) {
+    setTimeout(() => {
+      if (el.isConnected) {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.25s';
+        setTimeout(() => el.remove(), 300);
+      }
+    }, duration);
+  }
 }

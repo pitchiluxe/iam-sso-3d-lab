@@ -23,6 +23,7 @@ import { renderSecOpsDashboard } from './ui/consoles/secOpsDashboard';
 import { renderOllamaConsole } from './ui/consoles/ollamaConsole';
 import { report } from './util/errors';
 import { showToast } from './ui/toast';
+import { updateManager } from './util/updateManager';
 import { isTouchDevice, TouchController } from './three/touchController';
 import { createDesktopOverlay, type DesktopOverlay } from './ui/desktopOverlay';
 import { initErrorLog } from './ui/errorLog';
@@ -118,6 +119,72 @@ async function bootstrap() {
   // Also writes to localStorage so the log survives a page reload.
   initErrorLog();
   console.log('[boot] Error log initialized. Press Ctrl+Shift+E to view.');
+
+  // ── Auto-update notifications ────────────────────────────────────────────────
+  // Wire the Electron auto-updater into the toast system: the user gets a
+  // top-level notification the moment an update is found, without needing to
+  // open Settings → Updates.  The same subscription also drives the Settings
+  // panel UI once the user navigates there.
+  let updateToastId: string | null = null;
+  updateManager.subscribe((status) => {
+    // Don't surface anything if the desktop bridge isn't available (browser mode).
+    if (!updateManager.isAvailable()) return;
+
+    switch (status.state) {
+      case 'checking':
+        // Silently check — no toast needed for every startup ping.
+        break;
+      case 'available': {
+        const ver = status.info?.version ?? 'new';
+        updateToastId = `update-${ver}`;
+        showToast(`Update available: v${ver} — click to download`, {
+          kind: 'info',
+          id: updateToastId,
+          durationMs: 0, // pinned — user must act on it
+          onClick: () => {
+            void updateManager.downloadUpdate();
+          },
+        });
+        break;
+      }
+      case 'downloading': {
+        const pct = Math.round(status.info?.progress ?? 0);
+        showToast(`Downloading update… ${pct}%`, {
+          kind: 'info',
+          id: 'update-downloading',
+          durationMs: 0,
+        });
+        break;
+      }
+      case 'downloaded': {
+        // Dismiss the "downloading" toast first, then show the "ready" toast.
+        const dl = document.getElementById('toast-update-downloading');
+        if (dl) dl.remove();
+        showToast('Update ready — click to restart and apply', {
+          kind: 'success',
+          id: 'update-downloaded',
+          durationMs: 0,
+          onClick: () => {
+            updateManager.installUpdate();
+          },
+        });
+        break;
+      }
+      // idle / unsupported / error: clear any stale update toasts
+      default: {
+        if (updateToastId) {
+          const el = document.getElementById(`toast-${updateToastId}`);
+          if (el) el.remove();
+          updateToastId = null;
+        }
+        const dl = document.getElementById('toast-update-downloading');
+        if (dl) dl.remove();
+        const done = document.getElementById('toast-update-downloaded');
+        if (done) done.remove();
+        break;
+      }
+    }
+  });
 
   const appEl = document.getElementById('app')!;
   const engine = initEngine(appEl);
