@@ -56,9 +56,14 @@
       "createStartMenuShortcut": true,
       "shortcutName": "IAM SSO 3D Lab"
     },
-    "publish": null
+    "publish": {
+      "provider": "github",
+      "owner": "pitchiluxe",
+      "repo": "iam-sso-3d-lab"
+    }
   },
   "dependencies": {
+    "electron-updater": "^6.1.7",
     "nanoid": "^5.0.0",
     "three": "^0.169.0",
     "zustand": "^4.5.0"

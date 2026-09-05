@@ -3,6 +3,7 @@
 //
 // Exposes:
 //   window.electron.invoke(cmd, ...args)  — call a main-process handler and wait for result
+//   window.electron.onUpdateStatus(fn)   — subscribe to auto-update status changes
 //   window.env                            — static env values fetched at startup
 //
 // Never expose direct Node/Electron APIs — renderer stays sandboxed.
@@ -18,6 +19,18 @@ contextBridge.exposeInMainWorld('electron', {
    * @returns {Promise<unknown>}
    */
   invoke: (cmd, ...args) => ipcRenderer.invoke(cmd, ...args),
+
+  /**
+   * Subscribe to auto-update status broadcasts from the main process.
+   * Calls the provided function whenever the update state changes.
+   * @param {(status: { state: string, info: object | null }) => void} fn
+   * @returns {() => void} unsubscribe function
+   */
+  onUpdateStatus: (fn) => {
+    const handler = (_event, status) => fn(status);
+    ipcRenderer.on('update:status', handler);
+    return () => ipcRenderer.removeListener('update:status', handler);
+  },
 });
 
 // Fetch env synchronously — exposeInMainWorld clones its value at call time,

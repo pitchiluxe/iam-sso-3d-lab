@@ -16,6 +16,12 @@ declare global {
     __labState: {
       stepIndex: number;
     };
+    /** Electron IPC bridge — populated by preload.cjs when running in Electron.
+     *  Undefined in browser/dev mode. */
+    electron?: {
+      invoke(cmd: string, ...args: unknown[]): Promise<unknown>;
+      onUpdateStatus?(fn: (status: { state: string; info: unknown }) => void): () => void;
+    };
   }
 }
 
