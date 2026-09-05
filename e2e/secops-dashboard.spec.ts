@@ -5,6 +5,11 @@ import { test, expect } from '@playwright/test';
 
 test('SecOps Dashboard overlay opens and shows audit tab', async ({ page }) => {
   await page.goto('/');
+  // Dismiss the auto-triggered tutorial if it appeared (blocks lab card clicks).
+  if (await page.locator('#tutorial-overlay').isVisible()) {
+    await page.locator('#tut-skip').click();
+    await page.locator('#tutorial-overlay').waitFor({ state: 'detached' });
+  }
   // Dismiss the start screen by starting a lab through it.
   await page.locator('.lab-card[data-id="lab01"]').click();
   // Wait for the fade-out + start to actually complete.

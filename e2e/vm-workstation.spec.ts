@@ -38,6 +38,16 @@ async function waitForLabStart(page: import('@playwright/test').Page): Promise<v
   await page.waitForTimeout(1200);
 }
 
+/** Dismiss the auto-triggered first-visit tutorial if it appears. The tutorial
+ *  overlay covers the whole page and intercepts all clicks, so every test that
+ *  interacts with the start screen has to clear it before clicking a lab card. */
+async function dismissTutorialIfPresent(page: import('@playwright/test').Page): Promise<void> {
+  if (await page.locator('#tutorial-overlay').isVisible()) {
+    await page.locator('#tut-skip').click();
+    await page.locator('#tutorial-overlay').waitFor({ state: 'detached' });
+  }
+}
+
 test('pressing E near a desk monitor opens VM desktop with IAM Console + Objectives', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (msg) => {
@@ -45,6 +55,7 @@ test('pressing E near a desk monitor opens VM desktop with IAM Console + Objecti
   });
 
   await page.goto('/');
+  await dismissTutorialIfPresent(page);
   await page.locator('.lab-card[data-id="lab01"]').click();
   await waitForLabStart(page);
 
@@ -81,6 +92,7 @@ test('walking forward and right eventually reaches the right desk monitor and E 
   });
 
   await page.goto('/');
+  await dismissTutorialIfPresent(page);
   await page.locator('.lab-card[data-id="lab01"]').click();
   await waitForLabStart(page);
 
