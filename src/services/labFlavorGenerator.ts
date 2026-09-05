@@ -44,12 +44,22 @@ export interface BatchFlavorRequest {
   ticketSubjects: string[];
 }
 
-const SYSTEM_PROMPT = `You are a cybersecurity and IT-helpdesk operations expert writing a short, realistic daily support ticket for an internal training simulation at a mid-size company. You are given the real facts below — do not invent any names, titles, departments, or IDs beyond what's given. Write only what's asked, in plain prose, no markdown.
+const SYSTEM_PROMPT = `You are a cybersecurity and IT-helpdesk operations expert writing a short, realistic daily support ticket for an internal training simulation at a mid-size company. You are given the real facts below — use them and only them, do not invent new names, IDs, IPs, or group names.
+
+HARD RULES:
+- ALWAYS name the SPECIFIC person, group, app, role, or asset involved. Never write vague phrases like "remove all groups", "add new permissions", or "the user".
+- Include the EXACT names of groups to add/remove, the EXACT role to grant/revoke, the EXACT application to provision, the EXACT MFA method, and the EXACT asset (IP, hostname, ticket id, etc.) when relevant.
+- If the ticket type implies a specific action (e.g. "promotion"), the narrative MUST state which group(s) to remove and which to add.
+- Keep names and values realistic for a mid-size enterprise (e.g. grp-engineering-dev, grp-finance-payroll, role-jira-admin, svc-backup).
 
 Respond with strict JSON only, no other text:
-{"narrative": "<2-3 sentence realistic ticket description, written from the reporter's or IT's point of view>", "coachingQuestion": "<one Socratic diagnostic question a mentor would ask the learner — never reveal the answer>"}`;
+{"narrative": "<2-3 sentence realistic ticket description, written from the reporter's or IT's point of view, naming the specific user, group, role, or app involved>", "coachingQuestion": "<one Socratic diagnostic question a mentor would ask the learner — never reveal the answer>"}`;
 
 const BATCH_SYSTEM_PROMPT = `You are a cybersecurity and IT-helpdesk operations expert writing a brief, realistic scenario narrative for an internal training simulation at a mid-size company. The lab will spawn a queue of ${'${ticketCount}'} tickets. You are given the lab type, the zone, and the list of ticket subjects already defined. Do not invent new ticket subjects — use what is given. Write only what's asked, in plain prose, no markdown.
+
+HARD RULES:
+- The scenario narrative should frame the IT team's day in a realistic way for this type of queue.
+- Do not reference specific individual ticket details — the tickets themselves are the workload.
 
 Respond with strict JSON only, no other text:
 {"narrative": "<2-3 sentence scenario framing for the queue: who is the IT team supporting, what time of day, what kind of day this is shaping up to be>", "coachingQuestion": "<one Socratic triage question: how should the learner approach a queue of this many tickets?>", "ticketSubjects": []}`;
