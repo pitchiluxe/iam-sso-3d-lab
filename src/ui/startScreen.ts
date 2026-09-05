@@ -15,6 +15,7 @@ import { BATCH_TEMPLATES } from '@/labs/generated/templates';
 import { showToast } from './toast';
 import { isTutorialComplete, showTutorial } from './tutorialOverlay';
 import { getEarnedAchievements } from '@/util/achievements';
+import { updateManager, type UpdateStatus } from '@/util/updateManager';
 
 /** Escapes HTML-significant characters. Used for any text originating from
  * the AI flavor generator (LLM output is untrusted) before interpolating it
@@ -232,6 +233,11 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
       </div>
 
       <div style="margin-top:16px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
+        <button id="ss-update" class="ss-toolbar-btn"
+                style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;min-height:36px;display:flex;align-items:center;gap:6px;">
+          <span id="ss-update-icon">🔄</span>
+          <span id="ss-update-label">Check for updates</span>
+        </button>
         <button id="ss-tutorial" class="ss-toolbar-btn"
                 style="background:#1b1f24;color:#4ec9b0;border:1px solid #2d343d;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;min-height:36px;">
           🎓 ${isTutorialComplete() ? 'Replay tutorial' : 'Start tutorial'}
@@ -253,12 +259,12 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
     </div>
   `;
 
-  function dismiss() {
+  let dismiss = function () {
     overlay.style.opacity = '0';
     overlay.style.transition = 'opacity 0.2s';
     setTimeout(() => overlay.remove(), 200);
     onDismiss();
-  }
+  };
 
   document.body.appendChild(overlay);
 
@@ -500,6 +506,78 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
     dismiss();
     showTutorial();
   });
+
+  // Updates button — surfaces the desktop app's auto-update status from the
+  // start screen without needing to open Settings.  In browser/dev mode the
+  // button is shown but clicking it reports that updates aren't available.
+  const updateBtn = overlay.querySelector('#ss-update') as HTMLButtonElement | null;
+  const updateIcon = overlay.querySelector('#ss-update-icon') as HTMLElement | null;
+  const updateLabel = overlay.querySelector('#ss-update-label') as HTMLElement | null;
+
+  if (updateBtn && updateIcon && updateLabel) {
+    const setUpdateState = (status: UpdateStatus) => {
+      if (!updateManager.isAvailable()) {
+        updateLabel.textContent = 'Updates not available';
+        updateBtn.style.color = '#8b95a1';
+        return;
+      }
+      switch (status.state) {
+        case 'checking':
+          updateIcon.textContent = '⏳';
+          updateLabel.textContent = 'Checking…';
+          break;
+        case 'available':
+          updateIcon.textContent = '🔽';
+          updateLabel.textContent = `v${status.info?.version ?? '?'} available`;
+          updateBtn.style.color = '#4ec9b0';
+          break;
+        case 'downloading': {
+          const pct = Math.round(status.info?.progress ?? 0);
+          updateIcon.textContent = '⬇️';
+          updateLabel.textContent = `Downloading… ${pct}%`;
+          break;
+        }
+        case 'downloaded':
+          updateIcon.textContent = '✅';
+          updateLabel.textContent = 'Update ready — restart to apply';
+          updateBtn.style.color = '#4ec9b0';
+          break;
+        default: {
+          updateIcon.textContent = '🔄';
+          updateLabel.textContent = 'Up to date';
+          updateBtn.style.color = '#8b95a1';
+          break;
+        }
+      }
+    };
+
+    // Sync with whatever state the manager already knows (e.g. if main.ts
+    // already checked before this screen opened).
+    setUpdateState(updateManager.getStatus());
+
+    // Subscribe so the button stays live even if the update state changes
+    // while the start screen is open.
+    const unsub = updateManager.subscribe(setUpdateState);
+
+    updateBtn.addEventListener('click', async () => {
+      const status = updateManager.getStatus();
+      if (status.state === 'downloaded') {
+        updateManager.installUpdate();
+      } else if (status.state === 'available') {
+        await updateManager.downloadUpdate();
+      } else {
+        await updateManager.checkForUpdates();
+      }
+    });
+
+    // Clean up the subscription when the start screen is dismissed so we don't
+    // keep updating a DOM that's no longer visible.
+    const origDismiss = dismiss;
+    dismiss = () => {
+      unsub();
+      origDismiss();
+    };
+  }
 
   // Auto-trigger tutorial on first visit
   if (!isTutorialComplete()) {
