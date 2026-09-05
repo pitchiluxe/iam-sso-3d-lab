@@ -7,12 +7,20 @@
  * one's narrative/coaching-question in parallel, builds the Lab objects,
  * and persists everything (labs + the dedup ledger) via the same
  * versioned envelope every other store uses.
+ *
+ * Also supports batch (multi-ticket queue) generation via generateBatchLab(),
+ * which produces a single lab with 10/15/20 pre-seeded tickets.
  */
 import { create } from 'zustand';
 import type { Lab } from '@/domain';
 import { loadPersistedState, saveEnvelope, type PersistedGeneratedLabs } from '@/util/persistence';
-import { LAB_TEMPLATES, type LabTemplate } from '@/labs/generated/templates';
-import { generateFlavor } from '@/services/labFlavorGenerator';
+import {
+  LAB_TEMPLATES,
+  BATCH_TEMPLATES,
+  type LabTemplate,
+  type BatchTemplate,
+} from '@/labs/generated/templates';
+import { generateFlavor, generateBatchFlavor } from '@/services/labFlavorGenerator';
 
 /** Pick `count` templates: never-used ones first (in template-array order),
  * then the templates used longest ago once the pool is exhausted. */
@@ -24,6 +32,11 @@ export function pickTemplateBatch(usedTemplateIds: string[], count: number): Lab
     .map((id) => LAB_TEMPLATES.find((t) => t.id === id))
     .filter((t): t is LabTemplate => Boolean(t));
   return [...unused, ...usedInOrder].slice(0, count);
+}
+
+/** Pick a batch template by id (10/15/20 ticket queues). */
+export function pickBatchTemplate(batchId: string): BatchTemplate | undefined {
+  return BATCH_TEMPLATES.find((bt) => bt.id === batchId);
 }
 
 function loadGenerated(): PersistedGeneratedLabs {
@@ -39,6 +52,9 @@ interface GeneratedLabsState {
   labs: Lab[];
   generating: boolean;
   generateBatch(count?: number): Promise<Lab[]>;
+  generateBatchLab(batchId: string): Promise<Lab>;
+  /** Generate one lab per batch template (10, 15, 20 ticket queues) in parallel. */
+  generateAllBatches(): Promise<Lab[]>;
   reset(): void;
 }
 
@@ -75,6 +91,91 @@ export const generatedLabsStore = create<GeneratedLabsState>()((set) => {
         saveGenerated({ labs, usedTemplateIds, usedNames });
         set({ labs, generating: false });
         return newLabs;
+      } catch (err) {
+        set({ generating: false });
+        throw err;
+      }
+    },
+
+    async generateBatchLab(batchId: string) {
+      set({ generating: true });
+      try {
+        const bt = pickBatchTemplate(batchId);
+        if (!bt) throw new Error(`Unknown batch template: ${batchId}`);
+
+        const current = loadGenerated();
+        // For batch templates, the ticket subjects are pre-defined in the
+        // template. We just need a scene-narrative + coaching question.
+        const placeholderSubjects = Array.from(
+          { length: bt.ticketCount },
+          (_, i) => `Ticket ${i + 1}`,
+        );
+        const flavor = await generateBatchFlavor({
+          labLabel: bt.label,
+          ticketCount: bt.ticketCount,
+          zoneId: bt.zoneId,
+          ticketSubjects: placeholderSubjects,
+        });
+
+        // Pre-compute the ticket ids so buildLab() can reference them in steps.
+        const ticketIds = Array.from(
+          { length: bt.ticketCount },
+          (_, i) => `batch-${bt.id}-${String(i + 1).padStart(3, '0')}`,
+        );
+        const newLab = bt.buildLab(
+          { narrative: flavor.narrative, coachingQuestion: flavor.coachingQuestion },
+          ticketIds,
+        );
+
+        // Store the ticket ids on the lab object so the seed function can
+        // read them back at start time (conductor's seedFn has no other way
+        // to receive these since it only receives SeedContext).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (newLab as any)._batchTicketIds = ticketIds;
+
+        const usedTemplateIds = [...current.usedTemplateIds, bt.id];
+        const labs = [...current.labs, newLab];
+        saveGenerated({ labs, usedTemplateIds, usedNames: current.usedNames });
+        set({ labs, generating: false });
+        return newLab;
+      } catch (err) {
+        set({ generating: false });
+        throw err;
+      }
+    },
+
+    async generateAllBatches() {
+      set({ generating: true });
+      try {
+        const current = loadGenerated();
+        // Build all 3 batch labs in parallel, each with a fresh flavor
+        const flavorResults = await Promise.all(
+          BATCH_TEMPLATES.map(async (bt) => {
+            const flavor = await generateBatchFlavor({
+              labLabel: bt.label,
+              ticketCount: bt.ticketCount,
+              zoneId: bt.zoneId,
+              ticketSubjects: Array.from({ length: bt.ticketCount }, (_, i) => `Ticket ${i + 1}`),
+            });
+            const ticketIds = Array.from(
+              { length: bt.ticketCount },
+              (_, i) => `batch-${bt.id}-${String(i + 1).padStart(3, '0')}`,
+            );
+            const lab = bt.buildLab(
+              { narrative: flavor.narrative, coachingQuestion: flavor.coachingQuestion },
+              ticketIds,
+            );
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (lab as any)._batchTicketIds = ticketIds;
+            return lab;
+          }),
+        );
+
+        const usedTemplateIds = [...current.usedTemplateIds, ...BATCH_TEMPLATES.map((bt) => bt.id)];
+        const labs = [...current.labs, ...flavorResults];
+        saveGenerated({ labs, usedTemplateIds, usedNames: current.usedNames });
+        set({ labs, generating: false });
+        return flavorResults;
       } catch (err) {
         set({ generating: false });
         throw err;

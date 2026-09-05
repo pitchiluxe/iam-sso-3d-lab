@@ -1,11 +1,17 @@
 /**
  * labs/generated/templates.ts — the 15 real-world daily IT-helpdesk lab
- * templates. Every target is a real seeded user/group/service-account —
+ * templates + 3 batch lab templates (10-20 tickets each).
+ *
+ * Every target is a real seeded user/group/service-account —
  * nothing here is invented at generation time except the flavor text
  * passed in by the caller (see services/labFlavorGenerator.ts).
+ *
+ * Batch lab templates (ticket-queue-10, ticket-queue-15, ticket-queue-20)
+ * generate multiple tickets during seeding and create one step per ticket.
+ * Objectives are auto-derived from the steps.
  */
 import { mkLabId, mkTicketId, SYSTEM_ACTOR } from '@/domain';
-import type { Lab, LabStep } from '@/domain';
+import type { Lab, LabStep, LabObjective } from '@/domain';
 import { registerLabSeed } from '@/conductor/conductor';
 import type { SeedContext } from '@/conductor/conductor';
 import { applyBaseline } from '@/seed/baseline';
@@ -50,28 +56,36 @@ function step(
   };
 }
 
+/** Build objectives from a list of steps. Falls back to 'exec' if a step
+ * has no points, and prepends an optional explicit objective list (used
+ * by batch labs to add a "triage" objective on top of per-ticket ones). */
+function buildObjectives(steps: LabStep[], extraObjectives: LabObjective[] = []): LabObjective[] {
+  const stepObjectives: LabObjective[] = steps.map((s, i) => ({
+    id: `o${extraObjectives.length + i + 1}`,
+    description: s.title,
+    points: Object.values(s.points ?? {}).reduce((a, b) => a + (b ?? 0), 0),
+    category:
+      (Object.keys(s.points ?? { exec: 0 })[0] as Lab['objectives'][number]['category']) ?? 'exec',
+  }));
+  return [...extraObjectives, ...stepObjectives];
+}
+
 function baseLab(
   template: Pick<LabTemplate, 'id' | 'zoneId' | 'targetDisplayName'>,
   flavor: GeneratedFlavor,
   steps: LabStep[],
+  options: { title?: string; durationMinutes?: number; extraObjectives?: LabObjective[] } = {},
 ): Lab {
   return {
     id: mkLabId(`${template.id}-${Math.random().toString(36).slice(2, 8)}`),
     number: 0,
-    title: `Daily Ticket: ${template.targetDisplayName}`,
+    title: options.title ?? `Daily Ticket: ${template.targetDisplayName}`,
     brief: flavor.narrative,
-    durationMinutes: 15,
+    durationMinutes: options.durationMinutes ?? 15,
     zoneIds: [template.zoneId],
     startingZone: template.zoneId,
     startingSeed: template.id,
-    objectives: steps.map((s, i) => ({
-      id: `o${i + 1}`,
-      description: s.title,
-      points: Object.values(s.points ?? {}).reduce((a, b) => a + (b ?? 0), 0),
-      category:
-        (Object.keys(s.points ?? { exec: 0 })[0] as Lab['objectives'][number]['category']) ??
-        'exec',
-    })),
+    objectives: buildObjectives(steps, options.extraObjectives),
     steps: steps.map((s, i) =>
       i === steps.length - 1 ? { ...s, tutorPrompts: [flavor.coachingQuestion] } : s,
     ),
@@ -471,11 +485,650 @@ export const LAB_TEMPLATES: LabTemplate[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Batch lab templates — 10–20 tickets per lab
+// Each batch template seeds N tickets during its seed() and creates one
+// step per ticket. Objectives are auto-derived from steps (see buildObjectives).
+// ---------------------------------------------------------------------------
+
+export interface BatchTemplate {
+  id: string;
+  zoneId: GeneratedZoneId;
+  /** Human label for the "Generate Batch" button in the UI. */
+  label: string;
+  /** How many tickets this batch generates. */
+  ticketCount: number;
+  buildLab(flavor: GeneratedFlavor, ticketIds: string[]): Lab;
+  /** Runs after applyBaseline() for this batch lab's conductor session. */
+  seed(ctx: SeedContext, ticketIds: string[]): void;
+}
+
+/** Shared step builder for ticket-resolution steps. */
+function ticketStep(stepId: string, ticketId: string, subject: string): LabStep {
+  return step(
+    stepId,
+    `Resolve ticket: ${subject}`,
+    `Resolve the "${subject}" ticket in the Ticket Console. Verify access is restored and document the resolution.`,
+    { kind: 'ticket-resolved', params: { ticketId } },
+    { exec: 8, comms: 2 },
+  );
+}
+
+/** Shared seed builder that creates N mixed-kind tickets on top of baseline. */
+function buildBatchSeed(
+  ctx: SeedContext,
+  ticketIds: string[],
+  ticketConfigs: Array<{
+    id: string;
+    kind:
+      | 'onboarding'
+      | 'mover'
+      | 'leaver'
+      | 'transfer'
+      | 'termination'
+      | 'access-request'
+      | 'password-reset'
+      | 'mfa-issue'
+      | 'incident';
+    subject: string;
+    body: string;
+    username: string;
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+  }>,
+): void {
+  applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+  for (let i = 0; i < ticketConfigs.length; i++) {
+    const cfg = ticketConfigs[i]!;
+    const userId = ctx.dir.getUserByUsername(cfg.username)?.id;
+    if (!userId) continue;
+    // Use a permissive payload — the real TicketKind type is large and
+    // varies per kind. For ticket-resolution lab purposes, the validator
+    // only matches by id, so a minimal payload is sufficient.
+    ctx.tickets.create({
+      id: ticketIds[i] as ReturnType<typeof mkTicketId>,
+      kind: cfg.kind,
+      requesterId: userId,
+      subject: cfg.subject,
+      body: cfg.body,
+      priority: cfg.priority ?? 'normal',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      payload: { userId, method: 'helpdesk' } as any,
+    });
+  }
+}
+
+const BATCH_TICKET_IDS = (count: number, prefix: string): string[] =>
+  Array.from({ length: count }, (_, i) => `${prefix}-${String(i + 1).padStart(3, '0')}`);
+
+void BATCH_TICKET_IDS; // used by the seed registration loop below
+
+export const BATCH_TEMPLATES: BatchTemplate[] = [
+  // ── 10-ticket Help Desk queue ───────────────────────────────────────────
+  {
+    id: 'ticket-queue-10',
+    zoneId: 'help-desk',
+    label: 'Help Desk Queue (10 tickets)',
+    ticketCount: 10,
+    seed(ctx, ticketIds) {
+      const configs = [
+        {
+          id: ticketIds[0]!,
+          kind: 'onboarding' as const,
+          subject: 'New hire onboarding',
+          body: 'Please create an account for our new developer starting Monday.',
+          username: 'alex.morgan',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[1]!,
+          kind: 'password-reset' as const,
+          subject: 'Cannot log in',
+          body: 'I have forgotten my password and need a reset.',
+          username: 'bob.sato',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[2]!,
+          kind: 'access-request' as const,
+          subject: 'Needs Finance Portal access',
+          body: 'Please grant me access to the Finance Portal application.',
+          username: 'cara.patel',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[3]!,
+          kind: 'mfa-issue' as const,
+          subject: 'MFA token not working',
+          body: 'My authenticator app shows an invalid code. Please reset MFA.',
+          username: 'dan.rivera',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[4]!,
+          kind: 'onboarding' as const,
+          subject: 'Contractor account needed',
+          body: 'A contractor is starting next week. Please create a time-limited account.',
+          username: 'erin.cho',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[5]!,
+          kind: 'access-request' as const,
+          subject: 'Revoke old access',
+          body: 'I no longer need access to the legacy HR system. Please remove my account.',
+          username: 'finn.muller',
+          priority: 'low' as const,
+        },
+        {
+          id: ticketIds[6]!,
+          kind: 'password-reset' as const,
+          subject: 'Account locked out',
+          body: 'My account is locked after too many failed attempts.',
+          username: 'greta.olsen',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[7]!,
+          kind: 'transfer' as const,
+          subject: 'Department transfer',
+          body: 'I am moving from Engineering to IT Support. Please update my group memberships.',
+          username: 'hank.oneill',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[8]!,
+          kind: 'access-request' as const,
+          subject: 'Temporary project access',
+          body: 'I need 30-day access to the Analytics Dashboard for a project.',
+          username: 'ivy.park',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[9]!,
+          kind: 'mfa-issue' as const,
+          subject: 'New phone — MFA re-enrollment',
+          body: 'I got a new phone and need to re-enroll in MFA.',
+          username: 'jane.doe',
+          priority: 'normal' as const,
+        },
+      ];
+      buildBatchSeed(ctx, ticketIds, configs);
+    },
+    buildLab(flavor, ticketIds) {
+      const steps = ticketIds.map((id, i) =>
+        ticketStep(
+          `s${i + 1}`,
+          id,
+          [
+            'New hire onboarding',
+            'Cannot log in',
+            'Needs Finance Portal access',
+            'MFA token not working',
+            'Contractor account needed',
+            'Revoke old access',
+            'Account locked out',
+            'Department transfer',
+            'Temporary project access',
+            'New phone — MFA re-enrollment',
+          ][i]!,
+        ),
+      );
+      return baseLab(
+        { id: this.id, zoneId: this.zoneId, targetDisplayName: 'the Help Desk Queue' },
+        flavor,
+        steps,
+        {
+          title: 'Help Desk Queue: 10 Tickets',
+          durationMinutes: 45,
+          extraObjectives: [
+            {
+              id: 'o0',
+              description: 'Triage all 10 tickets and prioritize by urgency',
+              points: 10,
+              category: 'exec',
+            },
+            {
+              id: 'oT',
+              description: 'Resolve all tickets in the Ticket Console',
+              points: 0,
+              category: 'exec',
+            },
+          ],
+        },
+      );
+    },
+  },
+
+  // ── 15-ticket IAM Ops queue ─────────────────────────────────────────────
+  {
+    id: 'ticket-queue-15',
+    zoneId: 'iam-ops',
+    label: 'IAM Ops Queue (15 tickets)',
+    ticketCount: 15,
+    seed(ctx, ticketIds) {
+      const configs = [
+        {
+          id: ticketIds[0]!,
+          kind: 'leaver' as const,
+          subject: 'Terminate departing employee',
+          body: 'An employee is leaving today. Disable their account immediately.',
+          username: 'alex.morgan',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[1]!,
+          kind: 'password-reset' as const,
+          subject: 'Executive password reset',
+          body: 'CEO locked out of email. Need immediate reset.',
+          username: 'bob.sato',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[2]!,
+          kind: 'access-request' as const,
+          subject: 'Production database access',
+          body: 'Developer requesting read-only access to the production database.',
+          username: 'cara.patel',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[3]!,
+          kind: 'mfa-issue' as const,
+          subject: 'MFA device replacement',
+          body: 'Lost Authenticator device. Need temporary bypass to enroll new device.',
+          username: 'dan.rivera',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[4]!,
+          kind: 'onboarding' as const,
+          subject: 'VP of Sales onboarding',
+          body: 'New VP starts tomorrow. Full IAM provisioning needed.',
+          username: 'erin.cho',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[5]!,
+          kind: 'access-request' as const,
+          subject: 'PCI compliance group needed',
+          body: 'Finance team needs PCI-compliant access group for audit.',
+          username: 'finn.muller',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[6]!,
+          kind: 'transfer' as const,
+          subject: 'Promotion — IAM Admin role',
+          body: 'Employee promoted to IAM Admin. Remove old groups, add new permissions.',
+          username: 'greta.olsen',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[7]!,
+          kind: 'password-reset' as const,
+          subject: 'Service account password rotation',
+          body: 'Automated job failed due to expired service account password.',
+          username: 'hank.oneill',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[8]!,
+          kind: 'mfa-issue' as const,
+          subject: 'VPN MFA loop',
+          body: 'User stuck in MFA challenge loop when connecting to VPN.',
+          username: 'ivy.park',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[9]!,
+          kind: 'onboarding' as const,
+          subject: 'Bulk hire (5 users)',
+          body: 'Five summer interns starting next Monday. Create accounts.',
+          username: 'jane.doe',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[10]!,
+          kind: 'access-request' as const,
+          subject: 'Cross-training shadow access',
+          body: "Manager requests 2-week read-only access to another team's resources.",
+          username: 'alex.morgan',
+          priority: 'low' as const,
+        },
+        {
+          id: ticketIds[11]!,
+          kind: 'leaver' as const,
+          subject: 'Contractor offboarding',
+          body: 'Contractor project ended. Remove account access.',
+          username: 'bob.sato',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[12]!,
+          kind: 'password-reset' as const,
+          subject: 'New employee first-day access',
+          body: 'New hire cannot log in on their first day.',
+          username: 'cara.patel',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[13]!,
+          kind: 'mfa-issue' as const,
+          subject: 'SMS MFA not receiving codes',
+          body: 'User reports SMS MFA codes never arrive. Investigate and fix.',
+          username: 'dan.rivera',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[14]!,
+          kind: 'access-request' as const,
+          subject: 'Jira admin rights',
+          body: 'IT team member requesting Jira admin rights for project setup.',
+          username: 'erin.cho',
+          priority: 'normal' as const,
+        },
+      ];
+      buildBatchSeed(ctx, ticketIds, configs);
+    },
+    buildLab(flavor, ticketIds) {
+      const subjects = [
+        'Terminate departing employee',
+        'Executive password reset',
+        'Production database access',
+        'MFA device replacement',
+        'VP of Sales onboarding',
+        'PCI compliance group needed',
+        'Promotion — IAM Admin role',
+        'Service account password rotation',
+        'VPN MFA loop',
+        'Bulk hire (5 users)',
+        'Cross-training shadow access',
+        'Contractor offboarding',
+        'New employee first-day access',
+        'SMS MFA not receiving codes',
+        'Jira admin rights',
+      ];
+      const steps = ticketIds.map((id, i) => ticketStep(`s${i + 1}`, id, subjects[i]!));
+      return baseLab(
+        { id: this.id, zoneId: this.zoneId, targetDisplayName: 'the IAM Ops Queue' },
+        flavor,
+        steps,
+        {
+          title: 'IAM Ops Queue: 15 Tickets',
+          durationMinutes: 60,
+          extraObjectives: [
+            {
+              id: 'o0',
+              description: 'Triage all 15 tickets by priority (urgent → low)',
+              points: 15,
+              category: 'exec',
+            },
+            {
+              id: 'oT',
+              description: 'Resolve all tickets and document each action',
+              points: 0,
+              category: 'exec',
+            },
+          ],
+        },
+      );
+    },
+  },
+
+  // ── 20-ticket SecOps escalation queue ──────────────────────────────────
+  {
+    id: 'ticket-queue-20',
+    zoneId: 'sec-ops',
+    label: 'SecOps Escalation Queue (20 tickets)',
+    ticketCount: 20,
+    seed(ctx, ticketIds) {
+      const configs = [
+        {
+          id: ticketIds[0]!,
+          kind: 'incident' as const,
+          subject: 'Credential stuffing attack detected',
+          body: 'Multiple failed logins from suspicious IP. Investigate and contain.',
+          username: 'alex.morgan',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[1]!,
+          kind: 'password-reset' as const,
+          subject: 'Ransomware infection response',
+          body: 'User reports ransom note on screen. Immediate account lockout needed.',
+          username: 'bob.sato',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[2]!,
+          kind: 'mfa-issue' as const,
+          subject: 'Suspicious MFA bypass attempt',
+          body: 'MFA bypass flagged for executive account. Verify legitimacy.',
+          username: 'cara.patel',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[3]!,
+          kind: 'leaver' as const,
+          subject: 'Insider threat — immediate offboard',
+          body: 'HR has flagged an employee for immediate termination. Disable all access NOW.',
+          username: 'dan.rivera',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[4]!,
+          kind: 'access-request' as const,
+          subject: 'Unauthorized privilege escalation',
+          body: 'Audit found unexpected admin role on service account. Investigate.',
+          username: 'erin.cho',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[5]!,
+          kind: 'password-reset' as const,
+          subject: 'Phishing email reported',
+          body: 'Employee clicked phishing link. Reset password and revoke sessions.',
+          username: 'finn.muller',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[6]!,
+          kind: 'mfa-issue' as const,
+          subject: 'Stale session still active after termination',
+          body: "Terminated employee's session is still valid in app. Revoke.",
+          username: 'greta.olsen',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[7]!,
+          kind: 'access-request' as const,
+          subject: 'Dormant account reactivation',
+          body: '90-day inactive account was used. Disable and investigate.',
+          username: 'hank.oneill',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[8]!,
+          kind: 'password-reset' as const,
+          subject: 'Shared account password leak',
+          body: 'Shared admin password found in public GitHub repo. Rotate immediately.',
+          username: 'ivy.park',
+          priority: 'urgent' as const,
+        },
+        {
+          id: ticketIds[9]!,
+          kind: 'mfa-issue' as const,
+          subject: 'MFA push fatigue attack',
+          body: 'User receiving 100 MFA push notifications. Possible attack in progress.',
+          username: 'jane.doe',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[10]!,
+          kind: 'incident' as const,
+          subject: 'OAuth token theft suspected',
+          body: 'Third-party app using stolen OAuth tokens. Revoke all and re-issue.',
+          username: 'alex.morgan',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[11]!,
+          kind: 'access-request' as const,
+          subject: 'Privilege creep in finance team',
+          body: 'Access review found finance analyst with 47 groups. Audit needed.',
+          username: 'bob.sato',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[12]!,
+          kind: 'password-reset' as const,
+          subject: 'Brute force attack on login page',
+          body: 'Rate limit bypass detected. Block IP and force password reset for affected users.',
+          username: 'cara.patel',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[13]!,
+          kind: 'mfa-issue' as const,
+          subject: 'FIDO2 key not registering',
+          body: 'New hardware security key not working. Need to troubleshoot enrollment.',
+          username: 'dan.rivera',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[14]!,
+          kind: 'leaver' as const,
+          subject: 'Contractor project complete — offboard',
+          body: '3rd-party contractor project ended. Remove all access within 24h.',
+          username: 'erin.cho',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[15]!,
+          kind: 'password-reset' as const,
+          subject: 'Password policy non-compliance',
+          body: 'CEO password does not meet complexity requirements. Update securely.',
+          username: 'finn.muller',
+          priority: 'high' as const,
+        },
+        {
+          id: ticketIds[16]!,
+          kind: 'access-request' as const,
+          subject: 'Cross-tenant federation misconfig',
+          body: 'Partner company reports SSO failing. Investigate trust relationship.',
+          username: 'greta.olsen',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[17]!,
+          kind: 'mfa-issue' as const,
+          subject: 'SAML assertion validation failure',
+          body: 'SAML sign-in failing for one app. Check certificate and configuration.',
+          username: 'hank.oneill',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[18]!,
+          kind: 'password-reset' as const,
+          subject: 'Bulk user provisioning needed',
+          body: 'Acquisition integration: provision 50 new users from acquired company.',
+          username: 'ivy.park',
+          priority: 'normal' as const,
+        },
+        {
+          id: ticketIds[19]!,
+          kind: 'access-request' as const,
+          subject: 'Quarterly access review remediation',
+          body: 'Q3 review flagged 23 over-privileged accounts. Remove unneeded access.',
+          username: 'jane.doe',
+          priority: 'normal' as const,
+        },
+      ];
+      buildBatchSeed(ctx, ticketIds, configs);
+    },
+    buildLab(flavor, ticketIds) {
+      const subjects = [
+        'Credential stuffing attack detected',
+        'Ransomware infection response',
+        'Suspicious MFA bypass attempt',
+        'Insider threat — immediate offboard',
+        'Unauthorized privilege escalation',
+        'Phishing email reported',
+        'Stale session still active after termination',
+        'Dormant account reactivation',
+        'Shared account password leak',
+        'MFA push fatigue attack',
+        'OAuth token theft suspected',
+        'Privilege creep in finance team',
+        'Brute force attack on login page',
+        'FIDO2 key not registering',
+        'Contractor project complete — offboard',
+        'Password policy non-compliance',
+        'Cross-tenant federation misconfig',
+        'SAML assertion validation failure',
+        'Bulk user provisioning needed',
+        'Quarterly access review remediation',
+      ];
+      const steps = ticketIds.map((id, i) => ticketStep(`s${i + 1}`, id, subjects[i]!));
+      return baseLab(
+        { id: this.id, zoneId: this.zoneId, targetDisplayName: 'the SecOps Escalation Queue' },
+        flavor,
+        steps,
+        {
+          title: 'SecOps Escalation Queue: 20 Tickets',
+          durationMinutes: 90,
+          extraObjectives: [
+            {
+              id: 'o0',
+              description: 'Triage 20 tickets: separate critical incidents from routine requests',
+              points: 20,
+              category: 'exec',
+            },
+            {
+              id: 'oA',
+              description:
+                'Address critical security incidents first (attacks, leaks, insider threats)',
+              points: 15,
+              category: 'troubleshoot',
+            },
+            {
+              id: 'oR',
+              description: 'Resolve remaining routine tickets in priority order',
+              points: 10,
+              category: 'exec',
+            },
+            {
+              id: 'oT',
+              description: 'Document all actions taken in the audit log',
+              points: 10,
+              category: 'docs',
+            },
+          ],
+        },
+      );
+    },
+  },
+];
+
 // Register every template's seed function once, at module load, so a
 // generated lab's startingSeed (its own template id) is always resolvable.
 for (const t of LAB_TEMPLATES) {
   registerLabSeed(t.id, (ctx) => {
     if (t.seed) t.seed(ctx);
     else applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+  });
+}
+
+// Register batch templates — reads _batchTicketIds from the Lab at start time
+// so the IDs match what buildLab() used when creating the lab.
+for (const bt of BATCH_TEMPLATES) {
+  registerLabSeed(bt.id, (ctx) => {
+    applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+    // Retrieve ticket IDs that were stored on the Lab object during generation.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ticketIds: string[] =
+      (ctx._currentLab as any)?._batchTicketIds ??
+      BATCH_TICKET_IDS(bt.ticketCount, `batch-${bt.id}`);
+    bt.seed(ctx, ticketIds);
   });
 }

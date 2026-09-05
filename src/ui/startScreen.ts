@@ -4,8 +4,13 @@
  *
  * Includes a footer with Export, Import, and Reset buttons so the learner
  * can save their progress between sessions.
+ *
+ * Batch lab section: three "Generate Queue" buttons produce single labs with
+ * 10/15/20 pre-seeded tickets that appear in the Ticket Console when the
+ * learner starts the lab.
  */
 import { progressStore, generatedLabsStore } from '@/stores';
+import { BATCH_TEMPLATES } from '@/labs/generated/templates';
 import { showToast } from './toast';
 
 /** Escapes HTML-significant characters. Used for any text originating from
@@ -142,6 +147,26 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
           <button id="ss-gen-prev" style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">← Prev</button>
           <span id="ss-gen-page-label" style="color:#8b95a1;font-size:12px;align-self:center;"></span>
           <button id="ss-gen-next" style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">Next →</button>
+        </div>
+      </div>
+
+      <div style="margin-top:32px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            <h2 style="color:#e6e6e6;font-size:16px;margin:0;">🎫 Multi-Ticket Queue Labs</h2>
+            <div style="color:#8b95a1;font-size:11px;margin-top:2px;">
+              AI-generated — each lab spawns 10, 15, or 20 pre-seeded tickets. Triage them in priority order.
+            </div>
+          </div>
+          <button id="ss-generate-batches" style="background:#fbbf24;color:#0e1116;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;min-height:36px;white-space:nowrap;">
+            🤖 Generate 3 More
+          </button>
+        </div>
+        <div id="ss-batch-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;"></div>
+        <div id="ss-batch-pager" style="display:none;justify-content:center;gap:8px;margin-top:12px;">
+          <button id="ss-batch-prev" style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">← Prev</button>
+          <span id="ss-batch-page-label" style="color:#8b95a1;font-size:12px;align-self:center;"></span>
+          <button id="ss-batch-next" style="background:#1b1f24;color:#8b95a1;border:1px solid #2d343d;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">Next →</button>
         </div>
       </div>
 
@@ -290,6 +315,131 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
       }, 300);
     });
   }
+
+  // ── Batch (multi-ticket queue) grid ───────────────────────────────────────────
+  const BATCH_PAGE_SIZE = 6;
+  let batchPage = 0;
+
+  function renderBatchGrid(): void {
+    const grid = overlay.querySelector('#ss-batch-grid') as HTMLElement;
+    const pager = overlay.querySelector('#ss-batch-pager') as HTMLElement;
+    const pageLabel = overlay.querySelector('#ss-batch-page-label') as HTMLElement;
+    const labs = generatedLabsStore.getState().labs;
+
+    if (labs.length === 0) {
+      // Show the template cards as placeholder when no batch labs generated yet
+      grid.innerHTML = BATCH_TEMPLATES.map(
+        (bt) => `
+        <div class="batch-template-card" data-batch-id="${bt.id}"
+             style="background:#1b1f24;border:1px solid #2d343d;border-radius:8px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s,transform 0.1s;">
+          <div style="color:#fbbf24;font-size:13px;font-weight:700;margin-bottom:4px;">${escapeHtml(bt.label)}</div>
+          <div style="color:#8b95a1;font-size:11px;line-height:1.4;">
+            ${bt.ticketCount} pre-seeded tickets · click to generate and start
+          </div>
+        </div>
+      `,
+      ).join('');
+      pager.style.display = 'none';
+      // Wire template card clicks
+      for (const card of grid.querySelectorAll('.batch-template-card')) {
+        card.addEventListener('mouseenter', () => {
+          (card as HTMLElement).style.borderColor = '#fbbf24';
+        });
+        card.addEventListener('mouseleave', () => {
+          (card as HTMLElement).style.borderColor = '#2d343d';
+        });
+        card.addEventListener('click', async () => {
+          const batchId = (card as HTMLElement).dataset['batchId']!;
+          (card as HTMLElement).style.pointerEvents = 'none';
+          const originalHtml = (card as HTMLElement).innerHTML;
+          (card as HTMLElement).innerHTML =
+            '<div style="color:#8b95a1;font-size:12px;">Generating…</div>';
+          try {
+            const newLab = await generatedLabsStore.getState().generateBatchLab(batchId);
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+              overlay.remove();
+              onStart(newLab.id);
+            }, 300);
+          } catch {
+            (card as HTMLElement).innerHTML = originalHtml;
+            (card as HTMLElement).style.pointerEvents = 'auto';
+            showToast('Could not generate batch lab. Try again.', { kind: 'error' });
+          }
+        });
+      }
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(labs.length / BATCH_PAGE_SIZE));
+    batchPage = Math.min(batchPage, totalPages - 1);
+    const pageLabs = labs.slice(
+      batchPage * BATCH_PAGE_SIZE,
+      batchPage * BATCH_PAGE_SIZE + BATCH_PAGE_SIZE,
+    );
+
+    grid.innerHTML = pageLabs
+      .map(
+        (l) => `
+        <div class="batch-lab-card" data-id="${l.id}"
+             style="background:#1b1f24;border:1px solid #2d343d;border-radius:8px;padding:14px 16px;cursor:pointer;transition:border-color 0.15s,transform 0.1s;">
+          <div style="color:#fbbf24;font-size:13px;font-weight:700;margin-bottom:4px;">${escapeHtml(l.title)}</div>
+          <div style="color:#8b95a1;font-size:11px;line-height:1.4;margin-bottom:6px;">${l.steps.length} tickets</div>
+          <div style="color:#8b95a1;font-size:11px;line-height:1.4;">${escapeHtml(l.brief)}</div>
+        </div>
+      `,
+      )
+      .join('');
+
+    for (const card of grid.querySelectorAll('.batch-lab-card')) {
+      card.addEventListener('mouseenter', () => {
+        (card as HTMLElement).style.borderColor = '#fbbf24';
+      });
+      card.addEventListener('mouseleave', () => {
+        (card as HTMLElement).style.borderColor = '#2d343d';
+      });
+      card.addEventListener('click', () => {
+        const id = (card as HTMLElement).dataset['id']!;
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s';
+        setTimeout(() => {
+          overlay.remove();
+          onStart(id);
+        }, 300);
+      });
+    }
+
+    pager.style.display = totalPages > 1 ? 'flex' : 'none';
+    pageLabel.textContent = `Page ${batchPage + 1} of ${totalPages}`;
+  }
+
+  renderBatchGrid();
+
+  overlay.querySelector('#ss-batch-prev')?.addEventListener('click', () => {
+    batchPage = Math.max(0, batchPage - 1);
+    renderBatchGrid();
+  });
+  overlay.querySelector('#ss-batch-next')?.addEventListener('click', () => {
+    batchPage += 1;
+    renderBatchGrid();
+  });
+  overlay.querySelector('#ss-generate-batches')?.addEventListener('click', async () => {
+    const btn = overlay.querySelector('#ss-generate-batches') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+      await generatedLabsStore.getState().generateAllBatches();
+      batchPage = Math.ceil(generatedLabsStore.getState().labs.length / BATCH_PAGE_SIZE) - 1;
+      renderBatchGrid();
+      showToast('3 multi-ticket queue labs generated.', { kind: 'success' });
+    } catch {
+      showToast('Could not generate batch labs. Try again.', { kind: 'error' });
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🤖 Generate 3 More';
+    }
+  });
 
   // Close button (top-right) — returns to the 3D scene
   overlay.querySelector('#ss-close')?.addEventListener('click', () => dismiss());

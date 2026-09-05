@@ -93,6 +93,9 @@ export interface SeedContext {
   reviews: MockAccessReviews;
   incidents: MockIncidents;
   audit: MockAuditLog;
+  /** Current lab being seeded. Lets batch templates recover the ticket IDs
+   *  stored on the lab object during generation. Optional. */
+  _currentLab?: Lab;
 }
 
 export class Conductor {
@@ -154,6 +157,7 @@ export class Conductor {
       reviews: this.reviews,
       incidents: this.incidents,
       audit: this.audit,
+      _currentLab: this.currentLab,
     });
 
     // Push state to stores

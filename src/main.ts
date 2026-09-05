@@ -21,7 +21,6 @@ import { renderIAMConsole } from './ui/consoles/iamConsole';
 import { renderTicketConsole } from './ui/consoles/ticketConsole';
 import { renderSecOpsDashboard } from './ui/consoles/secOpsDashboard';
 import { renderOllamaConsole } from './ui/consoles/ollamaConsole';
-import { loadPersistedState } from './util/persistence';
 import { report } from './util/errors';
 import { showToast } from './ui/toast';
 import { isTouchDevice, TouchController } from './three/touchController';
@@ -131,28 +130,6 @@ async function bootstrap() {
     if (e.kind === 'zone-build-failed' || e.kind === 'webgl-lost') return;
     showToast(e.message, { kind: e.kind === 'console-render-failed' ? 'warn' : 'error' });
   });
-
-  // Hydrate the in-flight lab from persistence.
-  const persisted = loadPersistedState();
-  if (persisted.resume) {
-    const lab = findLab(persisted.resume.currentLabId);
-    if (lab) {
-      labStore
-        .getState()
-        .restore(
-          lab,
-          persisted.resume.stepIndex,
-          persisted.resume.stepStatuses,
-          persisted.resume.failed,
-        );
-      engine.enterZone(lab.startingZone as ZoneId);
-      setHUDZone(
-        lab.startingZone as ZoneId,
-        ZONE_BLUEPRINTS[lab.startingZone as ZoneId].displayName,
-      );
-      console.log(`[boot] Resumed ${lab.id} at step ${persisted.resume.stepIndex}.`);
-    }
-  }
 
   // ── Create overlay services early so their dismiss hooks can be wired ───────
   const consoleUI = initConsoleUI();
@@ -336,10 +313,12 @@ async function bootstrap() {
     },
   };
 
-  // Show the start screen only if no lab is in progress from a previous session.
-  if (!labStore.getState().current) {
-    openStartScreen();
-  }
+  // Always show the start screen on launch — the menu is the app's home page,
+  // not the 3D workspace. The learner can resume an in-flight lab from the
+  // start screen (the lab appears in the "Daily IT Support Tickets" section
+  // and as a known entry; for core labs the start screen is the entry point
+  // for every session, even when persisted resume data is present).
+  openStartScreen();
 
   console.log('[boot] Engine ready. 60 FPS target.');
 }
