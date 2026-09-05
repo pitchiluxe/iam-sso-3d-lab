@@ -12,16 +12,33 @@ import { mkEvidenceId } from '@/domain';
 import type { Evidence, UserId } from '@/domain';
 
 export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
-  // Reset body style to a known good state so padding always applies.
-  // The console-overlay body starts with padding:14px from consolePanel.ts,
-  // but re-renders from the desktop overlay pass in a bare div — cover both.
-  body.style.cssText = 'padding:16px;min-height:200px;box-sizing:border-box;';
+  // One-time injection of thin scrollbar CSS for Webkit browsers
+  if (!document.getElementById('ticket-console-scroll-css')) {
+    const style = document.createElement('style');
+    style.id = 'ticket-console-scroll-css';
+    style.textContent =
+      '#ticket-console-wrap::-webkit-scrollbar{width:6px}' +
+      '#ticket-console-wrap::-webkit-scrollbar-track{background:#0e1116}' +
+      '#ticket-console-wrap::-webkit-scrollbar-thumb{background:#2d343d;border-radius:3px}' +
+      '#ticket-console-wrap::-webkit-scrollbar-thumb:hover{background:#3d4a56}';
+    document.head.appendChild(style);
+  }
+
+  // Always use a dedicated scrollable inner container so the scrollbar always
+  // works regardless of how the caller's body is styled (desktop overlay vs
+  // console overlay both pass in differently-styled divs).
+  const wrap = document.createElement('div');
+  wrap.id = 'ticket-console-wrap';
+  wrap.style.cssText =
+    'height:100%;overflow-y:auto;padding:16px;box-sizing:border-box;' +
+    'scrollbar-width:thin;scrollbar-color:#2d343d #0e1116;';
   body.innerHTML = '';
+  body.style.cssText = 'overflow:hidden;';
+  body.appendChild(wrap);
 
   if (!conductor.tickets || !conductor.audit) {
-    body.style.cssText = 'padding:24px;color:var(--muted);font-size:13px;line-height:1.6;';
-    body.innerHTML = `
-      <div style="text-align:center;">
+    wrap.innerHTML = `
+      <div style="text-align:center;padding:24px 16px;color:var(--muted);font-size:13px;line-height:1.6;">
         <div style="font-size:32px;margin-bottom:8px;">🎫</div>
         <div style="color:var(--accent);font-size:14px;font-weight:600;margin-bottom:6px;">Ticket Queue</div>
         <div>No active lab session.</div>
@@ -57,7 +74,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
   const render = () => {
     const open = queue.list().filter((t) => t.status !== 'resolved');
     const resolved = queue.list().filter((t) => t.status === 'resolved');
-    body.innerHTML = '';
+    wrap.innerHTML = '';
 
     /* Summary — always show, even with 1-2 tickets */
     const sum = document.createElement('div');
@@ -74,7 +91,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
         </div>
       </div>
     `;
-    body.appendChild(sum);
+    wrap.appendChild(sum);
 
     /* Open tickets */
     for (const t of open) {
@@ -124,7 +141,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
         }),
       );
       card.appendChild(actions);
-      body.appendChild(card);
+      wrap.appendChild(card);
     }
 
     /* Empty state */
@@ -133,7 +150,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       emptyState.style.cssText =
         'text-align:center;padding:24px 12px;color:var(--muted);font-size:13px;';
       emptyState.innerHTML = '✓ No open tickets';
-      body.appendChild(emptyState);
+      wrap.appendChild(emptyState);
     }
 
     /* Resolved */
@@ -142,13 +159,13 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       hdr.style.cssText =
         'color:var(--muted);font-size:12px;text-transform:uppercase;margin:16px 0 6px;letter-spacing:0.05em;';
       hdr.textContent = 'Recently Resolved';
-      body.appendChild(hdr);
+      wrap.appendChild(hdr);
       for (const t of resolved.slice(-5).reverse()) {
         const r = document.createElement('div');
         r.style.cssText =
           'font-size:12px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--border);';
         r.textContent = `✓ ${t.subject}`;
-        body.appendChild(r);
+        wrap.appendChild(r);
       }
     }
 
@@ -157,7 +174,11 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     hdr.style.cssText =
       'color:var(--muted);font-size:12px;text-transform:uppercase;margin:16px 0 6px;letter-spacing:0.05em;';
     hdr.textContent = 'Ticket Audit Events';
-    body.appendChild(hdr);
+    const auditHdr = document.createElement('h3');
+    auditHdr.style.cssText =
+      'color:var(--muted);font-size:12px;text-transform:uppercase;margin:16px 0 6px;letter-spacing:0.05em;';
+    auditHdr.textContent = 'Ticket Audit Events';
+    wrap.appendChild(auditHdr);
     const auditList = document.createElement('div');
     auditList.style.cssText =
       'max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;';
@@ -176,7 +197,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
         auditList.appendChild(row);
       }
     }
-    body.appendChild(auditList);
+    wrap.appendChild(auditList);
   };
 
   // Subscribe to the ticket store so the console re-renders whenever tickets
