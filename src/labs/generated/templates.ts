@@ -514,7 +514,11 @@ function ticketStep(stepId: string, ticketId: string, subject: string): LabStep 
   );
 }
 
-/** Shared seed builder that creates N mixed-kind tickets on top of baseline. */
+/** Shared seed builder that creates N mixed-kind tickets on top of baseline.
+ * Guarantees every entry in ticketConfigs becomes a real ticket in the queue,
+ * even if the requested username isn't in the directory — falls back to the
+ * canonical 'admin' user so the ticket count the learner sees in the Ticket
+ * Console always equals the lab's declared ticketCount. */
 function buildBatchSeed(
   ctx: SeedContext,
   ticketIds: string[],
@@ -537,22 +541,28 @@ function buildBatchSeed(
   }>,
 ): void {
   applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+  const fallbackRequester =
+    ctx.dir.getUserByUsername('admin')?.id ??
+    ctx.dir.listUsers()[0]?.id ??
+    // Last-resort: synthesize a stable id. The ticket still appears in the
+    // queue; only the requesterId reference may not resolve to a real user
+    // in the directory, which doesn't affect ticket-resolved validation.
+    ('system' as never);
   for (let i = 0; i < ticketConfigs.length; i++) {
     const cfg = ticketConfigs[i]!;
-    const userId = ctx.dir.getUserByUsername(cfg.username)?.id;
-    if (!userId) continue;
+    const requesterId = ctx.dir.getUserByUsername(cfg.username)?.id ?? fallbackRequester;
     // Use a permissive payload — the real TicketKind type is large and
     // varies per kind. For ticket-resolution lab purposes, the validator
     // only matches by id, so a minimal payload is sufficient.
     ctx.tickets.create({
       id: ticketIds[i] as ReturnType<typeof mkTicketId>,
       kind: cfg.kind,
-      requesterId: userId,
+      requesterId,
       subject: cfg.subject,
       body: cfg.body,
       priority: cfg.priority ?? 'normal',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      payload: { userId, method: 'helpdesk' } as any,
+      payload: { userId: requesterId, method: 'helpdesk' } as any,
     });
   }
 }
@@ -1125,8 +1135,8 @@ for (const bt of BATCH_TEMPLATES) {
   registerLabSeed(bt.id, (ctx) => {
     applyBaseline(ctx.dir, ctx.idp, ctx.apps);
     // Retrieve ticket IDs that were stored on the Lab object during generation.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ticketIds: string[] =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ctx._currentLab as any)?._batchTicketIds ??
       BATCH_TICKET_IDS(bt.ticketCount, `batch-${bt.id}`);
     bt.seed(ctx, ticketIds);

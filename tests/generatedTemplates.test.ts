@@ -94,12 +94,11 @@ describe('BATCH_TEMPLATES', () => {
       expect(() => {
         bt.seed({ dir, idp, apps, tickets, reviews: undefined as never, incidents: undefined as never, audit }, ticketIds);
       }).not.toThrow();
-      // After seeding, the ticket queue should have the batch's tickets
-      // (some may have been skipped if their username isn't in baseline,
-      // so we just verify at least the majority made it in)
+      // After seeding, the ticket queue must contain exactly bt.ticketCount tickets.
+      // buildBatchSeed uses a fallback requester so no ticket is ever silently skipped.
       const queued = tickets.list();
       const seeded = queued.filter((t) => ticketIds.includes(t.id as string));
-      expect(seeded.length).toBeGreaterThanOrEqual(Math.floor(bt.ticketCount * 0.7));
+      expect(seeded.length).toBe(bt.ticketCount);
     }
   });
 });

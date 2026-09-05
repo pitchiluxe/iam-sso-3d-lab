@@ -52,5 +52,5 @@ export const WALLPAPER_BY_ID: Record<string, string> = Object.fromEntries(
   WALLPAPERS.map((w) => [w.id, w.gradient]),
 );
 
-export const DEFAULT_WALLPAPER_ID = 'teal';
+export const DEFAULT_WALLPAPER_ID = 'iamlab-dark';
 export const WALLPAPER_STORAGE_KEY = 'settings_wallpaper';
