@@ -4,7 +4,9 @@
  * Verifies:
  *  - After starting a lab, localStorage has the persisted-state envelope
  *  - The envelope version is v3 (the current schema — v3 added generatedLabs)
- *  - After reload, the same lab remains current in the HUD
+ *  - After reload, the start screen is shown again (the app's home page) AND
+ *    the persisted envelope is still present in localStorage, so the learner
+ *    can resume from the start screen rather than re-entering the workspace.
  */
 import { test, expect } from '@playwright/test';
 
@@ -40,11 +42,14 @@ test('progress persists across page reload via localStorage', async ({ page, con
   const parsed = JSON.parse(stored!);
   expect(parsed.version).toBe(3);
 
-  // Reload the page
+  // Reload the page. The app's landing page is the start screen (not the 3D
+  // workspace), so we expect the start screen to be visible again, and the
+  // persisted envelope to still be present in localStorage.
   await page.reload();
-
-  // The start screen should NOT be showing because a lab is in progress
-  await expect(page.locator('#hud-lab')).toContainText(/3:/);
+  await expect(page.locator('#start-screen')).toBeVisible();
+  const storedAfter = await page.evaluate(() => localStorage.getItem('iam-lab-state-v2'));
+  expect(storedAfter).not.toBeNull();
+  expect(JSON.parse(storedAfter!).version).toBe(3);
 
   // Stop the render loop so the browser can tear down without GPU timeout.
   await page.evaluate(() => (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.());
