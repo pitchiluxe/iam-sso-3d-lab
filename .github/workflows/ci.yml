@@ -114,55 +114,46 @@ jobs:
     needs: [lint, type-check, unit, build, e2e]
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from package.json
+        id: get_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Delete any prior release with the same tag (idempotent)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.get_version.outputs.version }}
         run: |
           set -e
           # Delete prior release + remote tag if they exist. The
           # actions/create-release action creates a git tag automatically,
           # so we must delete both the release AND the tag for re-runs to succeed.
-          gh release delete v0.3.6 --yes || true
+          gh release delete v${VERSION} --yes || true
           # Delete both annotated and lightweight tag syntaxes.
-          git push --delete origin refs/tags/v0.3.6 || true
-          git push --delete origin v0.3.6 || true
+          git push --delete origin refs/tags/v${VERSION} || true
+          git push --delete origin v${VERSION} || true
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.get_version.outputs.version }}
         with:
-          tag_name: v0.3.6
-          release_name: IAM SSO 3D Lab v0.3.6
+          tag_name: v${{ env.VERSION }}
+          release_name: IAM SSO 3D Lab v${{ env.VERSION }}
           body: |
-            ## IAM & SSO 3D Lab v0.3.6
+            ## IAM & SSO 3D Lab v${{ env.VERSION }}
 
-            ### What's new in v0.3.6
-            - **Ticket Console overhaul** — priority color coding, sort by priority, search/filter, SLA timers with color-shifting countdown, bulk actions (select/resolve/assign)
-            - **Ticket comments** — per-card expand/collapse thread, survives re-renders
-            - **Keyboard shortcuts** — `1-9` jump to a ticket, `R` resolve, `A` assign to me, `F` focus search
-            - **Ticket templates** — Quick Create with 7 pre-filled templates (onboarding, transfer, termination, password reset, MFA, access, incident)
-            - **Notification sounds** — three-tone urgent alert, soft blip, resolution chime
-            - **Lab timer + score breakdown** — live ⏱️ in the HUD; click the score pill for category breakdown
-            - **Lab reset** — wipes current lab state and re-runs the scenario
-            - **Audit log export** — CSV download from the audit panel
-            - **Achievement badges** — 8 unlockable badges (first ticket, perfect score, speed runner, capstone, full graduate, etc.) shown on the start screen and debrief
-            - **Progress dashboard** — per-lab completion strip on the start screen
-            - **Dark / light theme** — toggle in Settings → Personalization, persisted in localStorage
-            - **Interactive tutorial** — 5-step spotlight tour for first-time users (re-runnable from the start screen)
-            - **Windows 11-style Start menu** — user account pill + power button with Sleep / Restart / Shut down / Sign out
-            - **Window control re-order** — minimize, maximize, close (left to right)
-            - **Bug fix** — ticket comment box no longer flashes open/closed on click
+            Download the installer below and run it on any Windows 10/11 64-bit machine.
 
             ### Features
             - 13 hands-on labs (IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass)
-            - 3D virtual environment with interactive consoles, walk up to a monitor and press E to open the VM desktop
-            - AI Supervisor (Socratic coaching via local Ollama LLM — never gives answers)
+            - 3D virtual environment with interactive consoles — walk up to a monitor and press E to open the VM desktop
+            - AI Supervisor (Socratic coaching via local Ollama LLM — never gives answers directly)
             - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass)
-
-            ### Run the installer
-            Download `IAM-SSO-3D-Lab-Setup-0.3.6.exe` and run it on any Windows 10/11 64-bit machine.
 
             ### AI Supervisor setup
             1. Install [Ollama](https://ollama.com)
@@ -177,6 +168,10 @@ jobs:
     needs: [create_release, lint, type-check, unit, build, e2e]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Extract version from package.json
+        id: get_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -195,8 +190,9 @@ jobs:
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.create_release.outputs.version }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist-installer/IAM SSO 3D Lab-Setup-0.3.6.exe
-          asset_name: IAM-SSO-3D-Lab-Setup-0.3.6.exe
+          asset_path: dist-installer/IAM SSO 3D Lab-Setup-${{ env.VERSION }}.exe
+          asset_name: IAM-SSO-3D-Lab-Setup-${{ env.VERSION }}.exe
           asset_content_type: application/octet-stream
