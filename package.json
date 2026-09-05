@@ -55,11 +55,6 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "IAM SSO 3D Lab"
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "pitchiluxe",
-      "repo": "iam-sso-3d-lab"
     }
   },
   "dependencies": {
