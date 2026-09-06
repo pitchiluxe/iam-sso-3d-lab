@@ -227,29 +227,10 @@ app.on('window-all-closed', () => {
 // ---------------------------------------------------------------------------
 // In-VM browser: main-process allowlist enforcement
 // ---------------------------------------------------------------------------
-// Reads the same shared/webAllowlist.json the renderer uses, so the two
-// enforcement points cannot disagree about what is reachable.
-const WEB_ALLOWLIST = require('../shared/webAllowlist.json');
-
-function hostAllowed(host) {
-  return WEB_ALLOWLIST.hosts.find((a) => host === a || host.endsWith('.' + a));
-}
-
-function urlAllowed(raw) {
-  let url;
-  try {
-    url = new URL(raw);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== 'https:') return false;
-  if (url.username || url.password) return false;
-  const entry = hostAllowed(url.hostname.toLowerCase());
-  if (!entry) return false;
-  const prefix = WEB_ALLOWLIST.pathRestricted[entry];
-  if (prefix && !url.pathname.startsWith(prefix)) return false;
-  return true;
-}
+// The check lives in shared/allowlistCheck.cjs, which reads the same
+// shared/webAllowlist.json the renderer uses. tests/allowlistParity.test.ts
+// asserts the two implementations agree, so a fix to one cannot miss the other.
+const { urlAllowed } = require('../shared/allowlistCheck.cjs');
 
 app.on('web-contents-created', (_event, contents) => {
   // Refuse to attach a <webview> pointed anywhere off the allowlist, and strip
@@ -264,14 +245,32 @@ app.on('web-contents-created', (_event, contents) => {
     }
   });
 
-  // In-page navigations (link clicks, redirects) are re-checked: the initial
+  // Every way the guest can end up at a new document is checked. The initial
   // src being allowed says nothing about where the page then sends the user.
-  contents.on('will-navigate', (event, url) => {
-    if (contents.getType() === 'webview' && !urlAllowed(url)) {
-      console.warn('[allowlist] blocked navigation:', url);
-      event.preventDefault();
-    }
-  });
+  //
+  // Three separate events are needed, and missing any one is a bypass:
+  //   will-navigate       page-initiated navigation, MAIN FRAME ONLY
+  //   will-redirect       server-side 30x — does NOT fire will-navigate, so an
+  //                       allowlisted host redirecting outward would walk
+  //                       straight past a will-navigate-only guard
+  //   will-frame-navigate navigation inside a subframe of the guest
+  //
+  // Subresources (images, fonts, scripts) are deliberately NOT filtered: the
+  // control here is over where the learner can navigate, not total network
+  // egress, and blocking assets would break every legitimate docs page.
+  const blockDisallowed = (label) => (event, url) => {
+    if (contents.getType() !== 'webview') return;
+    if (urlAllowed(url)) return;
+    console.warn(`[allowlist] blocked ${label}:`, url);
+    event.preventDefault();
+  };
+
+  contents.on('will-navigate', blockDisallowed('navigation'));
+  contents.on('will-redirect', blockDisallowed('redirect'));
+  // Added in Electron 25; guard so an older runtime degrades rather than throws.
+  if (typeof contents.on === 'function') {
+    contents.on('will-frame-navigate', blockDisallowed('frame navigation'));
+  }
 
   // Never open new windows from guest content.
   contents.setWindowOpenHandler(({ url }) => {

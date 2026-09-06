@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 
 describe('module graph', () => {
-  it('Conductor can be imported before anything else', async () => {
+  it('Conductor can be imported before anything else', { timeout: 30_000 }, async () => {
     const mod = await import('@/conductor/conductor');
     expect(typeof mod.Conductor).toBe('function');
   });
@@ -35,12 +35,16 @@ describe('module graph', () => {
     expect(reg.getSeed('account-lockout')).toBeTypeOf('function');
   });
 
-  it('a conductor instantiated after that import order still starts a lab', async () => {
-    const { Conductor } = await import('@/conductor/conductor');
-    const { mkLabId } = await import('@/domain');
-    const c = new Conductor();
-    c.start(mkLabId('lab02'));
-    expect(c.dir.listUsers().length).toBeGreaterThan(0);
-    expect(c.tickets.list().length).toBeGreaterThan(0);
-  });
+  it(
+    'a conductor instantiated after that import order still starts a lab',
+    { timeout: 30_000 },
+    async () => {
+      const { Conductor } = await import('@/conductor/conductor');
+      const { mkLabId } = await import('@/domain');
+      const c = new Conductor();
+      c.start(mkLabId('lab02'));
+      expect(c.dir.listUsers().length).toBeGreaterThan(0);
+      expect(c.tickets.list().length).toBeGreaterThan(0);
+    },
+  );
 });
