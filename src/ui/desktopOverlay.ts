@@ -15,6 +15,7 @@ import { renderNotepadWindow } from './consoles/notepadWindow';
 import { renderStickyNotesWindow } from './consoles/stickyNotesWindow';
 import { renderFileExplorerWindow } from './consoles/fileExplorerWindow';
 import { renderBrowserWindow } from './consoles/browserWindow';
+import { renderTerminalWindow } from './consoles/terminalWindow';
 import { renderSettingsWindow } from './consoles/settingsWindow';
 import { renderControlPanelWindow } from './consoles/controlPanelWindow';
 import { renderRecycleBinWindow } from './consoles/recycleBinWindow';
@@ -118,6 +119,14 @@ const DESKTOP_APPS: WindowDef[] = [
     render: (_c, b) => renderFileExplorerWindow(b),
   },
   {
+    id: 'terminal',
+    title: 'Windows PowerShell',
+    icon: '>_',
+    width: 760,
+    height: 520,
+    render: (c, b) => renderTerminalWindow(b, c),
+  },
+  {
     id: 'browser',
     title: 'Web Browser',
     icon: '🌐',
@@ -162,6 +171,10 @@ const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map
  * benefit. */
 const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
   'iam-console',
+  // Rebuilt on VM re-entry so the shell binds to the current lab's services.
+  // (Its scrollback is lost on that rebuild, which is the right trade: a shell
+  // pointing at a stale directory would silently act on the wrong data.)
+  'terminal',
   'ticket-console',
   'secops-dashboard',
   'ollama-console',
@@ -172,6 +185,7 @@ const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
  * icons, Start menu, and default layout on a non-IT zone's "computer". */
 const IT_ONLY_APP_IDS = new Set([
   'iam-console',
+  'terminal',
   'ticket-console',
   'secops-dashboard',
   'ollama-console',
@@ -200,6 +214,13 @@ class WindowManager {
   constructor(conductor: Conductor, desktop: HTMLElement) {
     this.conductor = conductor;
     this.desktop = desktop;
+    // Windows that can close themselves (the shell's `exit`) ask via an event
+    // rather than reaching into the DOM, so the manager stays the single owner
+    // of window lifecycle.
+    document.addEventListener('apex-close-window', (e) => {
+      const id = (e as CustomEvent<{ id: string }>).detail?.id;
+      if (id) this.close(id);
+    });
   }
 
   openById(id: string): void {
