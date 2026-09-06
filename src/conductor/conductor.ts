@@ -34,20 +34,6 @@ import {
   MockIncidents,
   FaultService,
 } from '@/services';
-import { applyBaseline } from '@/seed/baseline';
-import { applyLab01Seed } from '@/seed/perLab/lab01';
-import { applyLab02Seed } from '@/seed/perLab/lab02';
-import { applyLab03Seed } from '@/seed/perLab/lab03';
-import { applyLab04Seed } from '@/seed/perLab/lab04';
-import { applyLab05Seed } from '@/seed/perLab/lab05';
-import { applyLab06Seed } from '@/seed/perLab/lab06';
-import { applyLab07Seed } from '@/seed/perLab/lab07';
-import { applyLab08Seed } from '@/seed/perLab/lab08';
-import { applyLab09Seed } from '@/seed/perLab/lab09';
-import { applyLab10Seed } from '@/seed/perLab/lab10';
-import { applyLab11Seed } from '@/seed/perLab/lab11';
-import { applyLab12Seed } from '@/seed/perLab/lab12';
-import { applyLab13Seed } from '@/seed/perLab/lab13';
 import {
   labStore,
   ticketStore,
@@ -60,44 +46,13 @@ import {
 } from '@/stores';
 import { findLab } from '@/labs/registry';
 import { getAchievement } from '@/util/achievements';
+import { getSeed } from './seedRegistry';
 
-const SEEDS: Record<string, (ctx: SeedContext) => void> = {
-  baseline: (ctx) => applyBaseline(ctx.dir, ctx.idp, ctx.apps),
-  lab01: (ctx) => applyLab01Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab02: (ctx) => applyLab02Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  lab03: (ctx) => applyLab03Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  lab04: (ctx) => applyLab04Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab05: (ctx) => applyLab05Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  lab06: (ctx) => applyLab06Seed(ctx.dir, ctx.idp, ctx.apps, ctx.reviews),
-  lab07: (ctx) => applyLab07Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents),
-  lab08: (ctx) => applyLab08Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents, ctx.audit),
-  lab09: (ctx) => applyLab09Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab10: (ctx) => applyLab10Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  lab11: (ctx) => applyLab11Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  lab12: (ctx) => applyLab12Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-  lab13: (ctx) => applyLab13Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
-};
-
-/** Register (or overwrite) one seed function by key — used by the
- * AI-generated-lab templates so each generated lab can seed baseline
- * plus its own small extra setup without conductor.ts knowing about
- * any of the 15 templates. */
-export function registerLabSeed(key: string, fn: (ctx: SeedContext) => void): void {
-  SEEDS[key] = fn;
-}
-
-export interface SeedContext {
-  dir: MockDirectory;
-  idp: MockIdP;
-  apps: MockAppServer;
-  tickets: MockTicketQueue;
-  reviews: MockAccessReviews;
-  incidents: MockIncidents;
-  audit: MockAuditLog;
-  /** Current lab being seeded. Lets batch templates recover the ticket IDs
-   *  stored on the lab object during generation. Optional. */
-  _currentLab?: Lab;
-}
+// The seed registry lives in its own module so templates.ts can register
+// seeds at module scope without importing the conductor — see seedRegistry.ts
+// for the cycle this breaks. Re-exported here for existing import sites.
+export { registerLabSeed } from './seedRegistry';
+export type { SeedContext } from './seedRegistry';
 
 export class Conductor {
   dir!: MockDirectory;
@@ -149,7 +104,7 @@ export class Conductor {
     if (!this.currentLab) throw new Error(`[conductor] unknown lab: ${labId}`);
 
     // Apply the lab's starting seed
-    const seedFn = SEEDS[this.currentLab.startingSeed] ?? SEEDS['baseline']!;
+    const seedFn = getSeed(this.currentLab.startingSeed);
     seedFn({
       dir: this.dir,
       idp: this.idp,

@@ -12,8 +12,10 @@
  */
 import { mkLabId, mkTicketId, SYSTEM_ACTOR } from '@/domain';
 import type { Lab, LabStep, LabObjective } from '@/domain';
-import { registerLabSeed } from '@/conductor/conductor';
-import type { SeedContext } from '@/conductor/conductor';
+// Imported from the registry, not the conductor: templates register at module
+// scope, and going through conductor.ts closed an evaluation-order cycle.
+import { registerLabSeed } from '@/conductor/seedRegistry';
+import type { SeedContext } from '@/conductor/seedRegistry';
 import { applyBaseline } from '@/seed/baseline';
 import { pickUnusedName } from './namePool';
 
