@@ -366,6 +366,37 @@ export const CAPABILITIES: readonly IamCapability[] = [
     },
   },
   {
+    id: 'group.members',
+    label: 'Group Members',
+    synopsis: 'List the members of a group, or the size of every group.',
+    consoleSection: 'groups',
+    cmdlet: 'Get-ADGroupMember',
+    readOnly: true,
+    legacyConsoleForm: true,
+    params: [{ ...P.group, required: false }],
+    resolvesTicketKinds: [],
+    run(ctx, a) {
+      if (a.Group) {
+        const g = findGroup(ctx, a.Group);
+        if (!g) return err(`Cannot find a group named '${a.Group}'.`);
+        const rows = g.memberIds.map((id) => {
+          const u = ctx.dir.getUser(id);
+          return {
+            SamAccountName: u?.username ?? id,
+            Name: u?.displayName ?? '—',
+            Department: u?.department ?? '—',
+          };
+        });
+        return ok(`${rows.length} member(s) of ${g.name}.`, rows);
+      }
+      const groups = ctx.dir.listGroups();
+      return ok(
+        `${groups.length} group(s).`,
+        groups.map((g) => ({ Name: g.name, Members: g.memberIds.length })),
+      );
+    },
+  },
+  {
     id: 'group.create',
     legacyConsoleForm: true,
     label: 'Create Group',

@@ -18,6 +18,7 @@ import { renderFileExplorerWindow } from './consoles/fileExplorerWindow';
 import { renderAppPortalWindow } from './consoles/appPortalWindow';
 import { renderWebBrowserWindow } from './consoles/webBrowserWindow';
 import { renderTerminalWindow } from './consoles/terminalWindow';
+import { renderScriptEditorWindow } from './consoles/scriptEditorWindow';
 import { renderSettingsWindow } from './consoles/settingsWindow';
 import { renderControlPanelWindow } from './consoles/controlPanelWindow';
 import { renderRecycleBinWindow } from './consoles/recycleBinWindow';
@@ -155,6 +156,14 @@ const DESKTOP_APPS: WindowDef[] = [
     render: (_c, b) => renderAppPortalWindow(b),
   },
   {
+    id: 'script-editor',
+    title: 'PowerShell ISE',
+    icon: '📜',
+    width: 900,
+    height: 640,
+    render: (c, b) => renderScriptEditorWindow(b, c),
+  },
+  {
     id: 'browser',
     title: 'Browser',
     icon: '🌐',
@@ -199,6 +208,7 @@ const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map
  * benefit. */
 const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
   'iam-console',
+  'script-editor',
   // Rebuilt on VM re-entry so the shell binds to the current lab's services.
   // (Its scrollback is lost on that rebuild, which is the right trade: a shell
   // pointing at a stale directory would silently act on the wrong data.)
@@ -214,6 +224,7 @@ const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
 const IT_ONLY_APP_IDS = new Set([
   'iam-console',
   'terminal',
+  'script-editor',
   'ticket-console',
   'secops-dashboard',
   'ollama-console',

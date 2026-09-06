@@ -32,6 +32,7 @@ const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'password-reset': 'Reset the user password in IAM Console',
   'mfa-reset': "Reset the user's MFA registration in IAM Console",
   'account-unlocked': 'Unlock the locked account in IAM Console',
+  'users-provisioned': 'Provision the accounts into the target group (PowerShell ISE)',
 };
 
 // WindowManager.refresh() calls renderObjectivesWindow(body) again on the
