@@ -153,7 +153,7 @@ const DESKTOP_APPS: WindowDef[] = [
     icon: '🗂️',
     width: 800,
     height: 600,
-    render: (_c, b) => renderAppPortalWindow(b),
+    render: (c, b) => renderAppPortalWindow(b, c),
   },
   {
     id: 'script-editor',
@@ -208,6 +208,7 @@ const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map
  * benefit. */
 const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
   'iam-console',
+  'app-portal',
   'script-editor',
   // Rebuilt on VM re-entry so the shell binds to the current lab's services.
   // (Its scrollback is lost on that rebuild, which is the right trade: a shell
