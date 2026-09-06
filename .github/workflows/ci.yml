@@ -107,6 +107,13 @@ jobs:
   create_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    # Releases are cut only when code lands on a trunk, never on a pull
+    # request. This job deletes the existing release AND tag for the current
+    # version before recreating them, so running it on a PR that does not bump
+    # the version would destroy the live release for a shipped version — and
+    # electron-builder declines to publish on a PR, so nothing would be
+    # re-uploaded to replace it.
+    if: github.event_name == 'push'
     # Gate the release on every test+build job passing. Otherwise an
     # early-failing E2E (or any other job) creates a release that
     # later passes can't recreate — `actions/create-release` fails with
@@ -165,6 +172,9 @@ jobs:
   release_installer:
     name: Build & Upload Installer (Windows)
     runs-on: windows-latest
+    # Same gate as create_release — electron-builder skips publishing on pull
+    # requests anyway, so on a PR this job only burns a Windows runner.
+    if: github.event_name == 'push'
     needs: [create_release, lint, type-check, unit, build, e2e]
     steps:
       - uses: actions/checkout@v4
