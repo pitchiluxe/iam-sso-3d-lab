@@ -15,3 +15,17 @@ export { FaultService, faultRegistry } from './faultService';
 export type { FaultContext, FaultMutator } from './faultService';
 export { OllamaSupervisor } from './ollamaSupervisor';
 export type { OllamaConfig, StepScore } from './ollamaSupervisor';
+export {
+  CAPABILITIES,
+  CAPABILITY_BY_ID,
+  CAPABILITY_BY_CMDLET,
+  capabilitiesForSection,
+  capabilitiesResolving,
+} from './capabilities';
+export type {
+  IamCapability,
+  CapabilityContext,
+  CapabilityParam,
+  CapabilityResult,
+  ConsoleSection,
+} from './capabilities';

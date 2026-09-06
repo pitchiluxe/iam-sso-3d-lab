@@ -254,6 +254,13 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
   let searchQuery = '';
   const selectedIds = new Set<TicketId>();
   const expandedCommentIds = new Set<TicketId>(); // tracks which ticket comment sections are open
+  /** Half-typed comments, kept across re-renders. render() rebuilds the card
+   *  DOM, so without this a store update or SLA change wiped what you typed. */
+  const commentDrafts = new Map<TicketId, string>();
+  /** Set only when the learner just opened a comment box, so focus() runs once
+   *  on open instead of on every re-render — focusing an element inside a
+   *  scroll container yanks the view to it, which read as "scrolls by itself". */
+  let focusCommentFor: TicketId | null = null;
   let lastSeenIds = new Set<TicketId>(queue.list().map((t) => t.id));
   let slaInterval: number | null = null;
 
@@ -273,6 +280,24 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     lastSeenIds = new Set(now);
   });
 
+  /** Rewrite just the SLA countdown badges, leaving the rest of the DOM alone. */
+  function updateSLABadges(): void {
+    const badges = body.querySelectorAll<HTMLElement>('[data-sla-for]');
+    for (const el of badges) {
+      const t = queue.get(el.dataset.slaFor as TicketId);
+      if (!t) continue;
+      const sla = formatSLA(t.createdAt, t.priority);
+      if (!sla) {
+        el.remove();
+        continue;
+      }
+      el.textContent = sla.text;
+      el.style.background = `${sla.color}22`;
+      el.style.borderColor = sla.color;
+      el.style.color = sla.color;
+    }
+  }
+
   // ----- Tick SLA timers once a second so the visible countdowns update -----
   function startSLATick() {
     if (slaInterval !== null) return;
@@ -284,16 +309,20 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
         }
         return;
       }
-      // Re-render only if there are urgent/high tickets to keep cost down
-      const hasUrgent = queue
-        .list()
-        .some((t) => t.status !== 'resolved' && (t.priority === 'urgent' || t.priority === 'high'));
-      if (hasUrgent) render();
+      // Update the countdown badges in place. This used to call render(),
+      // which rebuilt every card once a second — destroying the scroll
+      // position, any half-typed comment, and stealing focus. Nothing outside
+      // the badges changes on a clock tick, so nothing else should be touched.
+      updateSLABadges();
     }, 1000);
   }
   startSLATick();
 
   const render = () => {
+    // A re-render replaces the whole list, which resets the scroll box to the
+    // top. Capture the offset first and put it back after, so resolving or
+    // commenting on a ticket leaves you where you were instead of jumping.
+    const prevScroll = wrap.scrollTop;
     const all = queue.list();
     let open = all.filter((t) => t.status !== 'resolved');
 
@@ -537,7 +566,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       const pc = priorityColors[t.priority];
       const sla = formatSLA(t.createdAt, t.priority);
       const slaHtml = sla
-        ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:3px;background:${sla.color}22;border:1px solid ${sla.color};color:${sla.color};font-size:10px;font-weight:600;">${sla.text}</span>`
+        ? `<span data-sla-for="${t.id}" style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:3px;background:${sla.color}22;border:1px solid ${sla.color};color:${sla.color};font-size:10px;font-weight:600;">${sla.text}</span>`
         : '';
       const isSelected = selectedIds.has(t.id);
       card.style.cssText = `
@@ -610,8 +639,12 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       });
       actions.appendChild(escalateBtn);
       const commentToggle = btn(`💬 Comments (${t.comments.length})`, 'var(--muted)', () => {
-        if (expandedCommentIds.has(t.id)) expandedCommentIds.delete(t.id);
-        else expandedCommentIds.add(t.id);
+        if (expandedCommentIds.has(t.id)) {
+          expandedCommentIds.delete(t.id);
+        } else {
+          expandedCommentIds.add(t.id);
+          focusCommentFor = t.id; // focus once, on this open — not on re-renders
+        }
         render();
       });
       actions.appendChild(commentToggle);
@@ -699,11 +732,16 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
         '⌨️ <strong>Shortcuts:</strong> <kbd>1-9</kbd> focus card · <kbd>R</kbd> resolve top · <kbd>A</kbd> assign top · <kbd>F</kbd> or <kbd>/</kbd> search · <kbd>Esc</kbd> clear selection';
       wrap.appendChild(hint);
     }
+
+    // Put the scroll position back after the rebuild. Clamped by the browser if
+    // the list got shorter (e.g. the ticket you resolved is gone).
+    wrap.scrollTop = prevScroll;
   };
 
   // ----- Comments UI: built per card when expanded. Returns a DOM element so
-  // the render() function owns the lifecycle — the block survives SLA re-renders
-  // and re-renders as long as expandedCommentIds contains the ticket id.
+  // the render() function owns the lifecycle. The SLA tick no longer re-renders,
+  // so this block is rebuilt only on real ticket changes; the draft text and
+  // focus are preserved across those rebuilds by commentDrafts/focusCommentFor.
   function buildCommentBlock(card: HTMLElement, ticket: Ticket): HTMLElement {
     const block = document.createElement('div');
     block.className = 'ticket-comments';
@@ -732,10 +770,14 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     input.placeholder = 'Add a comment…';
     input.style.cssText =
       'flex:1;background:#1b1f24;color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:4px 6px;font-size:11px;';
+    // Re-renders rebuild this element, so the draft lives outside the DOM.
+    input.value = commentDrafts.get(ticket.id) ?? '';
+    input.addEventListener('input', () => commentDrafts.set(ticket.id, input.value));
     const post = btn('Post', 'var(--accent)', () => {
       const text = input.value.trim();
       if (!text) return;
       queue.comment(ticket.id, 'player' as UserId, text);
+      commentDrafts.delete(ticket.id);
       // Re-render to pick up the new comment. expandedCommentIds still has
       // this ticket id, so the new block will be rebuilt with the new comment.
       render();
@@ -747,13 +789,17 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     inputRow.appendChild(post);
     block.appendChild(inputRow);
 
-    // Auto-focus the input only on first creation, not on every re-render.
-    // (requestAnimationFrame keeps focus from being stolen mid-click.)
-    requestAnimationFrame(() => {
-      if (expandedCommentIds.has(ticket.id)) {
+    // Focus only the box the learner just opened. The old guard here tested
+    // `expandedCommentIds.has(id)`, which stays true for as long as the section
+    // is open — so every re-render re-focused it and dragged the scroll
+    // container along with it.
+    if (focusCommentFor === ticket.id) {
+      focusCommentFor = null;
+      requestAnimationFrame(() => {
         input.focus();
-      }
-    });
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+    }
 
     return block;
   }

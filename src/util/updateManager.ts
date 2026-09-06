@@ -6,7 +6,17 @@
  * `isAvailable()` returns false so the UI can fall back gracefully.
  */
 export type UpdateState =
-  'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'unsupported';
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'unsupported'
+  /** The check ran and failed — a missing release feed, no network, a bad
+   *  token. Distinct from 'idle' on purpose: reporting a failed check as
+   *  "no updates available" hides a broken updater behind a reassuring
+   *  message, which is how this shipped unnoticed. */
+  | 'error';
 
 export interface UpdateInfo {
   version?: string;

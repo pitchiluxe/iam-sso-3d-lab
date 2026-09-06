@@ -215,6 +215,23 @@ async function bootstrap() {
   const consoleUI = initConsoleUI();
   const desktop: DesktopOverlay = createDesktopOverlay();
 
+  // ── World-input routing ────────────────────────────────────────────────────
+  // While the VM desktop or a console panel is open it owns the keyboard: 'E'
+  // typed into a ticket comment or a terminal command must not re-trigger the
+  // workstation, and WASD must not walk the avatar behind the overlay.
+  // Wrapped here rather than at each call site because show()/hide() are
+  // invoked from several places (workstation activate, ESC, start screen).
+  const showDesktop = desktop.show.bind(desktop);
+  const hideDesktop = desktop.hide.bind(desktop);
+  desktop.show = (conductor, isIT) => {
+    engine.player.setInputEnabled(false);
+    showDesktop(conductor, isIT);
+  };
+  desktop.hide = () => {
+    hideDesktop();
+    engine.player.setInputEnabled(true);
+  };
+
   // ── Overlay manager — single ESC key handler, routes to the topmost overlay ─
   const overlayMgr = makeOverlayManager(
     /* onDismissStart   */ () => {

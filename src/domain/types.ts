@@ -46,6 +46,24 @@ export type TicketKind =
   | 'termination'
   | 'incident';
 
+/**
+ * Runtime list of every ticket kind. `satisfies` keeps it honest: omit a kind
+ * and this stops type-checking. The capability registry's drift-guard test
+ * walks this list to prove every ticket a lab can raise is one the learner can
+ * actually resolve from the IAM Console or the terminal.
+ */
+export const ALL_TICKET_KINDS = [
+  'onboarding',
+  'mover',
+  'leaver',
+  'access-request',
+  'password-reset',
+  'mfa-issue',
+  'transfer',
+  'termination',
+  'incident',
+] as const satisfies readonly TicketKind[];
+
 export type TicketStatus =
   'open' | 'in-progress' | 'pending-approval' | 'resolved' | 'closed' | 'cancelled';
 
@@ -92,6 +110,12 @@ export interface User {
   lastSignInAt?: number;
   createdAt: number;
   disabledAt?: number;
+  /** Set by an admin password reset; sign-in is refused until the user picks
+   *  their own password. Absent = no forced change pending. */
+  mustChangePassword?: boolean;
+  /** Roles granted straight to the user, outside any group. Optional so the
+   *  seed-data literal needs no change; readers treat undefined as empty. */
+  directRoleIds?: RoleId[];
 }
 
 export interface Group {
@@ -142,7 +166,13 @@ export type SignInResult =
   | { ok: true; session: Session; user: User }
   | {
       ok: false;
-      reason: 'bad-password' | 'disabled' | 'locked' | 'mfa-required' | 'conditional-block';
+      reason:
+        | 'bad-password'
+        | 'disabled'
+        | 'locked'
+        | 'mfa-required'
+        | 'conditional-block'
+        | 'must-change-password';
     };
 
 export type MfaResult = { ok: boolean; reason?: string };
@@ -240,8 +270,12 @@ export interface AuditEvent {
     | 'group.remove'
     | 'group.updated'
     | 'group.deleted'
+    | 'role.created'
     | 'role.grant'
     | 'role.revoke'
+    | 'password.reset'
+    | 'account.unlock'
+    | 'user.moved'
     | 'app.config.changed'
     | 'signin.success'
     | 'signin.failure'
@@ -327,7 +361,10 @@ export type ValidatorKind =
   | 'audit-note-written'
   | 'user-enabled'
   | 'user-moved'
-  | 'user-deleted';
+  | 'user-deleted'
+  | 'password-reset'
+  | 'mfa-reset'
+  | 'account-unlocked';
 
 export interface LabStep {
   id: string;

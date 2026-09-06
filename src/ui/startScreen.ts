@@ -542,6 +542,14 @@ export function showStartScreen(onStart: (labId: string) => void, onDismiss: () 
           updateLabel.textContent = 'Update ready — restart to apply';
           updateBtn.style.color = '#4ec9b0';
           break;
+        case 'error':
+          // Never fall through to "Up to date" — a failed check is not a
+          // successful one, and hiding it is how a broken updater goes unnoticed.
+          updateIcon.textContent = '⚠️';
+          updateLabel.textContent = 'Update check failed';
+          updateBtn.title = status.error ?? 'The update check could not complete.';
+          updateBtn.style.color = '#f48771';
+          break;
         default: {
           updateIcon.textContent = '🔄';
           updateLabel.textContent = 'Up to date';

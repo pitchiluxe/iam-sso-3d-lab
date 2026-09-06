@@ -25,6 +25,7 @@ try {
 // Values: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded'
 let updateState = 'idle';
 let updateInfo = null; // { version, releaseNotes? }
+let updateError = null; // last failure message, surfaced to the renderer
 
 function getEnvPayload() {
   return { IS_ELECTRON: true };
@@ -80,8 +81,10 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     console.error('[auto-updater] error:', err.message);
-    updateState = 'idle';
+    // 'error', not 'idle' — see the check handler below for why.
+    updateState = 'error';
     updateInfo = null;
+    updateError = err && err.message ? err.message : String(err);
     broadcastUpdateStatus();
   });
 
@@ -96,7 +99,11 @@ function setupAutoUpdater() {
 
 function broadcastUpdateStatus() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('update:status', { state: updateState, info: updateInfo });
+  mainWindow.webContents.send('update:status', {
+    state: updateState,
+    info: updateInfo,
+    error: updateError,
+  });
 }
 
 // --- IPC handlers ----------------------------------------------------------
@@ -109,13 +116,19 @@ ipcMain.on('env:get:sync', (event) => {
 ipcMain.handle('update:check', async () => {
   if (!autoUpdater) return { state: 'idle', info: null };
   updateState = 'checking';
+  updateError = null;
   broadcastUpdateStatus();
   try {
     await autoUpdater.checkForUpdates();
     return { state: updateState, info: updateInfo };
   } catch (err) {
-    updateState = 'idle';
-    return { state: 'idle', info: null, error: err.message };
+    // Report the failure instead of masking it as 'idle' ("no updates
+    // available"). A missing publish feed, no network and an auth failure all
+    // land here and all need the user to see something actionable.
+    updateState = 'error';
+    updateError = err && err.message ? err.message : String(err);
+    broadcastUpdateStatus();
+    return { state: 'error', info: null, error: updateError };
   }
 });
 
@@ -135,7 +148,7 @@ ipcMain.handle('update:install', () => {
 });
 
 ipcMain.handle('update:getStatus', () => {
-  return { state: updateState, info: updateInfo };
+  return { state: updateState, info: updateInfo, error: updateError };
 });
 
 // --- Single-instance lock --------------------------------------------------

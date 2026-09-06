@@ -12,8 +12,10 @@
  */
 import { mkLabId, mkTicketId, SYSTEM_ACTOR } from '@/domain';
 import type { Lab, LabStep, LabObjective } from '@/domain';
-import { registerLabSeed } from '@/conductor/conductor';
-import type { SeedContext } from '@/conductor/conductor';
+// Imported from the registry, not the conductor: templates register at module
+// scope, and going through conductor.ts closed an evaluation-order cycle.
+import { registerLabSeed } from '@/conductor/seedRegistry';
+import type { SeedContext } from '@/conductor/seedRegistry';
 import { applyBaseline } from '@/seed/baseline';
 import { pickUnusedName } from './namePool';
 
@@ -537,7 +539,21 @@ function buildBatchSeed(
       | 'incident';
     subject: string;
     body: string;
+    /** Who FILED the ticket. */
     username: string;
+    /**
+     * Who the ticket is ABOUT, when that differs from the requester — a
+     * helpdesk agent filing for a CFO, a manager offboarding a contractor.
+     * The payload and relatedUserIds follow this, not the requester, so
+     * resolving the ticket acts on the right person.
+     */
+    subjectUsername?: string;
+    /**
+     * Provision the subject if the directory does not already have them. Some
+     * tickets ask the learner to act on an account the seed never created —
+     * an offboard for a contractor who does not exist is unresolvable.
+     */
+    seedSubject?: { displayName: string; department: string; title: string };
     priority?: 'low' | 'normal' | 'high' | 'urgent';
   }>,
 ): void {
@@ -552,6 +568,22 @@ function buildBatchSeed(
   for (let i = 0; i < ticketConfigs.length; i++) {
     const cfg = ticketConfigs[i]!;
     const requesterId = ctx.dir.getUserByUsername(cfg.username)?.id ?? fallbackRequester;
+
+    // Who the ticket is about. Defaults to the requester (a user reporting
+    // their own lockout), but many tickets are filed on someone else's behalf.
+    const subjectName = cfg.subjectUsername ?? cfg.username;
+    let subject = ctx.dir.getUserByUsername(subjectName);
+    if (!subject && cfg.seedSubject) {
+      subject = ctx.dir.ensureUser({
+        username: subjectName,
+        displayName: cfg.seedSubject.displayName,
+        email: `${subjectName}@northwind.example`,
+        department: cfg.seedSubject.department,
+        title: cfg.seedSubject.title,
+        mfa: 'none',
+      });
+    }
+    const subjectId = subject?.id ?? requesterId;
     // Use a permissive payload — the real TicketKind type is large and
     // varies per kind. For ticket-resolution lab purposes, the validator
     // only matches by id, so a minimal payload is sufficient.
@@ -562,8 +594,11 @@ function buildBatchSeed(
       subject: cfg.subject,
       body: cfg.body,
       priority: cfg.priority ?? 'normal',
+      // userId is the SUBJECT, not the requester — pointing it at whoever
+      // filed the ticket meant resolving it would act on the wrong account.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      payload: { userId: requesterId, method: 'helpdesk' } as any,
+      payload: { userId: subjectId, method: 'helpdesk' } as any,
+      relatedUserIds: subject ? [subject.id] : [],
     });
   }
 }
@@ -730,6 +765,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Executive password reset: Greta Olsen (CFO)',
           body: 'Greta Olsen (greta.olsen, greta.olsen@northwind.example) is locked out of her account. She is the CFO. Need immediate password reset via secure channel — do not send via email.',
           username: 'bob.sato',
+          subjectUsername: 'greta.olsen',
           priority: 'urgent' as const,
         },
         {
@@ -778,6 +814,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Service account password rotation: svc-backup',
           body: 'The automated backup job (svc-backup) failed because its service account password expired. Rotate the password for svc-backup and update the credential in the backup scheduler. Priority: production impact.',
           username: 'hank.oneill',
+          subjectUsername: 'svc-backup',
           priority: 'high' as const,
         },
         {
@@ -810,6 +847,12 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Contractor offboard: Sam Nguyen',
           body: 'Contractor Sam Nguyen (sam.nguyen) project ended. Disable their account (sam.nguyen), revoke all sessions, and remove from grp-engineering-dev within 24 hours.',
           username: 'bob.sato',
+          subjectUsername: 'sam.nguyen',
+          seedSubject: {
+            displayName: 'Sam Nguyen',
+            department: 'Engineering',
+            title: 'Contractor',
+          },
           priority: 'normal' as const,
         },
         {
@@ -914,6 +957,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Suspicious MFA bypass for Greta Olsen (CFO account)',
           body: 'MFA bypass request flagged for greta.olsen@northwind.example at 02:47 AM from an unrecognized device. CFO Greta Olsen is not in the office. Verify legitimacy immediately and revoke if unauthorized.',
           username: 'cara.patel',
+          subjectUsername: 'greta.olsen',
           priority: 'urgent' as const,
         },
         {
@@ -930,6 +974,8 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Unauthorized admin role on svc-deploy service account',
           body: 'Monthly audit found svc-deploy service account has unexpected role-admin membership in the Production namespace. Investigate who added it (check audit log), remove the unauthorized role, and document the change.',
           username: 'erin.cho',
+          subjectUsername: 'svc-deploy',
+          seedSubject: { displayName: 'svc-deploy', department: 'IT', title: 'Service Account' },
           priority: 'high' as const,
         },
         {
@@ -946,6 +992,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Stale session: ivy.park session active after termination',
           body: "Ivy Park's (ivy.park) account was terminated 3 days ago, but an active session is still valid in the HR Portal application. Revoke the session immediately and confirm account is disabled.",
           username: 'greta.olsen',
+          subjectUsername: 'ivy.park',
           priority: 'high' as const,
         },
         {
@@ -962,6 +1009,8 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Password leak: svc-admin shared credentials on GitHub',
           body: 'The shared admin credential for svc-admin was found in a public GitHub repository (repo: northwind/devops, commit: a3f9c2d). Rotate the password immediately and update the credential in all systems that use it.',
           username: 'ivy.park',
+          subjectUsername: 'svc-admin',
+          seedSubject: { displayName: 'svc-admin', department: 'IT', title: 'Service Account' },
           priority: 'urgent' as const,
         },
         {
@@ -986,6 +1035,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Privilege creep: cara.patel has 47 group memberships',
           body: 'Q3 access review found Cara Patel (cara.patel) has 47 group memberships, including several production database roles she no longer needs. Review her current role (HR Business Partner), remove unnecessary groups, and document the cleanup.',
           username: 'bob.sato',
+          subjectUsername: 'cara.patel',
           priority: 'normal' as const,
         },
         {
@@ -1010,6 +1060,12 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Contractor offboard: Sam Nguyen — project ended',
           body: 'Contractor Sam Nguyen (sam.nguyen) project ended today. Remove sam.nguyen from grp-engineering-dev, grp-build-servers, and any other groups. Disable the account and confirm all access is revoked within 24 hours.',
           username: 'erin.cho',
+          subjectUsername: 'sam.nguyen',
+          seedSubject: {
+            displayName: 'Sam Nguyen',
+            department: 'Engineering',
+            title: 'Contractor',
+          },
           priority: 'normal' as const,
         },
         {
@@ -1018,6 +1074,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Password policy non-compliance: Greta Olsen (CFO) account',
           body: "Greta Olsen's (greta.olsen) password does not meet the new complexity requirements (12+ chars, special characters). Assist her in setting a compliant password securely in person — do not send via email or chat.",
           username: 'finn.muller',
+          subjectUsername: 'greta.olsen',
           priority: 'high' as const,
         },
         {
