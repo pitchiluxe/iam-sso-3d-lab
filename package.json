@@ -34,7 +34,8 @@
       {
         "provider": "github",
         "owner": "pitchiluxe",
-        "repo": "iam-sso-3d-lab"
+        "repo": "iam-sso-3d-lab",
+        "releaseType": "release"
       }
     ],
     "appId": "com.mydigitalsolutions.iamsso3dlab",

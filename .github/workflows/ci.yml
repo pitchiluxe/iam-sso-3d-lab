@@ -205,3 +205,26 @@ jobs:
         run: npm run release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # electron-builder exits 0 even when it skips every upload — it did
+      # exactly that for v0.4.0, refusing to publish into an existing
+      # non-draft release while defaulting to releaseType=draft, and the job
+      # still reported success. Assert the release actually carries the
+      # installer and latest.yml, so a silent skip fails the build instead of
+      # shipping a release nobody can update from.
+      - name: Verify release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.create_release.outputs.version }}
+        run: |
+          assets=$(gh release view "v${VERSION}" --json assets -q '.assets[].name')
+          echo "Assets on v${VERSION}:"; echo "$assets"
+          for required in "IAM-SSO-3D-Lab-Setup-${VERSION}.exe" "latest.yml"; do
+            echo "$assets" | grep -qx "$required" || {
+              echo "::error::Release v${VERSION} is missing '$required'."
+              echo "::error::electron-builder skipped publishing — check the publish step log."
+              exit 1
+            }
+          done
+          echo "Installer and update manifest are both present."
