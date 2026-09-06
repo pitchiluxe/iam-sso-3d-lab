@@ -38,6 +38,33 @@ describe('capability registry — drift guard', () => {
     expect(Object.keys(CAPABILITY_BY_CMDLET)).toHaveLength(CAPABILITIES.length);
   });
 
+  it('every ticket kind is reachable from a console form, legacy or generated', () => {
+    // Stronger than the drift guard above: a capability could resolve a ticket
+    // kind and still be unreachable if no console section renders it. Every
+    // capability is either a bespoke legacy form or picked up by the generated
+    // sections, so this asserts the console genuinely covers each kind.
+    const unreachable = ALL_TICKET_KINDS.filter((k) =>
+      capabilitiesResolving(k).every((c) => !c.legacyConsoleForm && !c.consoleSection),
+    );
+    expect(unreachable).toEqual([]);
+  });
+
+  it('generated sections cover the capabilities the legacy console lacks', () => {
+    const generated = CAPABILITIES.filter((c) => !c.legacyConsoleForm).map((c) => c.id);
+    for (const id of [
+      'password.reset',
+      'account.unlock',
+      'mfa.reset',
+      'mfa.enroll',
+      'user.move',
+      'role.grant',
+      'role.revoke',
+      'session.revoke',
+    ]) {
+      expect(generated).toContain(id);
+    }
+  });
+
   it('gives every mutating capability a validator so lab steps can gate on it', () => {
     const missing = CAPABILITIES.filter((c) => !c.readOnly && !c.validator).map((c) => c.id);
     expect(missing).toEqual([]);

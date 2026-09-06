@@ -70,6 +70,13 @@ export interface IamCapability {
   validator?: ValidatorKind;
   /** True for read-only queries — the console renders these as tables. */
   readOnly?: boolean;
+  /**
+   * Set when the IAM Console already ships a bespoke, hand-written form for
+   * this action. The generated sections render everything WITHOUT this flag,
+   * so a newly declared capability appears in the console automatically and
+   * cannot be forgotten — which is the drift that started all of this.
+   */
+  legacyConsoleForm?: boolean;
   run(ctx: CapabilityContext, args: Record<string, string>): CapabilityResult;
 }
 
@@ -115,6 +122,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   // ── Users ────────────────────────────────────────────────────────────────
   {
     id: 'user.list',
+    legacyConsoleForm: true,
     label: 'Find Users',
     synopsis: 'List directory users, optionally filtered by department.',
     consoleSection: 'users',
@@ -143,6 +151,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   },
   {
     id: 'user.create',
+    legacyConsoleForm: true,
     label: 'Provision User',
     synopsis: 'Create a directory account for a new joiner.',
     consoleSection: 'users',
@@ -172,6 +181,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   },
   {
     id: 'user.disable',
+    legacyConsoleForm: true,
     label: 'Disable User',
     synopsis: 'Disable an account so it can no longer authenticate.',
     consoleSection: 'users',
@@ -188,6 +198,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   },
   {
     id: 'user.enable',
+    legacyConsoleForm: true,
     label: 'Enable User',
     synopsis: 'Re-enable a disabled account.',
     consoleSection: 'users',
@@ -204,6 +215,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   },
   {
     id: 'user.delete',
+    legacyConsoleForm: true,
     label: 'Delete User',
     synopsis: 'Permanently remove a directory account.',
     consoleSection: 'users',
@@ -337,6 +349,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   // ── Groups ───────────────────────────────────────────────────────────────
   {
     id: 'group.list',
+    legacyConsoleForm: true,
     label: 'Find Groups',
     synopsis: 'List security groups.',
     consoleSection: 'groups',
@@ -354,6 +367,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   },
   {
     id: 'group.create',
+    legacyConsoleForm: true,
     label: 'Create Group',
     synopsis: 'Create a security group.',
     consoleSection: 'groups',
@@ -373,6 +387,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   },
   {
     id: 'group.addMember',
+    legacyConsoleForm: true,
     label: 'Add to Group',
     synopsis: 'Add a user to a security group.',
     consoleSection: 'groups',
@@ -391,6 +406,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   },
   {
     id: 'group.removeMember',
+    legacyConsoleForm: true,
     label: 'Remove from Group',
     synopsis: 'Remove a user from a security group.',
     consoleSection: 'groups',
@@ -489,6 +505,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
   // ── Audit ────────────────────────────────────────────────────────────────
   {
     id: 'audit.list',
+    legacyConsoleForm: true,
     label: 'Audit Log',
     synopsis: 'Show recent audit events.',
     consoleSection: 'audit',

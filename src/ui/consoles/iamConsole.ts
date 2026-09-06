@@ -7,8 +7,19 @@ import type { Conductor } from '@/conductor/conductor';
 import { evidenceStore, labStore } from '@/stores';
 import { mkEvidenceId } from '@/domain';
 import type { UserId, Evidence, MfaMethod } from '@/domain';
+import { capabilitiesForSection, type CapabilityContext } from '@/services';
+import { renderCapabilityForm } from './iam/capabilitySection';
+
+/** Live labStore subscriptions, keyed by the console body they render into, so
+ *  re-rendering the same element replaces its subscription instead of adding
+ *  another. */
+const activeUnsubscribes = new WeakMap<HTMLElement, () => void>();
 
 export function renderIAMConsole(body: HTMLElement, conductor: Conductor) {
+  // Drop any subscription from a previous render of this element before we
+  // rebuild it — the full-console path below does not need one.
+  activeUnsubscribes.get(body)?.();
+  activeUnsubscribes.delete(body);
   body.innerHTML = '';
   // Guard: conductor services are initialized when a lab is started.
   // If the user opens a console before starting a lab, show a clear message
@@ -26,8 +37,13 @@ export function renderIAMConsole(body: HTMLElement, conductor: Conductor) {
         </div>
       </div>
     `;
-    // Subscribe so we re-render the moment a lab starts
-    labStore.subscribe(renderIAMConsoleWrapper);
+    // Re-render the moment a lab starts. Tracked per-body and dropped on the
+    // next render of the same element: this used to subscribe unconditionally
+    // on every no-lab render, so re-opening the console stacked up live
+    // subscriptions that were never released. objectivesWindow.ts already
+    // solved this with the same WeakMap pattern.
+    activeUnsubscribes.get(body)?.();
+    activeUnsubscribes.set(body, labStore.subscribe(renderIAMConsoleWrapper));
     return;
   }
   // Lab is active: render the full console
@@ -428,6 +444,40 @@ function renderIAMConsoleInner(body: HTMLElement, conductor: Conductor) {
     );
 
     /* MFA policy toggle */
+    // ── Credentials & Access, generated from the capability registry ────────
+    // These close the gaps that made tickets unresolvable: password reset, MFA
+    // reset/enrol, account unlock, role grant/revoke, session revoke, and
+    // move/transfer. Adding a capability to the registry surfaces it here with
+    // no change to this file.
+    const capCtx: CapabilityContext = {
+      dir,
+      idp,
+      tickets: conductor.tickets,
+      audit,
+      actor: 'system' as UserId,
+    };
+    const capDeps = {
+      ctx: capCtx,
+      dir,
+      onSuccess: (cap: { validator?: string; label: string }, message: string) => {
+        addEvidence('s1', 'audit-event', `${cap.label}: ${message}`);
+      },
+      refresh: () => refresh(),
+    };
+
+    for (const [section, heading] of [
+      ['users', 'Lifecycle — Move / Transfer'],
+      ['credentials', 'Credentials & Recovery'],
+      ['access', 'Access & Sessions'],
+    ] as const) {
+      // Skip anything the bespoke forms above already render, so the generated
+      // sections contain exactly what the console was previously missing.
+      const caps = capabilitiesForSection(section).filter((c) => !c.legacyConsoleForm);
+      if (caps.length === 0) continue;
+      body.appendChild(h2(heading));
+      for (const cap of caps) renderCapabilityForm(body, cap, capDeps);
+    }
+
     body.appendChild(h2('MFA Policy'));
     const polRow = document.createElement('div');
     polRow.style.cssText =
