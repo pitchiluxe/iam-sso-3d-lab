@@ -364,7 +364,11 @@ export type ValidatorKind =
   | 'user-deleted'
   | 'password-reset'
   | 'mfa-reset'
-  | 'account-unlocked';
+  | 'account-unlocked'
+  /** N accounts provisioned into a named group — the bulk-automation labs.
+   *  Counted by group membership rather than raw user count, so the baseline's
+   *  existing users cannot satisfy it by accident. */
+  | 'users-provisioned';
 
 export interface LabStep {
   id: string;

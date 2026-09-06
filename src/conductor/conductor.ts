@@ -265,6 +265,14 @@ export class Conductor {
         return e.action === 'mfa.reset' && e.targetId === userId;
       case 'account-unlocked':
         return e.action === 'account.unlock' && e.targetId === userId;
+      case 'users-provisioned': {
+        // Membership of the lab's target group, not a raw user count: the
+        // baseline already ships 14 users, so counting those would satisfy the
+        // step before the learner did anything.
+        const g = this.dir.getGroupByName(groupId) ?? this.dir.getGroup(groupId as never);
+        const want = Number(p.count ?? 0);
+        return !!g && g.memberIds.length >= want;
+      }
       case 'review-decisions-recorded': {
         // Every seeded decision has been called. This had no case at all, so
         // the step in lab06 and the capstone could never complete — the

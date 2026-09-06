@@ -504,6 +504,67 @@ export const LAB_TEMPLATES: LabTemplate[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Bulk-provisioning labs
+// ---------------------------------------------------------------------------
+// The point of these is that doing the work by hand is the wrong answer:
+// twenty accounts through the console is twenty chances to fumble a field. The
+// learner opens PowerShell ISE, edits the name list in a template, and runs it
+// — firing the same service calls, audit events and validators the console
+// would.
+//
+// Validation counts membership of a group the seed creates EMPTY, so the
+// baseline's fourteen existing users cannot satisfy the step by accident.
+
+/** Target group for the bulk intake labs. Seeded empty. */
+export const BULK_INTAKE_GROUP = 'grp-q3-intake';
+
+function bulkProvisionTemplate(count: number): LabTemplate {
+  return {
+    id: `bulk-provision-${count}`,
+    zoneId: 'iam-ops',
+    ticketTypeLabel: 'Bulk Provisioning',
+    targetDisplayName: `${count} new starters`,
+    targetTitle: 'New Employee',
+    targetDept: 'Finance',
+    seed(ctx: SeedContext): void {
+      applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+      if (!ctx.dir.getGroupByName(BULK_INTAKE_GROUP)) {
+        ctx.dir.createGroup(BULK_INTAKE_GROUP, `Q3 intake (${count} starters)`, SYSTEM_ACTOR);
+      }
+    },
+    buildLab(flavor: GeneratedFlavor): Lab {
+      return baseLab(
+        {
+          id: `bulk-provision-${count}`,
+          zoneId: 'iam-ops',
+          targetDisplayName: `${count} new starters`,
+        },
+        flavor,
+        [
+          step(
+            's1',
+            `Provision ${count} accounts with PowerShell`,
+            `${flavor.narrative} HR sent ${count} starters for the Q3 intake. Doing this ` +
+              `by hand is ${count} chances to mistype a field — open PowerShell ISE, load ` +
+              `"Bulk onboarding — new hires", put the ${count} usernames in the $names ` +
+              `list, set the group to ${BULK_INTAKE_GROUP}, and run it. Then check the ` +
+              `audit log shows one user.created per account.`,
+            { kind: 'users-provisioned', params: { groupId: BULK_INTAKE_GROUP, count } },
+            { exec: 20, troubleshoot: 5 },
+          ),
+        ],
+        {
+          title: `Bulk Provisioning: ${count} accounts`,
+          durationMinutes: count >= 20 ? 25 : 15,
+        },
+      );
+    },
+  };
+}
+
+LAB_TEMPLATES.push(bulkProvisionTemplate(5), bulkProvisionTemplate(10), bulkProvisionTemplate(20));
+
+// ---------------------------------------------------------------------------
 // Batch lab templates — 10–20 tickets per lab
 // Each batch template seeds N tickets during its seed() and creates one
 // step per ticket. Objectives are auto-derived from steps (see buildObjectives).

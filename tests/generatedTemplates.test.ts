@@ -14,10 +14,18 @@ import { applyBaseline } from '@/seed/baseline';
 const FLAVOR = { narrative: 'Test narrative.', coachingQuestion: 'Test question?' };
 
 describe('LAB_TEMPLATES', () => {
-  it('has exactly 15 unique templates', () => {
-    expect(LAB_TEMPLATES).toHaveLength(15);
-    const ids = new Set(LAB_TEMPLATES.map((t) => t.id));
-    expect(ids.size).toBe(15);
+  it('template ids are unique', () => {
+    // The count itself is not the property worth pinning — templates get added.
+    // Duplicate ids are what would actually break things, since the seed
+    // registry is keyed by id and a clash would silently shadow one lab.
+    const ids = LAB_TEMPLATES.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it('includes the bulk-provisioning automation labs', () => {
+    const ids = LAB_TEMPLATES.map((t) => t.id);
+    for (const n of [5, 10, 20]) expect(ids).toContain(`bulk-provision-${n}`);
   });
 
   it('every template builds a structurally valid Lab with non-empty objectives', () => {
