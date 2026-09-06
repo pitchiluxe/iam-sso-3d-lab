@@ -155,7 +155,12 @@ export const LAB_12: Lab = {
         '  1. Joiner: add nina.patel as Engineering Intern\n' +
         '  2. Mover: move jane.doe from Finance to Engineering\n' +
         '  3. Leaver: disable bob.sato\n' +
-        'Trigger a delta sync. Verify each change appears in the cloud directory.',
+        'Trigger a delta sync. Verify each change appears in the cloud directory, ' +
+        'then prove the joiner actually works: sign in as nina.patel using ' +
+        'Verify Authentication in the IAM Console.',
+      // The sign-in is what completes this step, so the brief above has to ask
+      // for it — otherwise the learner does all three deltas correctly and the
+      // step stays red with nothing telling them why.
       validator: { kind: 'signin-succeeded', params: { userId: 'nina.patel' } },
       evidence: [
         {
