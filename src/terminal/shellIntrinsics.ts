@@ -15,18 +15,11 @@
 import type { CapabilityContext } from '@/services';
 import { formatTable } from './format';
 
-/** The simulated workstation the shell is running on. */
-const HOST = {
-  name: 'NW-IT-WS01',
-  domain: 'northwind.example',
-  user: 'iam.admin',
-  ip: '10.20.4.31',
-  gateway: '10.20.4.1',
-  dns: '10.20.1.10',
-  mac: '00-15-5D-2A-7C-04',
-  os: 'Microsoft Windows 11 Enterprise',
-  version: '10.0.22631',
-};
+import { VM_ACCOUNT, VM_HOST } from '@/config/vmHost';
+
+/** The simulated workstation. Shared with the Settings app via config/vmHost.ts
+ *  so the two cannot describe the same machine differently. */
+const HOST = VM_HOST;
 
 /** A fake but stable filesystem, so `dir` and `cd` behave consistently. */
 const FILES: ReadonlyArray<{ name: string; kind: 'dir' | 'file'; size?: number }> = [
@@ -130,7 +123,7 @@ export function runIntrinsic(
     case 'whoami': {
       // Reflects the operator identity the console acts as, which is the point
       // of typing whoami during an identity investigation.
-      return { output: `${HOST.domain.split('.')[0]}\\${HOST.user}` };
+      return { output: VM_ACCOUNT };
     }
 
     case 'hostname':
@@ -140,14 +133,14 @@ export function runIntrinsic(
       return { output: ipconfig() };
 
     case 'ver':
-      return { output: `\n${HOST.os} [Version ${HOST.version}]\n` };
+      return { output: `\n${HOST.os} [Version ${HOST.osVersion}]\n` };
 
     case 'systeminfo':
       return {
         output: [
           `Host Name:                 ${HOST.name}`,
           `OS Name:                   ${HOST.os}`,
-          `OS Version:                ${HOST.version}`,
+          `OS Version:                ${HOST.osVersion}`,
           `Domain:                    ${HOST.domain}`,
           `Logon Server:              \\\\NW-DC01`,
         ].join('\n'),
@@ -193,7 +186,7 @@ export function runIntrinsic(
       const target = args[0] ?? HOST.domain;
       return {
         output: [
-          `Server:  nw-dc01.${HOST.domain}`,
+          `Server:  ${HOST.domainController.toLowerCase()}.${HOST.domain}`,
           `Address:  ${HOST.dns}`,
           '',
           `Name:    ${target}`,

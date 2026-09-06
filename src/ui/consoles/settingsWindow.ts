@@ -10,6 +10,7 @@
  * when running inside Electron, and gracefully degrades to a "Not available"
  * message in browser/dev mode.
  */
+import { VM_ACCOUNT, VM_HOST } from '@/config/vmHost';
 import { isMuted, setMuted, blip } from '@/ui/audio';
 import { WALLPAPERS, WALLPAPER_STORAGE_KEY, DEFAULT_WALLPAPER_ID } from '@/util/wallpapers';
 import { updateManager, type UpdateStatus } from '@/util/updateManager';
@@ -56,6 +57,27 @@ const CATEGORIES: Category[] = [
   { id: 'updates', icon: '🔄', label: 'Updates' },
   { id: 'about', icon: 'ℹ️', label: 'About' },
 ];
+
+/** The Windows 11 System-page hero: device name, edition, and the machine icon. */
+function deviceCard(): HTMLElement {
+  const card = document.createElement('div');
+  card.style.cssText =
+    'display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:18px;' +
+    'background:#232830;border:1px solid #2d343d;border-radius:8px;';
+  const icon = document.createElement('div');
+  icon.textContent = '🖥️';
+  icon.style.cssText = 'font-size:38px;line-height:1;';
+  const text = document.createElement('div');
+  const name = document.createElement('div');
+  name.textContent = VM_HOST.name;
+  name.style.cssText = 'font-size:15px;font-weight:600;color:#e6e6e6;';
+  const sub = document.createElement('div');
+  sub.textContent = `${VM_HOST.edition} · joined to ${VM_HOST.domain}`;
+  sub.style.cssText = 'font-size:11.5px;color:#8b95a1;margin-top:3px;';
+  text.append(name, sub);
+  card.append(icon, text);
+  return card;
+}
 
 function toggleRow(
   label: string,
@@ -114,7 +136,7 @@ export function renderSettingsWindow(body: HTMLElement): void {
 
   const sidebar = document.createElement('div');
   sidebar.style.cssText =
-    'width:180px;flex-shrink:0;background:#12151a;border-right:1px solid #2d343d;padding:12px 0;overflow-y:auto;';
+    'width:200px;flex-shrink:0;background:#12151a;border-right:1px solid #2d343d;padding:12px 0;overflow-y:auto;';
   body.appendChild(sidebar);
 
   const content = document.createElement('div');
@@ -123,19 +145,91 @@ export function renderSettingsWindow(body: HTMLElement): void {
 
   let active: CategoryId = 'system';
 
+  /** Text typed into the sidebar's "Find a setting" box. */
+  let filter = '';
+
   function renderSidebar(): void {
     sidebar.innerHTML = '';
-    for (const cat of CATEGORIES) {
+
+    // Windows 11 puts the signed-in account above the category list.
+    const account = document.createElement('div');
+    account.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 16px 14px;';
+    const avatar = document.createElement('div');
+    avatar.textContent = VM_HOST.user.slice(0, 1).toUpperCase();
+    avatar.style.cssText =
+      'width:32px;height:32px;border-radius:50%;background:#4ec9b0;color:#06231d;' +
+      'display:flex;align-items:center;justify-content:center;font-size:14px;' +
+      'font-weight:700;flex-shrink:0;';
+    const who = document.createElement('div');
+    who.style.cssText = 'min-width:0;';
+    const whoName = document.createElement('div');
+    whoName.textContent = VM_HOST.displayName;
+    whoName.style.cssText = 'font-size:12px;color:#e6e6e6;font-weight:600;';
+    const whoMail = document.createElement('div');
+    whoMail.textContent = VM_ACCOUNT;
+    whoMail.style.cssText =
+      'font-size:10.5px;color:#8b95a1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    who.append(whoName, whoMail);
+    account.append(avatar, who);
+    sidebar.appendChild(account);
+
+    // "Find a setting" — filters the category list, as Windows does.
+    const searchWrap = document.createElement('div');
+    searchWrap.style.cssText = 'padding:0 12px 12px;';
+    const search = document.createElement('input');
+    search.type = 'text';
+    search.placeholder = 'Find a setting';
+    search.value = filter;
+    search.style.cssText =
+      'width:100%;box-sizing:border-box;background:#0e1116;color:#e6e6e6;' +
+      'border:1px solid #2d343d;border-radius:4px;padding:5px 8px;font-size:11.5px;outline:none;';
+    search.addEventListener('input', () => {
+      filter = search.value;
+      renderSidebar();
+      // Keep the caret in the box across the re-render.
+      const again = sidebar.querySelector<HTMLInputElement>('input[type=text]');
+      again?.focus();
+      again?.setSelectionRange(again.value.length, again.value.length);
+    });
+    searchWrap.appendChild(search);
+    sidebar.appendChild(searchWrap);
+
+    const shown = CATEGORIES.filter((c) =>
+      c.label.toLowerCase().includes(filter.trim().toLowerCase()),
+    );
+    if (shown.length === 0) {
+      const none = document.createElement('div');
+      none.textContent = 'No matching settings';
+      none.style.cssText = 'padding:8px 16px;font-size:11px;color:#6b7280;';
+      sidebar.appendChild(none);
+    }
+
+    for (const cat of shown) {
       const btn = document.createElement('button');
       const isActive = cat.id === active;
       btn.style.cssText = `
-        display:flex;align-items:center;gap:10px;width:100%;text-align:left;
-        padding:9px 16px;border:none;cursor:pointer;font-size:13px;
+        display:flex;align-items:center;gap:10px;width:calc(100% - 16px);
+        margin:1px 8px;text-align:left;border-radius:4px;
+        padding:8px 10px;border:none;cursor:pointer;font-size:12.5px;
         background:${isActive ? '#232830' : 'transparent'};
-        color:${isActive ? '#4ec9b0' : '#c8cdd3'};
-        border-left:3px solid ${isActive ? '#4ec9b0' : 'transparent'};
+        color:${isActive ? '#e6e6e6' : '#c8cdd3'};
+        position:relative;
       `;
-      btn.innerHTML = `<span style="font-size:16px;">${cat.icon}</span><span>${cat.label}</span>`;
+      if (isActive) {
+        // Windows 11 marks the selected item with a short accent bar, not a
+        // full-height border.
+        const marker = document.createElement('span');
+        marker.style.cssText =
+          'position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;' +
+          'height:16px;border-radius:2px;background:#4ec9b0;';
+        btn.appendChild(marker);
+      }
+      const ico = document.createElement('span');
+      ico.textContent = cat.icon;
+      ico.style.cssText = 'font-size:15px;';
+      const lbl = document.createElement('span');
+      lbl.textContent = cat.label;
+      btn.append(ico, lbl);
       btn.addEventListener('click', () => {
         active = cat.id;
         renderSidebar();
@@ -150,14 +244,19 @@ export function renderSettingsWindow(body: HTMLElement): void {
 
     if (active === 'system') {
       content.appendChild(sectionTitle('System'));
+      // Windows 11 leads its System page with a device hero card.
+      content.appendChild(deviceCard());
       const box = document.createElement('div');
+      // Values come from config/vmHost.ts, the same source the terminal's
+      // hostname/systeminfo read, so the two cannot disagree about this machine.
       box.innerHTML =
-        infoRow('Device name', 'APEX-OPS-01') +
-        infoRow('Processor', 'Apex vCPU @ 3.2 GHz (8 cores)') +
-        infoRow('Installed RAM', '16.0 GB') +
-        infoRow('OS', 'Apex OS 11 Enterprise') +
-        infoRow('OS build', '26100.4331') +
-        infoRow('System type', '64-bit operating system');
+        infoRow('Device name', VM_HOST.name) +
+        infoRow('Processor', VM_HOST.processor) +
+        infoRow('Installed RAM', VM_HOST.ram) +
+        infoRow('Edition', VM_HOST.edition) +
+        infoRow('OS build', VM_HOST.osBuild) +
+        infoRow('System type', VM_HOST.systemType) +
+        infoRow('Domain', VM_HOST.domain);
       content.appendChild(box);
       content.appendChild(
         toggleRow(
