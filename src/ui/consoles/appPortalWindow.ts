@@ -1,13 +1,15 @@
 /**
- * ui/consoles/browserWindow.ts — simulated web browser inside the VM.
+ * ui/consoles/appPortalWindow.ts — the Northwind SSO application portal.
  *
- * Shows a realistic browser UI with a URL bar, bookmarks, and renders
- * the target application's login/OAuth page when applicable.
- * The browser is a simulation: it shows mock pages rather than loading real URLs.
+ * This is the "MyApps" page an end user lands on after signing in: the apps
+ * federated to the IdP, the protocol each uses, and a live sign-in event feed.
+ * It was previously labelled "Web Browser", which misdescribed it — the URL bar
+ * and bookmarks are chrome around mock pages, not a browser. Real browsing
+ * lives in webBrowserWindow.ts.
  */
 import { labStore } from '@/stores';
 
-export function renderBrowserWindow(body: HTMLElement): void {
+export function renderAppPortalWindow(body: HTMLElement): void {
   // Fixed URL bar state
   let currentUrl = 'https://apps.northwind.example/myapps';
 

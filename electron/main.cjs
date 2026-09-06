@@ -181,6 +181,10 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       webgl: true,                    // Three.js needs this
+      // Enables the in-VM restricted browser. Every attachment and navigation
+      // is checked against the shared allowlist below, in the main process —
+      // a renderer-only check is one bug away from being bypassed.
+      webviewTag: true,
       experimentalFeatures: true,
       preload: path.join(__dirname, 'preload.cjs'),
     },
@@ -218,4 +222,60 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   // Quit on all platforms (this is a training app, not a menu-bar app).
   app.quit();
+});
+
+// ---------------------------------------------------------------------------
+// In-VM browser: main-process allowlist enforcement
+// ---------------------------------------------------------------------------
+// Reads the same shared/webAllowlist.json the renderer uses, so the two
+// enforcement points cannot disagree about what is reachable.
+const WEB_ALLOWLIST = require('../shared/webAllowlist.json');
+
+function hostAllowed(host) {
+  return WEB_ALLOWLIST.hosts.find((a) => host === a || host.endsWith('.' + a));
+}
+
+function urlAllowed(raw) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  if (url.username || url.password) return false;
+  const entry = hostAllowed(url.hostname.toLowerCase());
+  if (!entry) return false;
+  const prefix = WEB_ALLOWLIST.pathRestricted[entry];
+  if (prefix && !url.pathname.startsWith(prefix)) return false;
+  return true;
+}
+
+app.on('web-contents-created', (_event, contents) => {
+  // Refuse to attach a <webview> pointed anywhere off the allowlist, and strip
+  // Node integration from the guest regardless.
+  contents.on('will-attach-webview', (event, webPreferences, params) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    if (!urlAllowed(params.src)) {
+      console.warn('[allowlist] blocked webview attach:', params.src);
+      event.preventDefault();
+    }
+  });
+
+  // In-page navigations (link clicks, redirects) are re-checked: the initial
+  // src being allowed says nothing about where the page then sends the user.
+  contents.on('will-navigate', (event, url) => {
+    if (contents.getType() === 'webview' && !urlAllowed(url)) {
+      console.warn('[allowlist] blocked navigation:', url);
+      event.preventDefault();
+    }
+  });
+
+  // Never open new windows from guest content.
+  contents.setWindowOpenHandler(({ url }) => {
+    console.warn('[allowlist] blocked window.open:', url);
+    return { action: 'deny' };
+  });
 });
