@@ -159,7 +159,7 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
   const allSeeds = [...SEED_USERS, ...SEED_ADMINS];
   const tempIds: Record<string, UserId> = {};
   for (const s of allSeeds) {
-    const u = dir.createUser(
+    const u = dir.ensureUser(
       {
         username: s.username,
         displayName: s.displayName,
@@ -187,7 +187,7 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
 
   // --- Service accounts (created like users but flagged) ---
   for (const name of SERVICE_ACCOUNT_NAMES) {
-    const u = dir.createUser(
+    const u = dir.ensureUser(
       {
         username: name,
         displayName: name,

@@ -40,8 +40,14 @@ export class MockDirectory {
   getUser(id: UserId): User | undefined {
     return this.users.get(id);
   }
+  /** Case-insensitive, matching real directory behaviour: 'A.Morgan' and
+   *  'a.morgan' are the same account, never two. */
   getUserByUsername(username: string): User | undefined {
-    return Array.from(this.users.values()).find((u) => u.username === username);
+    const want = username.toLowerCase();
+    for (const u of this.users.values()) {
+      if (u.username.toLowerCase() === want) return u;
+    }
+    return undefined;
   }
 
   createUser(
@@ -57,6 +63,15 @@ export class MockDirectory {
     },
     actor: UserId = SYSTEM_ACTOR,
   ): User {
+    // Usernames are the directory's natural key, so they must be unique. Group
+    // ids are derived from the group name and therefore de-duplicate by
+    // construction; user ids carry a nanoid suffix and do not, so the check has
+    // to be explicit. Without it, provisioning the same joiner twice produced
+    // two records for one person and both showed up in the console.
+    const existing = this.getUserByUsername(input.username);
+    if (existing) {
+      throw new Error(`[directory] createUser: a user named '${input.username}' already exists.`);
+    }
     const id = mkUserId(input.username + '-' + nanoid(6));
     const user: User = {
       id,
@@ -76,6 +91,22 @@ export class MockDirectory {
     return user;
   }
 
+  /**
+   * Idempotent create: returns the existing account when the username is
+   * already taken, otherwise provisions it.
+   *
+   * Seed functions compose — a per-lab seed calls applyBaseline() and a
+   * template seed may call it again — so seeding has to be safe to re-run.
+   * Before this existed, a second baseline pass duplicated every user, which
+   * is what surfaced as repeated names in the IAM Console's user list.
+   *
+   * Use this in seeds. Use createUser() for learner-driven provisioning, where
+   * a duplicate username is a mistake that should be reported, not absorbed.
+   */
+  ensureUser(input: Parameters<MockDirectory['createUser']>[0], actor?: UserId): User {
+    return this.getUserByUsername(input.username) ?? this.createUser(input, actor);
+  }
+
   disableUser(id: UserId, by: UserId, _reason = 'unspecified'): void {
     const u = this.users.get(id);
     if (!u) throw new Error(`[directory] disableUser: user ${id} not found`);
@@ -92,6 +123,20 @@ export class MockDirectory {
     u.status = 'active';
     u.disabledAt = undefined;
     this.audit.record({ actorId: by, action: 'user.unlocked', targetId: id });
+  }
+
+  /**
+   * Return a locked-out account to service. Deliberately narrow: it only acts
+   * on status 'locked', so it can never quietly resurrect an account that was
+   * disabled by a leaver or termination ticket. Unlocking and re-enabling are
+   * different decisions with different approvals behind them.
+   */
+  unlockUser(id: UserId, by: UserId): void {
+    const u = this.users.get(id);
+    if (!u) throw new Error(`[directory] unlockUser: user ${id} not found`);
+    if (u.status !== 'locked') return;
+    u.status = 'active';
+    this.audit.record({ actorId: by, action: 'account.unlock', targetId: id });
   }
 
   updateUser(
@@ -195,12 +240,7 @@ export class MockDirectory {
     const u = this.users.get(userId);
     if (!u) throw new Error(`[directory] moveUser: user ${userId} not found`);
     u.department = toDepartment;
-    this.audit.record({
-      actorId: by,
-      action: 'group.remove',
-      targetId: mkGroupId('move'),
-      subjectId: userId,
-    });
+    this.audit.record({ actorId: by, action: 'user.moved', targetId: userId });
   }
 
   // --- ROLES ----------------------------------------------------------------
@@ -231,29 +271,41 @@ export class MockDirectory {
       const a = this.appIndex.get(appId);
       if (a && !a.requiredRoleIds.includes(id)) a.requiredRoleIds.push(id);
     }
-    this.audit.record({ actorId: actor, action: 'role.grant', targetId: id, subjectId: actor });
+    this.audit.record({ actorId: actor, action: 'role.created', targetId: id });
     return r;
   }
 
   grantRoleDirect(userId: UserId, roleId: RoleId, by: UserId): void {
     const u = this.users.get(userId);
     if (!u) throw new Error(`[directory] grantRole: user not found`);
+    u.directRoleIds ??= [];
+    if (!u.directRoleIds.includes(roleId)) u.directRoleIds.push(roleId);
     this.audit.record({ actorId: by, action: 'role.grant', targetId: roleId, subjectId: userId });
   }
 
   revokeRoleDirect(userId: UserId, roleId: RoleId, by: UserId): void {
+    const u = this.users.get(userId);
+    if (!u) throw new Error(`[directory] revokeRole: user not found`);
+    if (u.directRoleIds) {
+      u.directRoleIds = u.directRoleIds.filter((r) => r !== roleId);
+    }
     this.audit.record({ actorId: by, action: 'role.revoke', targetId: roleId, subjectId: userId });
   }
 
   effectiveRoleIds(userId: UserId): RoleId[] {
     const u = this.users.get(userId);
     if (!u) return [];
-    const ids: RoleId[] = [];
+    // Effective access is group-inherited roles UNION roles granted directly.
+    // Direct grants used to be dropped here, so a grant recorded in the audit
+    // log had no effect on access — the exact "standing privilege" the RBAC
+    // and access-review labs ask the learner to find.
+    const ids = new Set<RoleId>();
     for (const gid of u.groupIds) {
       const g = this.groups.get(gid);
-      if (g?.ownerRoleId) ids.push(g.ownerRoleId);
+      if (g?.ownerRoleId) ids.add(g.ownerRoleId);
     }
-    return ids;
+    for (const rid of u.directRoleIds ?? []) ids.add(rid);
+    return Array.from(ids);
   }
 
   isDormant(userId: UserId, days: number, now = Date.now()): boolean {

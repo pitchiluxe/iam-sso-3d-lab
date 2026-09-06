@@ -11,9 +11,9 @@ import type { ValidatorKind } from '@/domain';
 const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'ticket-resolved': 'Resolve the ticket in the Ticket Console',
   'user-disabled': 'Disable the user account in IAM Console',
-  'user-enabled': 'Unlock / re-enable the user in IAM Console',
+  'user-enabled': 'Re-enable the disabled user in IAM Console',
   'user-created': 'Create the user in IAM Console',
-  'user-moved': 'Move the user to the new group',
+  'user-moved': 'Transfer the user to the new department',
   'group-created': 'Create the security group in IAM Console',
   'group-added': 'Add the user to the group in IAM Console',
   'group-removed': 'Remove the user from the group',
@@ -29,6 +29,9 @@ const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'audit-note-written': 'Write a note in the audit log',
   'review-decisions-recorded': 'Record access review decisions',
   'user-deleted': 'Delete the duplicate account in IAM Console',
+  'password-reset': 'Reset the user password in IAM Console',
+  'mfa-reset': "Reset the user's MFA registration in IAM Console",
+  'account-unlocked': 'Unlock the locked account in IAM Console',
 };
 
 // WindowManager.refresh() calls renderObjectivesWindow(body) again on the

@@ -152,10 +152,15 @@ function renderIAMConsoleInner(body: HTMLElement, conductor: Conductor) {
               department: dept,
               title,
             });
-            idp.setPasswordResolver((u2) => (u2 === username ? `${username}123` : undefined));
+            // seedPasswords() accumulates into the credential map;
+            // setPasswordResolver() REPLACES the single resolver, which meant
+            // provisioning a second user silently locked the first one out.
+            idp.seedPasswords({ [username]: `${username}123` });
             addEvidence('s1', 'snapshot', `Created user: ${u.username}`);
           } catch (e) {
-            showError(body, String(e));
+            // Most often a duplicate username — surface it rather than letting
+            // the learner think the click did nothing.
+            showError(body, e instanceof Error ? e.message : String(e));
           }
           refresh();
         }),

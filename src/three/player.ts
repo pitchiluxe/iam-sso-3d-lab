@@ -6,6 +6,7 @@
  */
 import * as THREE from 'three';
 import type { ConsoleAnchor } from './zones';
+import { shouldIgnoreGameKey } from '@/util/gameInputGuard';
 
 const WALK_SPEED = 3.0; // units per second
 const SPRINT_SPEED = 5.0;
@@ -20,6 +21,9 @@ export class PlayerController {
   private yaw = 0;
   private pitch = 0;
   private keys = new Set<string>();
+  /** False while an overlay (VM desktop, console, start screen) owns input.
+   *  Set via setInputEnabled() so typing in the VM never reaches the world. */
+  private inputEnabled = true;
   private pointerLocked = false;
   private consoles: ConsoleAnchor[] = [];
   private workstations: THREE.Object3D[] = [];
@@ -35,6 +39,20 @@ export class PlayerController {
     this.camera = camera;
     this.dom = dom;
     this.bindEvents();
+  }
+
+  /**
+   * Enable or disable world keyboard input. Called with `false` when the VM
+   * desktop or a console overlay opens, so keystrokes typed there ('E' in a
+   * ticket comment, WASD in Notepad or the terminal) never reach the world.
+   *
+   * Disabling also clears the held-key set: without that, a key held while the
+   * overlay opens would never see its keyup and the avatar would keep walking
+   * behind the VM.
+   */
+  setInputEnabled(enabled: boolean): void {
+    this.inputEnabled = enabled;
+    if (!enabled) this.keys.clear();
   }
 
   /** Set the consoles in the current zone and reset the prompt state. */
@@ -208,6 +226,10 @@ export class PlayerController {
   private bindEvents(): void {
     // Keyboard
     window.addEventListener('keydown', (e) => {
+      // Typing in the VM, a console field, or any HUD input must not reach the
+      // world — otherwise 'E' re-activates the workstation and WASD walks the
+      // avatar while the learner types.
+      if (shouldIgnoreGameKey(e.target, this.inputEnabled)) return;
       this.keys.add(e.code);
       if (e.code === 'KeyE') {
         if (this.nearWorkstation) {
@@ -217,6 +239,8 @@ export class PlayerController {
         }
       }
     });
+    // Deliberately NOT guarded: a key pressed in the world and released over an
+    // input must still clear, or it sticks in `keys` and the avatar walks on.
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
 
     // Pointer lock

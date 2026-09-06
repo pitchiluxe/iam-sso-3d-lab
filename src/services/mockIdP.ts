@@ -65,6 +65,12 @@ export class MockIdP {
       return { ok: false, reason: 'bad-password' };
     }
 
+    // Credential is correct — but an admin reset can still require the user to
+    // choose their own password before any session is issued.
+    if (user.mustChangePassword) {
+      return { ok: false, reason: 'must-change-password' };
+    }
+
     for (const p of this.policies) {
       if (p.userId && p.userId !== user.id) continue;
       if (p.blockIf && p.blockIf({ user, ip, asn })) {
@@ -123,6 +129,43 @@ export class MockIdP {
       }
     }
     return n;
+  }
+
+  /**
+   * Admin-initiated password reset — the helpdesk half of a `password-reset`
+   * ticket. Replaces the stored credential and, when asked, flags the account
+   * so the next sign-in is refused with 'must-change-password'. That refusal is
+   * the point: it lets the learner *observe* the reset rather than take it on
+   * faith, and mirrors the "user must change password at next logon" checkbox
+   * every real helpdesk operator ticks.
+   */
+  resetPassword(
+    userId: UserId,
+    newPassword: string,
+    opts: { forceChangeAtNextLogin: boolean },
+    by: UserId,
+  ): void {
+    const u = this.dir.getUser(userId);
+    if (!u) throw new Error(`[idp] resetPassword: user ${userId} not found`);
+    this.passwords.set(u.username, newPassword);
+    u.mustChangePassword = opts.forceChangeAtNextLogin;
+    this.audit.record({ actorId: by, action: 'password.reset', targetId: userId });
+  }
+
+  /**
+   * The user picking their own password, which is what clears a forced change.
+   * Kept separate from resetPassword() because the actor differs: this one
+   * requires the current credential, an admin reset does not.
+   */
+  changeOwnPassword(userId: UserId, currentPassword: string, newPassword: string): boolean {
+    const u = this.dir.getUser(userId);
+    if (!u) return false;
+    const expected = this.passwords.get(u.username) ?? this.passwordResolver(u.username);
+    if (expected !== currentPassword) return false;
+    this.passwords.set(u.username, newPassword);
+    u.mustChangePassword = false;
+    this.audit.record({ actorId: userId, action: 'password.reset', targetId: userId });
+    return true;
   }
 
   resetMfa(userId: UserId, by: UserId): void {

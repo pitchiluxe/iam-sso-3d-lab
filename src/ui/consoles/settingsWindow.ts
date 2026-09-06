@@ -366,6 +366,18 @@ export function renderSettingsWindow(body: HTMLElement): void {
         spinnerEl.style.display = status.state === 'checking' ? 'inline' : 'none';
 
         switch (status.state) {
+          case 'error':
+            // Surfaced explicitly so a broken feed reads as broken, not as
+            // "up to date". The message names the actual cause.
+            iconEl.textContent = '⚠️';
+            titleEl.textContent = 'Update check failed';
+            subtitleEl.textContent =
+              status.error ?? 'The update check could not complete. Check your connection.';
+            progressBar.style.display = 'none';
+            checkBtn.textContent = 'Try again';
+            checkBtn.disabled = false;
+            actionsEl.innerHTML = '';
+            break;
           case 'idle':
             iconEl.textContent = '✅';
             titleEl.textContent = "You're up to date";
