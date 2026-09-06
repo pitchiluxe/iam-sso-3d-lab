@@ -3,6 +3,7 @@
  * Shows: audit log search, incidents, access review campaigns.
  * Used by labs 06 (reviews), 08 (incident), 10 (capstone).
  */
+import { describeAuditId } from '@/util/auditLabels';
 import type { Conductor } from '@/conductor/conductor';
 import { evidenceStore } from '@/stores';
 import { mkEvidenceId } from '@/domain';
@@ -26,6 +27,7 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
     return;
   }
   const audit = conductor.audit;
+  const dir = conductor.dir;
   const incidents = conductor.incidents;
   const reviews = conductor.reviews;
 
@@ -112,17 +114,34 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
           : audit.events.filter(
               (e) =>
                 e.action.toLowerCase().includes(query) ||
-                (e.targetId?.toLowerCase().includes(query) ?? false) ||
-                (e.subjectId?.toLowerCase().includes(query) ?? false) ||
-                e.actorId.toLowerCase().includes(query),
+                // Match what the learner can see, not just the internal id.
+                describeAuditId(e.targetId, dir).toLowerCase().includes(query) ||
+                describeAuditId(e.subjectId, dir).toLowerCase().includes(query) ||
+                describeAuditId(e.actorId, dir).toLowerCase().includes(query),
             );
         const recent = filtered.slice(-50).reverse();
         for (const ev of recent) {
           const row = document.createElement('div');
           row.style.cssText =
             'padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;font-family:monospace;cursor:pointer;';
-          const ip = ev.ip ? ` [ip:${ev.ip}]` : '';
-          row.innerHTML = `<span style="color:var(--muted)">[${new Date(ev.at).toLocaleTimeString()}]</span> <span style="color:var(--accent)">${ev.action}</span> <span>${ev.targetId ?? ''}</span> ${ev.subjectId ? `<span style="color:var(--muted)">by ${ev.subjectId}</span>` : ''}${ip}`;
+          // Built from DOM nodes rather than innerHTML: usernames here are
+          // learner-supplied (Create User takes free text), so interpolating
+          // them into markup would inject whatever they typed into this page.
+          const span = (text: string, color?: string): HTMLElement => {
+            const el = document.createElement('span');
+            el.textContent = text;
+            if (color) el.style.color = color;
+            return el;
+          };
+          row.append(
+            span(`[${new Date(ev.at).toLocaleTimeString()}] `, 'var(--muted)'),
+            span(`${ev.action} `, 'var(--accent)'),
+            span(describeAuditId(ev.targetId, dir)),
+          );
+          if (ev.subjectId) {
+            row.append(span(` by ${describeAuditId(ev.subjectId, dir)}`, 'var(--muted)'));
+          }
+          if (ev.ip) row.append(span(` [ip:${ev.ip}]`, 'var(--muted)'));
           list.appendChild(row);
         }
         if (recent.length === 0) {

@@ -31,7 +31,17 @@ const DEFAULT_NOTES: SavedNote[] = [
 ];
 
 export function renderStickyNotesWindow(body: HTMLElement): void {
-  body.style.cssText = 'position:relative;overflow:hidden;background:#1a1a2e;';
+  // Add to the host window's styles, never replace them. WindowManager sizes
+  // this element with `flex:1; min-height:0`; assigning cssText wiped that and
+  // collapsed the body to zero height, which hid the notes entirely (they are
+  // absolutely positioned, so they contribute nothing to the parent's height).
+  Object.assign(body.style, {
+    position: 'relative',
+    overflow: 'hidden',
+    background: '#1a1a2e',
+    flex: '1',
+    minHeight: '0',
+  });
 
   const wrapper = document.createElement('div');
   wrapper.id = 'sn-wrapper';
@@ -76,6 +86,38 @@ export function renderStickyNotesWindow(body: HTMLElement): void {
     localStorage.setItem(STICKY_KEY, JSON.stringify(items));
   }
 
+  /** The note currently being dragged, if any. One shared handler pair below
+   *  serves every note. */
+  let drag: { note: HTMLElement; dx: number; dy: number } | null = null;
+
+  const onMove = (e: MouseEvent): void => {
+    if (!drag) return;
+    const pr = wrapper.getBoundingClientRect();
+    const x = Math.max(0, Math.min(pr.width - 170, e.clientX - pr.left - drag.dx));
+    const y = Math.max(0, Math.min(pr.height - 110, e.clientY - pr.top - drag.dy));
+    drag.note.style.left = `${x}px`;
+    drag.note.style.top = `${y}px`;
+  };
+  const onUp = (): void => {
+    if (!drag) return;
+    drag.note.style.cursor = 'grab';
+    drag = null;
+    save();
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+
+  // Drop the listeners once this window's DOM is gone, so re-opening Sticky
+  // Notes does not stack another pair on the document.
+  const observer = new MutationObserver(() => {
+    if (!document.contains(body)) {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
   function makeNote(data: SavedNote): HTMLElement {
     const note = document.createElement('div');
     note.className = 'sn-note';
@@ -91,9 +133,14 @@ export function renderStickyNotesWindow(body: HTMLElement): void {
 
     const textEl = document.createElement('div');
     textEl.contentEditable = 'true';
+    // The note sets user-select:none so dragging it does not select text — but
+    // that inherits into this child, and a contenteditable with
+    // user-select:none refuses a caret, which made the notes unwritable.
+    // Re-assert selectability (and a text cursor) on the editable area only.
     textEl.style.cssText = `
       font-size:12px;color:#1a1a2e;line-height:1.5;outline:none;
       min-height:60px;word-break:break-word;white-space:pre-wrap;
+      user-select:text;-webkit-user-select:text;cursor:text;
     `;
     textEl.textContent = data.text;
     textEl.addEventListener('input', () => {
@@ -118,37 +165,18 @@ export function renderStickyNotesWindow(body: HTMLElement): void {
     note.appendChild(textEl);
     note.appendChild(deleteBtn);
 
-    // Drag
-    let dragging = false;
-    let dx = 0,
-      dy = 0;
+    // Begin a drag. The move/up listeners live once on the document (see
+    // below) rather than one pair per note: registering them per note left
+    // document-level listeners behind for every note and every VM re-entry.
     note.addEventListener('mousedown', (e) => {
-      if ((e.target as HTMLElement).contentEditable === 'true') return;
-      dragging = true;
-      const r = note.getBoundingClientRect();
-      const pr = wrapper.getBoundingClientRect();
-      dx = e.clientX - (r.left - pr.left);
-      dy = e.clientY - (r.top - pr.top);
+      const target = e.target as HTMLElement;
+      if (target.isContentEditable || target.tagName === 'BUTTON') return;
+      drag = {
+        note,
+        dx: e.clientX - (note.getBoundingClientRect().left - wrapper.getBoundingClientRect().left),
+        dy: e.clientY - (note.getBoundingClientRect().top - wrapper.getBoundingClientRect().top),
+      };
       note.style.cursor = 'grabbing';
-    });
-    document.addEventListener('mousemove', (e) => {
-      if (!dragging) return;
-      const pr = wrapper.getBoundingClientRect();
-      const maxX = pr.width - 170;
-      const maxY = pr.height - 110;
-      const x = Math.max(0, Math.min(maxX, e.clientX - pr.left - dx));
-      const y = Math.max(0, Math.min(maxY, e.clientY - pr.top - dy));
-      note.style.left = `${x}px`;
-      note.style.top = `${y}px`;
-    });
-    document.addEventListener('mouseup', () => {
-      if (dragging) {
-        dragging = false;
-        note.style.cursor = 'grab';
-        note.dataset['left'] = note.style.left;
-        note.dataset['top'] = note.style.top;
-        save();
-      }
     });
 
     return note;

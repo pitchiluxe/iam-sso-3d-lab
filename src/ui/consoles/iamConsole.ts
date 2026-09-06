@@ -9,6 +9,7 @@ import { mkEvidenceId } from '@/domain';
 import type { UserId, Evidence, MfaMethod } from '@/domain';
 import { capabilitiesForSection, type CapabilityContext } from '@/services';
 import { renderCapabilityForm } from './iam/capabilitySection';
+import { describeAuditId } from '@/util/auditLabels';
 
 /** Live labStore subscriptions, keyed by the console body they render into, so
  *  re-rendering the same element replaces its subscription instead of adding
@@ -526,7 +527,11 @@ function renderIAMConsoleInner(body: HTMLElement, conductor: Conductor) {
       const row = document.createElement('div');
       row.style.cssText =
         'padding:4px 10px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);font-family:monospace;';
-      row.textContent = `[${new Date(ev.at).toLocaleTimeString()}] ${ev.action} ${ev.targetId ?? ''} ${ev.subjectId ? `(subject:${ev.subjectId})` : ''}`;
+      // Readable names, not branded ids — this log is meant to be investigated.
+      row.textContent =
+        `[${new Date(ev.at).toLocaleTimeString()}] ${ev.action} ` +
+        `${describeAuditId(ev.targetId, dir)}` +
+        `${ev.subjectId ? ` (subject: ${describeAuditId(ev.subjectId, dir)})` : ''}`;
       auditList.appendChild(row);
     }
     body.appendChild(auditList);

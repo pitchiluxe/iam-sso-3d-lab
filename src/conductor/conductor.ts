@@ -254,9 +254,31 @@ export class Conductor {
       case 'audit-note-written':
         return false; // not used in thin slice
       case 'user-moved':
-        return e.action === 'group.remove' && e.subjectId === userId;
-      default:
+        // moveUser() records 'user.moved' against the user. This used to look
+        // for 'group.remove', which is what moveUser wrongly logged before the
+        // audit fix — leaving this validator matching an event that no longer
+        // fires.
+        return e.action === 'user.moved' && e.targetId === userId;
+      case 'password-reset':
+        return e.action === 'password.reset' && e.targetId === userId;
+      case 'mfa-reset':
+        return e.action === 'mfa.reset' && e.targetId === userId;
+      case 'account-unlocked':
+        return e.action === 'account.unlock' && e.targetId === userId;
+      case 'review-decisions-recorded': {
+        // Every seeded decision has been called. This had no case at all, so
+        // the step in lab06 and the capstone could never complete — the
+        // exhaustiveness check above is what surfaced it.
+        const reviews = this.reviews.list();
+        return reviews.length > 0 && reviews.every((r) => this.reviews.pending(r.id).length === 0);
+      }
+      default: {
+        // Exhaustive: adding a ValidatorKind without a case above is now a
+        // compile error rather than a step that silently never completes.
+        const unhandled: never = v.kind;
+        void unhandled;
         return false;
+      }
     }
   }
 

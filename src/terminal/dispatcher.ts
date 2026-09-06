@@ -10,6 +10,7 @@
 import { CAPABILITY_BY_CMDLET, CAPABILITIES, type CapabilityContext } from '@/services';
 import { tokenize } from './tokenizer';
 import { formatTable } from './format';
+import { INTRINSIC_HELP, runIntrinsic } from './shellIntrinsics';
 
 export interface DispatchResult {
   ok: boolean;
@@ -31,13 +32,15 @@ const fail = (output: string): DispatchResult => ({ ok: false, output });
 function helpForAll(): string {
   const rows = CAPABILITIES.map((c) => ({ Cmdlet: c.cmdlet, Synopsis: c.synopsis }));
   return [
-    'Available commands:',
+    'IAM cmdlets:',
     '',
     formatTable(rows),
     '',
-    'Get-Help <cmdlet>   Show parameters for one command',
-    'Clear-Host / cls    Clear the screen',
-    'exit                Close the terminal',
+    'Shell commands:',
+    '',
+    formatTable(INTRINSIC_HELP.map(([Command, Description]) => ({ Command, Description }))),
+    '',
+    'Get-Help <cmdlet>   Show parameters for one IAM cmdlet',
   ].join('\n');
 }
 
@@ -66,18 +69,35 @@ function helpForOne(cmdletName: string): DispatchResult {
   return ok(lines.join('\n'));
 }
 
-export function dispatch(line: string, ctx: CapabilityContext): DispatchResult {
+/** Shell state the caller owns, so `cd` persists between commands. */
+export interface ShellState {
+  cwd: { path: string };
+}
+
+export function createShellState(): ShellState {
+  return { cwd: { path: 'C:\\Users\\iam.admin' } };
+}
+
+export function dispatch(
+  line: string,
+  ctx: CapabilityContext,
+  shell: ShellState = createShellState(),
+): DispatchResult {
   const { cmdlet, args, positional } = tokenize(line);
   if (!cmdlet) return ok('');
 
   const name = cmdlet.toLowerCase();
 
-  if (name === 'cls' || name === 'clear-host' || name === 'clear') {
-    return ok('', { control: 'clear' });
+  // Windows/PowerShell built-ins are tried first: they are shell commands, not
+  // IAM capabilities, and a terminal that rejects `dir` or `whoami` reads as
+  // broken even though every cmdlet works. cls/exit live there too.
+  const intrinsic = runIntrinsic(name, positional, ctx, shell.cwd);
+  if (intrinsic) {
+    return intrinsic.control
+      ? ok(intrinsic.output, { control: intrinsic.control })
+      : ok(intrinsic.output);
   }
-  if (name === 'exit' || name === 'quit') {
-    return ok('', { control: 'exit' });
-  }
+
   if (name === 'get-help' || name === 'help') {
     const target = positional[0] ?? args.Name;
     return target ? helpForOne(target) : ok(helpForAll());

@@ -12,9 +12,11 @@ import { renderSecOpsDashboard } from './consoles/secOpsDashboard';
 import { renderOllamaConsole } from './consoles/ollamaConsole';
 import { renderObjectivesWindow } from './consoles/objectivesWindow';
 import { renderNotepadWindow } from './consoles/notepadWindow';
+import { renderCalculatorWindow } from './consoles/calculatorWindow';
 import { renderStickyNotesWindow } from './consoles/stickyNotesWindow';
 import { renderFileExplorerWindow } from './consoles/fileExplorerWindow';
-import { renderBrowserWindow } from './consoles/browserWindow';
+import { renderAppPortalWindow } from './consoles/appPortalWindow';
+import { renderWebBrowserWindow } from './consoles/webBrowserWindow';
 import { renderTerminalWindow } from './consoles/terminalWindow';
 import { renderSettingsWindow } from './consoles/settingsWindow';
 import { renderControlPanelWindow } from './consoles/controlPanelWindow';
@@ -103,6 +105,14 @@ const DESKTOP_APPS: WindowDef[] = [
     render: (_c, b) => renderNotepadWindow(b),
   },
   {
+    id: 'calculator',
+    title: 'Calculator',
+    icon: '🧮',
+    width: 300,
+    height: 420,
+    render: (_c, b) => renderCalculatorWindow(b),
+  },
+  {
     id: 'sticky-notes',
     title: 'Sticky Notes',
     icon: '📌',
@@ -120,19 +130,37 @@ const DESKTOP_APPS: WindowDef[] = [
   },
   {
     id: 'terminal',
-    title: 'Windows PowerShell',
-    icon: '>_',
+    title: 'Terminal',
+    // Icon markup rather than an emoji: a bordered `>_` reads as a console at
+    // a glance. Sized in `em` so it scales with each render site's font-size —
+    // 32px on the desktop grid, 20px in the Start menu, 16px in the taskbar
+    // and title bar — instead of needing a special case in any of them.
+    icon:
+      '<span style="display:inline-flex;align-items:center;justify-content:center;' +
+      'border:0.07em solid #fff;border-radius:0.16em;padding:0 0.16em 0.04em;' +
+      "font-family:Consolas,'Cascadia Mono',Menlo,monospace;font-weight:700;" +
+      'font-size:0.62em;line-height:1.3;color:#fff;">&gt;_</span>',
     width: 760,
     height: 520,
     render: (c, b) => renderTerminalWindow(b, c),
   },
   {
-    id: 'browser',
-    title: 'Web Browser',
-    icon: '🌐',
+    // Not a browser: a mock SSO application launcher (the "MyApps" page an end
+    // user lands on after signing in). The globe belongs to the real browser.
+    id: 'app-portal',
+    title: 'App Portal',
+    icon: '🗂️',
     width: 800,
     height: 600,
-    render: (_c, b) => renderBrowserWindow(b),
+    render: (_c, b) => renderAppPortalWindow(b),
+  },
+  {
+    id: 'browser',
+    title: 'Browser',
+    icon: '🌐',
+    width: 900,
+    height: 640,
+    render: (_c, b) => renderWebBrowserWindow(b),
   },
   {
     id: 'settings',

@@ -107,15 +107,31 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     seed(ctx) {
       applyBaseline(ctx.dir, ctx.idp, ctx.apps);
       const user = ctx.dir.getUserByUsername('jane.doe');
-      if (user) ctx.dir.disableUser(user.id, SYSTEM_ACTOR, 'locked out after failed attempts');
+      if (!user) return;
+      // A lockout is status 'locked', not 'disabled'. This used to call
+      // disableUser(), which left the ticket saying "locked out" while the
+      // account was merely disabled — and Unlock-ADAccount refuses a disabled
+      // account, so the obvious remedy did not work.
+      user.status = 'locked';
+      // The failed attempts the scenario is about, so the learner can actually
+      // find them in the audit log rather than being told they happened.
+      for (let i = 0; i < 5; i++) {
+        ctx.audit.record({
+          actorId: user.id,
+          action: 'signin.failure',
+          targetId: user.id,
+          ip: '10.20.4.77',
+        });
+      }
     },
     buildLab(flavor) {
       return baseLab(this, flavor, [
         step(
           's1',
-          'Re-enable the locked-out account',
-          `${flavor.narrative} Re-enable Jane Doe's account in IAM Console.`,
-          { kind: 'user-enabled', params: { userId: 'jane.doe' } },
+          'Unlock the locked-out account',
+          `${flavor.narrative} Jane Doe is locked out after repeated failed sign-ins — ` +
+            `check the audit log, then unlock her account in IAM Console.`,
+          { kind: 'account-unlocked', params: { userId: 'jane.doe' } },
           { exec: 15, troubleshoot: 5 },
         ),
       ]);
@@ -554,6 +570,22 @@ function buildBatchSeed(
      * an offboard for a contractor who does not exist is unresolvable.
      */
     seedSubject?: { displayName: string; department: string; title: string };
+    /**
+     * Evidence the ticket's prose claims exists. A ticket that talks about
+     * failed sign-ins or a locked account must be investigable: without this
+     * the learner opens the audit log looking for attempts that were never
+     * recorded, or tries to unlock an account that was never locked.
+     */
+    evidence?: {
+      /** Emit this many signin.failure events for the subject. */
+      failedSignIns?: number;
+      /** Source address recorded on those events. */
+      fromIp?: string;
+      /** Follow the failures with a success — the credential-stuffing shape. */
+      thenSuccess?: boolean;
+      /** Put the subject's account into the 'locked' state. */
+      lockAccount?: boolean;
+    };
     priority?: 'low' | 'normal' | 'high' | 'urgent';
   }>,
 ): void {
@@ -600,6 +632,32 @@ function buildBatchSeed(
       payload: { userId: subjectId, method: 'helpdesk' } as any,
       relatedUserIds: subject ? [subject.id] : [],
     });
+
+    // Make the ticket's story true in the world it describes.
+    if (cfg.evidence && subject) {
+      const ev = cfg.evidence;
+      for (let n = 0; n < (ev.failedSignIns ?? 0); n++) {
+        ctx.audit.record({
+          actorId: subject.id,
+          action: 'signin.failure',
+          targetId: subject.id,
+          ...(ev.fromIp ? { ip: ev.fromIp } : {}),
+        });
+      }
+      if (ev.thenSuccess) {
+        ctx.audit.record({
+          actorId: subject.id,
+          action: 'signin.success',
+          targetId: subject.id,
+          ...(ev.fromIp ? { ip: ev.fromIp } : {}),
+        });
+      }
+      if (ev.lockAccount) {
+        // 'locked', not 'disabled': they are different states with different
+        // remedies, and Unlock-ADAccount refuses a disabled account.
+        subject.status = 'locked';
+      }
+    }
   }
 }
 
@@ -671,6 +729,8 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Account locked out: Greta Olsen',
           body: "Greta Olsen's account (greta.olsen) is locked after too many failed sign-in attempts. Please reset her password and unlock her account. She is the CFO and needs access restored urgently.",
           username: 'greta.olsen',
+          subjectUsername: 'greta.olsen',
+          evidence: { failedSignIns: 5, fromIp: '10.20.4.88', lockAccount: true },
           priority: 'urgent' as const,
         },
         {
@@ -766,6 +826,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           body: 'Greta Olsen (greta.olsen, greta.olsen@northwind.example) is locked out of her account. She is the CFO. Need immediate password reset via secure channel — do not send via email.',
           username: 'bob.sato',
           subjectUsername: 'greta.olsen',
+          evidence: { failedSignIns: 6, fromIp: '10.20.7.14', lockAccount: true },
           priority: 'urgent' as const,
         },
         {
@@ -941,6 +1002,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Credential stuffing attack: 50 failed logins from 185.220.101.x',
           body: 'Multiple failed logins detected from IP 185.220.101.x targeting accounts in the Finance department. 50 failed attempts in 5 minutes. Block the IP, investigate the targeted accounts (greta.olsen, alex.morgan), and rotate passwords if compromised.',
           username: 'alex.morgan',
+          evidence: { failedSignIns: 12, fromIp: '185.220.101.44', thenSuccess: true },
           priority: 'urgent' as const,
         },
         {
@@ -1044,6 +1106,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Brute force attack: 1,000 attempts from 198.51.100.50',
           body: 'Brute force attack detected on the login page from IP 198.51.100.50 with 1,000+ attempts targeting Finance and HR accounts. Block the IP, force password reset for all accounts that had failed attempts (greta.olsen, cara.patel, finn.muller), and enable account lockout policy.',
           username: 'cara.patel',
+          evidence: { failedSignIns: 15, fromIp: '198.51.100.50', lockAccount: true },
           priority: 'high' as const,
         },
         {
