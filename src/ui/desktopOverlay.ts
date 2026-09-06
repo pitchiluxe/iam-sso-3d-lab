@@ -12,6 +12,7 @@ import { renderSecOpsDashboard } from './consoles/secOpsDashboard';
 import { renderOllamaConsole } from './consoles/ollamaConsole';
 import { renderObjectivesWindow } from './consoles/objectivesWindow';
 import { renderNotepadWindow } from './consoles/notepadWindow';
+import { renderCalculatorWindow } from './consoles/calculatorWindow';
 import { renderStickyNotesWindow } from './consoles/stickyNotesWindow';
 import { renderFileExplorerWindow } from './consoles/fileExplorerWindow';
 import { renderAppPortalWindow } from './consoles/appPortalWindow';
@@ -102,6 +103,14 @@ const DESKTOP_APPS: WindowDef[] = [
     width: 560,
     height: 480,
     render: (_c, b) => renderNotepadWindow(b),
+  },
+  {
+    id: 'calculator',
+    title: 'Calculator',
+    icon: '🧮',
+    width: 300,
+    height: 420,
+    render: (_c, b) => renderCalculatorWindow(b),
   },
   {
     id: 'sticky-notes',

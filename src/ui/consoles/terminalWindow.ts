@@ -11,7 +11,7 @@ import { evidenceStore } from '@/stores';
 import { mkEvidenceId } from '@/domain';
 import type { Evidence, Lab, UserId } from '@/domain';
 import { CAPABILITY_BY_ID, type CapabilityContext } from '@/services';
-import { dispatch } from '@/terminal/dispatcher';
+import { createShellState, dispatch } from '@/terminal/dispatcher';
 
 const BANNER = [
   'Northwind Labs — Identity Operations Shell',
@@ -23,7 +23,15 @@ const BANNER = [
 
 export function renderTerminalWindow(body: HTMLElement, conductor: Conductor): void {
   body.innerHTML = '';
-  body.style.cssText = 'overflow:hidden;background:#0c0c0c;';
+  // Additive: replacing cssText would drop the `flex:1; min-height:0` the
+  // window manager sets, so the shell would size to its content instead of
+  // filling the window.
+  Object.assign(body.style, {
+    overflow: 'hidden',
+    background: '#0c0c0c',
+    flex: '1',
+    minHeight: '0',
+  });
 
   if (!conductor.dir || !conductor.idp || !conductor.audit || !conductor.tickets) {
     body.style.cssText = 'padding:24px;color:#8b95a1;font-size:13px;background:#0c0c0c;';
@@ -63,6 +71,8 @@ export function renderTerminalWindow(body: HTMLElement, conductor: Conductor): v
 
   const history: string[] = [];
   let historyIdx = -1;
+  // Owned per window so `cd` persists across commands in this session.
+  const shell = createShellState();
 
   const write = (text: string, color = '#ccc'): void => {
     if (text === '') return;
@@ -156,7 +166,7 @@ export function renderTerminalWindow(body: HTMLElement, conductor: Conductor): v
       newPrompt();
       return;
     }
-    const res = dispatch(line, ctx);
+    const res = dispatch(line, ctx, shell);
 
     if (res.control === 'clear') {
       screen.innerHTML = '';

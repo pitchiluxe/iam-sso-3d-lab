@@ -21,7 +21,8 @@ function hasWebview(): boolean {
 
 export function renderWebBrowserWindow(body: HTMLElement): void {
   body.innerHTML = '';
-  body.style.cssText = 'overflow:hidden;';
+  // Additive — see the note in terminalWindow.ts about cssText and flex sizing.
+  Object.assign(body.style, { overflow: 'hidden', flex: '1', minHeight: '0' });
 
   const root = document.createElement('div');
   root.style.cssText =

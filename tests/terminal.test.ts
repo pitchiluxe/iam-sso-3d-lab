@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { MockAuditLog, MockDirectory, MockIdP, MockTicketQueue } from '@/services';
 import type { CapabilityContext } from '@/services';
 import { tokenize } from '@/terminal/tokenizer';
-import { dispatch } from '@/terminal/dispatcher';
+import { createShellState, dispatch } from '@/terminal/dispatcher';
 import { formatTable } from '@/terminal/format';
 
 describe('tokenize', () => {
@@ -177,5 +177,108 @@ describe('dispatch', () => {
     expect(dispatch('cls', ctx).control).toBe('clear');
     expect(dispatch('Clear-Host', ctx).control).toBe('clear');
     expect(dispatch('exit', ctx).control).toBe('exit');
+  });
+});
+
+describe('Windows shell built-ins', () => {
+  let ctx: CapabilityContext;
+
+  beforeEach(() => {
+    const audit = new MockAuditLog();
+    const dir = new MockDirectory(audit);
+    const idp = new MockIdP(audit, dir);
+    const tickets = new MockTicketQueue(audit);
+    const admin = dir.createUser({
+      username: 'admin',
+      displayName: 'Admin',
+      email: 'admin@northwind.example',
+      department: 'IT',
+      title: 'IAM Admin',
+      mfa: 'none',
+    });
+    dir.createUser({
+      username: 'jane.doe',
+      displayName: 'Jane Doe',
+      email: 'jane.doe@northwind.example',
+      department: 'Finance',
+      title: 'Analyst',
+      mfa: 'totp',
+    });
+    ctx = { dir, idp, tickets, audit, actor: admin.id };
+  });
+
+  it('dir lists the simulated filesystem', () => {
+    const r = dispatch('dir', ctx);
+    expect(r.ok).toBe(true);
+    expect(r.output).toContain('Directory of');
+    expect(r.output).toContain('Evidence');
+  });
+
+  it('cd changes directory and pwd reflects it', () => {
+    const shell = createShellState();
+    dispatch('cd Runbooks', ctx, shell);
+    expect(dispatch('pwd', ctx, shell).output).toContain('Runbooks');
+  });
+
+  it('cd .. goes back up', () => {
+    const shell = createShellState();
+    dispatch('cd Runbooks', ctx, shell);
+    dispatch('cd ..', ctx, shell);
+    expect(dispatch('pwd', ctx, shell).output).not.toContain('Runbooks');
+  });
+
+  it('cd into a missing directory reports it rather than moving', () => {
+    const shell = createShellState();
+    const before = dispatch('pwd', ctx, shell).output;
+    const r = dispatch('cd Nowhere', ctx, shell);
+    expect(r.output).toMatch(/Cannot find path/);
+    expect(dispatch('pwd', ctx, shell).output).toBe(before);
+  });
+
+  it('whoami reports the simulated operator, not the real machine user', () => {
+    const out = dispatch('whoami', ctx).output;
+    expect(out).toBe(String.raw`northwind\iam.admin`);
+  });
+
+  it('hostname and ipconfig describe the simulated workstation', () => {
+    expect(dispatch('hostname', ctx).output).toBe('NW-IT-WS01');
+    const ip = dispatch('ipconfig', ctx).output;
+    expect(ip).toContain('IPv4 Address');
+    expect(ip).toContain('10.20.4.31');
+  });
+
+  it('net user lists directory accounts', () => {
+    const out = dispatch('net user', ctx).output;
+    expect(out).toContain('jane.doe');
+  });
+
+  it('net user <name> shows one account from the live directory', () => {
+    const out = dispatch('net user jane.doe', ctx).output;
+    expect(out).toContain('Jane Doe');
+    expect(out).toContain('Account active');
+  });
+
+  it('net user for an unknown name gives the real tool wording', () => {
+    expect(dispatch('net user ghost', ctx).output).toMatch(/could not be found/i);
+  });
+
+  it('echo prints its arguments', () => {
+    expect(dispatch('echo hello there', ctx).output).toBe('hello there');
+  });
+
+  it('ping and nslookup answer without touching the network', () => {
+    expect(dispatch('ping nw-dc01', ctx).output).toContain('Packets: Sent = 4');
+    expect(dispatch('nslookup northwind.example', ctx).output).toContain('Address');
+  });
+
+  it('built-ins do not shadow IAM cmdlets', () => {
+    expect(dispatch('Get-ADUser', ctx).output).toContain('SamAccountName');
+  });
+
+  it('Get-Help advertises both cmdlets and shell commands', () => {
+    const out = dispatch('Get-Help', ctx).output;
+    expect(out).toContain('IAM cmdlets:');
+    expect(out).toContain('Shell commands:');
+    expect(out).toContain('whoami');
   });
 });
