@@ -332,6 +332,36 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
    * Returns whether the ticket actually closed, so a caller acting on several
    * can report how many really did rather than how many it tried.
    */
+  /**
+   * Say no once, however many tickets were refused at once.
+   *
+   * Pressing Resolve down a queue of twenty produced twenty stacked toasts
+   * that covered the board — including the reviews explaining the refusals.
+   * A burst collapses into a single toast that names the count and points at
+   * the cards, where the detail already is.
+   */
+  const refusedInBurst = new Set<TicketId>();
+  let burstTimer: ReturnType<typeof setTimeout> | null = null;
+  function refuse(t: Ticket, review: TicketReview): void {
+    // Tickets, not attempts: pressing Resolve twice down a queue of twenty is
+    // twenty tickets refused, and saying "40" is the console miscounting in
+    // front of the learner.
+    refusedInBurst.add(t.id);
+    const failed = review.checks.filter((c) => !c.passed).length;
+    showToast(
+      refusedInBurst.size === 1
+        ? `Not resolved — ${failed} check${failed === 1 ? '' : 's'} did not pass on ` +
+            `"${t.subject}". The review on the card says what is still outstanding.`
+        : `${refusedInBurst.size} tickets not resolved. The review on each card says what is ` +
+            'still outstanding.',
+      { kind: 'warn', id: 'review-refused' },
+    );
+    if (burstTimer) clearTimeout(burstTimer);
+    burstTimer = setTimeout(() => {
+      refusedInBurst.clear();
+    }, 1500);
+  }
+
   function attemptResolve(t: Ticket, opts: { quiet?: boolean } = {}): boolean {
     const services = conductor.getServices();
     const review = reviewTicket(
@@ -348,16 +378,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     reviews.set(t.id, review);
 
     if (!review.passed) {
-      if (!opts.quiet) {
-        const failed = review.checks.filter((c) => !c.passed);
-        showToast(
-          `Not resolved — ${failed.length} check${failed.length > 1 ? 's' : ''} did not pass. ` +
-            'The review on the card says what is still outstanding.',
-          // Keyed on the ticket: pressing Resolve six times is one refusal
-          // repeated, and six stacked toasts bury the review that explains it.
-          { kind: 'warn', id: `review-${t.id}` },
-        );
-      }
+      if (!opts.quiet) refuse(t, review);
       return false;
     }
 
