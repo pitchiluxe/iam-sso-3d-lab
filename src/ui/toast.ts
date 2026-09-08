@@ -59,7 +59,7 @@ export function showToast(message: string, opts: ToastOptions = {}): void {
   if (opts.id) el.id = `toast-${opts.id}`;
   el.style.cssText = `
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
     padding: 10px 16px;
     background: ${bg};
@@ -72,7 +72,12 @@ export function showToast(message: string, opts: ToastOptions = {}): void {
     box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     pointer-events: all;
     animation: toast-in 0.2s ease-out;
-    white-space: nowrap;
+    /* max-width and nowrap cancel each other out: the box stops at 360px and
+       the text keeps going, straight out of the bubble and across the page.
+       A toast that says more than a few words has to be allowed to wrap. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
     cursor: ${opts.onClick ? 'pointer' : 'default'};
   `;
   el.textContent = `${icon}  ${message}`;

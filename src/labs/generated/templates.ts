@@ -310,8 +310,11 @@ export const LAB_TEMPLATES: LabTemplate[] = [
         kind: 'password-reset',
         requesterId: caraId,
         subject: 'Can’t log in to my account',
-        body: 'Cara Patel reports she cannot sign in after several attempts.',
+        body: 'Cara Patel (cara.patel) reports she cannot sign in after several attempts.',
         priority: 'normal',
+        // The subject, said out loud. Without it the review had to guess from
+        // the prose, and "Cara Patel" is not the logon it was looking for.
+        relatedUserIds: [caraId],
         payload: { userId: caraId, method: 'helpdesk' },
       });
     },
@@ -677,6 +680,48 @@ function buildBatchSeed(
       });
     }
     const subjectId = subject?.id ?? requesterId;
+
+    // Set the scene BEFORE raising the ticket.
+    //
+    // The failed sign-ins and the lockout are the story the ticket reports,
+    // so they belong in the past when it is filed. Recording them afterwards
+    // stamped them later than createdAt, and the review — which counts work
+    // done since the ticket was raised — read the incident's own symptoms as
+    // the learner's remediation. The ticket could then be resolved without
+    // anybody touching it.
+    if (cfg.evidence && subject) {
+      const ev = cfg.evidence;
+      // Back-dated, not merely ordered. Both the events and the ticket would
+      // otherwise land in the same millisecond, and "since the ticket was
+      // raised" is decided by >=. An hour ago is also how it reads on the
+      // timeline: the attempts happened, then somebody filed a ticket.
+      const SCENE_START = Date.now() - 60 * 60 * 1000;
+      const failures = ev.failedSignIns ?? 0;
+      for (let n = 0; n < failures; n++) {
+        ctx.audit.record({
+          actorId: subject.id,
+          action: 'signin.failure',
+          targetId: subject.id,
+          at: SCENE_START + n * 1000,
+          ...(ev.fromIp ? { ip: ev.fromIp } : {}),
+        });
+      }
+      if (ev.thenSuccess) {
+        ctx.audit.record({
+          actorId: subject.id,
+          action: 'signin.success',
+          targetId: subject.id,
+          at: SCENE_START + failures * 1000,
+          ...(ev.fromIp ? { ip: ev.fromIp } : {}),
+        });
+      }
+      if (ev.lockAccount) {
+        // 'locked', not 'disabled': they are different states with different
+        // remedies, and Unlock-ADAccount refuses a disabled account.
+        subject.status = 'locked';
+      }
+    }
+
     // Use a permissive payload — the real TicketKind type is large and
     // varies per kind. For ticket-resolution lab purposes, the validator
     // only matches by id, so a minimal payload is sufficient.
@@ -693,32 +738,6 @@ function buildBatchSeed(
       payload: { userId: subjectId, method: 'helpdesk' } as any,
       relatedUserIds: subject ? [subject.id] : [],
     });
-
-    // Make the ticket's story true in the world it describes.
-    if (cfg.evidence && subject) {
-      const ev = cfg.evidence;
-      for (let n = 0; n < (ev.failedSignIns ?? 0); n++) {
-        ctx.audit.record({
-          actorId: subject.id,
-          action: 'signin.failure',
-          targetId: subject.id,
-          ...(ev.fromIp ? { ip: ev.fromIp } : {}),
-        });
-      }
-      if (ev.thenSuccess) {
-        ctx.audit.record({
-          actorId: subject.id,
-          action: 'signin.success',
-          targetId: subject.id,
-          ...(ev.fromIp ? { ip: ev.fromIp } : {}),
-        });
-      }
-      if (ev.lockAccount) {
-        // 'locked', not 'disabled': they are different states with different
-        // remedies, and Unlock-ADAccount refuses a disabled account.
-        subject.status = 'locked';
-      }
-    }
   }
 }
 

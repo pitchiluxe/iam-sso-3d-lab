@@ -19,6 +19,8 @@
  *   - Real-time SLA color shift (green → yellow → red)
  */
 import type { Conductor } from '@/conductor/conductor';
+import { reviewTicket } from '@/conductor/ticketReview';
+import type { TicketReview } from '@/conductor/ticketReview';
 import { evidenceStore, ticketStore } from '@/stores';
 import { mkEvidenceId, mkTicketId } from '@/domain';
 import type { Evidence, Ticket, TicketId, TicketKind, TicketPriority, UserId } from '@/domain';
@@ -252,6 +254,8 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
   let sortMode: SortMode = 'priority';
   let filterKind: FilterKind = 'all';
   let searchQuery = '';
+  /** The last verdict per ticket, so a refusal can be read on the card. */
+  const reviews = new Map<string, TicketReview>();
   const selectedIds = new Set<TicketId>();
   const expandedCommentIds = new Set<TicketId>(); // tracks which ticket comment sections are open
   /** Half-typed comments, kept across re-renders. render() rebuilds the card
@@ -317,6 +321,50 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     }, 1000);
   }
   startSLATick();
+
+  /**
+   * Try to resolve a ticket. The review decides whether it happens.
+   *
+   * The one place queue.resolve() is called from. The card button, the bulk
+   * action and the keyboard shortcut each used to carry their own copy, so a
+   * check added to one of them would have been walked around by the other two.
+   *
+   * Returns whether the ticket actually closed, so a caller acting on several
+   * can report how many really did rather than how many it tried.
+   */
+  function attemptResolve(t: Ticket, opts: { quiet?: boolean } = {}): boolean {
+    const services = conductor.getServices();
+    const review = reviewTicket(
+      t,
+      { dir: services.dir, audit: services.audit, idp: services.idp, apps: services.apps },
+      'system' as UserId,
+    );
+    reviews.set(t.id, review);
+
+    if (!review.passed) {
+      if (!opts.quiet) {
+        const failed = review.checks.filter((c) => !c.passed);
+        showToast(
+          `Not resolved — ${failed.length} check${failed.length > 1 ? 's' : ''} did not pass. ` +
+            'The review on the card says what is still outstanding.',
+          // Keyed on the ticket: pressing Resolve six times is one refusal
+          // repeated, and six stacked toasts bury the review that explains it.
+          { kind: 'warn', id: `review-${t.id}` },
+        );
+      }
+      return false;
+    }
+
+    queue.resolve(t.id, 'system' as UserId);
+    ticketStore.getState().incrementResolved();
+    selectedIds.delete(t.id);
+    addEvidence('s1', `Resolved: ${t.subject}`);
+    if (!opts.quiet) {
+      ticketResolved();
+      showToast(`\u2713 Resolved: ${t.subject}`, { kind: 'success' });
+    }
+    return true;
+  }
 
   const render = () => {
     // A re-render replaces the whole list, which resets the scroll box to the
@@ -514,16 +562,26 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
           'display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(78,201,176,0.08);border:1px solid var(--accent);border-radius:3px;';
         row3.innerHTML = `<span style="color:var(--accent);font-size:12px;font-weight:600;">${selectedIds.size} selected</span>`;
         const bulkResolve = btn('✓ Resolve all', 'var(--accent)', () => {
+          // Each one is reviewed on its own. Selecting ten tickets is not a
+          // way to close the two that are not finished.
           let count = 0;
-          for (const id of selectedIds) {
+          let refusedCount = 0;
+          for (const id of [...selectedIds]) {
+            const ticket = queue.get(id);
+            if (!ticket) continue;
             try {
-              queue.resolve(id, 'system' as UserId);
-              addEvidence('s1', `Bulk-resolved: ${id}`);
-              ticketStore.getState().incrementResolved();
-              count++;
+              if (attemptResolve(ticket, { quiet: true })) count += 1;
+              else refusedCount += 1;
             } catch {
               /* skip */
             }
+          }
+          if (refusedCount > 0) {
+            showToast(
+              `${refusedCount} still ${refusedCount > 1 ? 'have' : 'has'} outstanding work — ` +
+                'see the review on each card.',
+              { kind: 'warn' },
+            );
           }
           if (count > 0) {
             ticketResolved();
@@ -620,12 +678,8 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       actions.appendChild(
         btn('Resolve', 'var(--accent)', () => {
           try {
-            queue.resolve(t.id, 'system' as UserId);
-            ticketStore.getState().incrementResolved();
-            ticketResolved();
-            addEvidence('s1', `Resolved: ${t.subject}`);
-            selectedIds.delete(t.id);
-            showToast(`✓ Resolved: ${t.subject}`, { kind: 'success' });
+            // Marking it resolved is a claim. The checks run first and decide.
+            attemptResolve(t);
           } catch (e) {
             showToast(String(e), { kind: 'error' });
           }
@@ -649,6 +703,36 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       });
       actions.appendChild(commentToggle);
       card.appendChild(actions);
+
+      // The review, when there is one to show.
+      //
+      // A refusal that only says no teaches nothing. Each check is named with
+      // what was actually observed, so the learner reads it as a worklist
+      // rather than a verdict, and goes and finishes the outstanding half.
+      const review = reviews.get(t.id);
+      if (review && !review.passed) {
+        const panel = document.createElement('div');
+        panel.style.cssText =
+          'margin-top:8px;padding:8px 10px;border-radius:4px;font-size:11px;' +
+          'background:rgba(248,113,113,0.08);border:1px solid var(--err);';
+        const rows = review.checks
+          .map((c) => {
+            const mark = c.passed ? '✓' : '✗';
+            const col = c.passed ? 'var(--ok, #4ade80)' : 'var(--err)';
+            return (
+              `<div style="display:flex;gap:6px;margin-top:3px;">` +
+              `<span style="color:${col};font-weight:700;">${mark}</span>` +
+              `<span><b>${c.label}</b> — <span style="color:var(--muted);">${c.detail}</span></span>` +
+              `</div>`
+            );
+          })
+          .join('');
+        panel.innerHTML =
+          `<div style="font-weight:700;color:var(--err);">🤖 Review — not resolved</div>` +
+          `<div style="color:var(--muted);margin-top:2px;">The checks below run against the ` +
+          `directory and the audit log, not against the ticket.</div>${rows}`;
+        card.appendChild(panel);
+      }
 
       // Render the comment block inline if expanded — survives re-renders.
       if (expandedCommentIds.has(t.id)) {
@@ -1016,12 +1100,7 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       }
       if (target) {
         try {
-          queue.resolve(target.id, 'system' as UserId);
-          ticketStore.getState().incrementResolved();
-          ticketResolved();
-          addEvidence('s1', `Resolved: ${target.subject}`);
-          selectedIds.delete(target.id);
-          showToast(`✓ Resolved: ${target.subject}`, { kind: 'success' });
+          attemptResolve(target);
         } catch (err) {
           showToast(String(err), { kind: 'error' });
         }

@@ -87,6 +87,30 @@ export class MockDirectory {
       ...(input.managerId ? { managerId: input.managerId } : {}),
     };
     this.users.set(id, user);
+
+    // Membership is stored on both sides, and both sides have to be written.
+    //
+    // addToGroup() maintains user.groupIds and group.memberIds together;
+    // createUser() took a groupIds list and wrote only the user's half, so
+    // every account the baseline seeds looked like a member from the account
+    // and like a stranger from the group. Anything reading memberIds — the
+    // group's member list, and the ticket review — therefore saw fifteen
+    // seeded people in no groups at all. A transfer ticket had nothing to
+    // remove, and a termination's "account is in no groups" passed before the
+    // learner had touched anything, which is the exact false pass this
+    // product exists to make impossible.
+    //
+    // No audit entry: this is one create, already recorded as user.created,
+    // and group.add means an operator granted access to somebody who already
+    // existed. Only the seed passes groupIds.
+    user.groupIds = [];
+    for (const gid of input.groupIds ?? []) {
+      const g = this.groups.get(gid);
+      if (!g) continue; // a group id nobody has is another one-sided link
+      if (!g.memberIds.includes(id)) g.memberIds.push(id);
+      user.groupIds.push(gid);
+    }
+
     this.audit.record({ actorId: actor, action: 'user.created', targetId: id });
     return user;
   }

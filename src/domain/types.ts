@@ -286,7 +286,12 @@ export interface AuditEvent {
     | 'session.revoked'
     | 'ticket.created'
     | 'ticket.resolved'
-    | 'ticket.escalated';
+    | 'ticket.escalated'
+    /** A resolved ticket was checked against the directory, and what was found.
+     *  Every check is recorded, not only the verdict: a reviewer that says
+     *  "failed" without saying what it looked at asks to be taken on trust. */
+    | 'ticket.review.passed'
+    | 'ticket.review.failed';
   /** Polysemous target: UserId | GroupId | RoleId | AppId | TicketId | SessionId */
   targetId?: string;
   /** For events that involve a subject distinct from the actor/target (group/role grants). */

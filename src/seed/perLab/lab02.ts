@@ -22,12 +22,19 @@ export function applyLab02Seed(
   const jane = base.userIds['jane.doe']!;
   const bob = base.userIds['bob.sato']!;
 
-  // Onboarding ticket for Alex (in baseline already, but ticket simulates request)
+  // Onboarding ticket for Alex.
+  //
+  // relatedUserIds is empty and stays empty: Alex does not exist yet, which
+  // is the whole point of an onboarding. The reviewer therefore has to find
+  // him by name, so the body states the logon to create rather than leaving
+  // the learner to guess a convention — the earlier wording named him only
+  // as "Alex Morgan", and a review that cannot identify the subject refuses
+  // the ticket however well the work was done.
   tickets.create({
     kind: 'onboarding',
     requesterId: cara,
     subject: 'Onboard Alex Morgan (new Finance hire)',
-    body: 'Please provision account, add to grp-finance-payroll, and grant Finance Portal access. Start date 2026-09-01.',
+    body: 'Please provision account alex.morgan (Alex Morgan), add to grp-finance-payroll, and grant Finance Portal access. Start date 2026-09-01.',
     priority: 'normal',
     relatedUserIds: [],
     payload: {
