@@ -55,7 +55,10 @@ export const LAB_10: Lab = {
       title: 'Terminate Bob Sato',
       brief:
         'Resolve the termination ticket. Disable Bob, revoke sessions, remove all groups. Verify no residual access.',
-      validator: { kind: 'signin-succeeded', params: { userId: 'bob.sato' } },
+      // Same fault as lab02/s3: validating a successful sign-in meant the step
+      // advanced only if the termination had failed. Disabling is the
+      // instruction and it always emits.
+      validator: { kind: 'user-disabled', params: { userId: 'bob.sato' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['Prove Bob cannot reach any application after termination.'],
       hintIds: ['lab10.s3.h1'],

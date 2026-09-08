@@ -73,7 +73,13 @@ export const LAB_02: Lab = {
       title: 'Terminate Bob Sato',
       brief:
         "Open the termination ticket. Disable Bob's account. Revoke all active sessions. Remove from all groups. Verify Bob cannot sign in.",
-      validator: { kind: 'signin-succeeded', params: { userId: 'bob.sato' } },
+      // Not signin-succeeded. This step ends "Verify Bob cannot sign in", and
+      // validating a successful sign-in meant the step only advanced if the
+      // termination had failed -- so a learner who did it correctly could
+      // never finish the lab. session-revoked would be the richer check, but
+      // nothing seeds Bob a live session, so it would be unreachable for the
+      // same reason. Disabling is the instruction, and it always emits.
+      validator: { kind: 'user-disabled', params: { userId: 'bob.sato' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: [
         'Is disabling the account sufficient, or must sessions be revoked too?',
