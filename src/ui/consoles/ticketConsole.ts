@@ -336,7 +336,13 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
     const services = conductor.getServices();
     const review = reviewTicket(
       t,
-      { dir: services.dir, audit: services.audit, idp: services.idp, apps: services.apps },
+      {
+        dir: services.dir,
+        audit: services.audit,
+        idp: services.idp,
+        apps: services.apps,
+        ledger: queue,
+      },
       'system' as UserId,
     );
     reviews.set(t.id, review);
@@ -355,6 +361,9 @@ export function renderTicketConsole(body: HTMLElement, conductor: Conductor) {
       return false;
     }
 
+    // Spend the evidence before closing the ticket: whatever proved this one
+    // cannot go on to prove the next ticket about the same person.
+    queue.claimEvidence(review.usedEventIds, t.id);
     queue.resolve(t.id, 'system' as UserId);
     ticketStore.getState().incrementResolved();
     selectedIds.delete(t.id);

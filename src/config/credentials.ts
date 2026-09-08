@@ -75,7 +75,9 @@ export const SEED_USERS: SeedUser[] = [
     title: 'Security Operations Analyst',
     mfa: 'totp',
     password: 'finn.muller123',
-    groups: ['grp-sec-ops'],
+    // grp-legacy-hr is left over from a previous role. Two tickets ask for it
+    // back, and it has to be there for that to be possible.
+    groups: ['grp-sec-ops', 'grp-legacy-hr'],
     privileged: true,
   },
   {

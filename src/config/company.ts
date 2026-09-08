@@ -26,6 +26,17 @@ export const GROUP_NAMES = [
   'grp-server-admins',
   'grp-vpn-users',
   'grp-finance-analysts',
+  // Groups the help-desk queues send people to. A ticket that says "grant
+  // grp-analytics-readers" when no such group exists is an instruction the
+  // learner cannot follow, so the estate carries every group the tickets
+  // name. grp-legacy-hr is deliberately stale: it exists to be removed.
+  'grp-legacy-hr',
+  'grp-analytics-readers',
+  'grp-all-employees',
+  'grp-sales-readonly',
+  'grp-build-servers',
+  'grp-engineering-qa',
+  'grp-sales-executives',
 ] as const;
 
 /** Service account names used across labs. */

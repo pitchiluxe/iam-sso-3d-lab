@@ -18,6 +18,7 @@ import { resolve as resolvePath } from 'node:path';
 import { reviewTicket } from '@/conductor/ticketReview';
 import { MockDirectory } from '@/services/mockDirectory';
 import { MockAuditLog } from '@/services/mockAuditLog';
+import { MockIdP } from '@/services/mockIdP';
 import type { Ticket, TicketId, UserId } from '@/domain';
 
 const SYSTEM = 'system' as UserId;
@@ -121,6 +122,81 @@ describe('the reviewer decides whether a ticket really closed', () => {
     for (const e of written) {
       expect(['ticket.review.passed', 'ticket.review.failed']).toContain(e.action);
     }
+  });
+});
+
+describe('each ticket needs its own evidence', () => {
+  /** A ledger, standing in for the ticket queue's. */
+  function ledger() {
+    const claims = new Map<string, string>();
+    return {
+      claimedBy: (id: string) => claims.get(id),
+      claimEvidence: (ids: string[], ticketId: string) => {
+        for (const id of ids) if (!claims.has(id)) claims.set(id, ticketId);
+      },
+      size: () => claims.size,
+    };
+  }
+
+  it('does not let one MFA reset close two MFA tickets', () => {
+    // Dan Rivera has four MFA tickets in the twenty-ticket queue. Before the
+    // ledger, one reset satisfied all of them: the check asks whether a reset
+    // is recorded since the ticket was raised, and it was — the same one.
+    const { dir, audit } = fixture();
+    const idp = new MockIdP(audit, dir);
+    const u = dir.createUser({
+      username: 'dan.rivera',
+      displayName: 'Dan Rivera',
+      email: 'dan.rivera@northwind.example',
+      department: 'IT',
+      title: 'Help Desk Tier 1',
+      mfa: 'totp',
+    });
+    const first = ticket({ id: 't-mfa-1' as TicketId, kind: 'mfa-issue', relatedUserIds: [u.id] });
+    const second = ticket({ id: 't-mfa-2' as TicketId, kind: 'mfa-issue', relatedUserIds: [u.id] });
+
+    // One reset, then re-enrolled — the whole of one ticket's work.
+    idp.resetMfa(u.id, SYSTEM);
+    idp.enrollMfa(u.id, 'totp', SYSTEM);
+
+    const book = ledger();
+    const deps = { dir, audit, ledger: book };
+
+    const one = reviewTicket(first, deps, SYSTEM);
+    expect(one.passed, one.summary).toBe(true);
+    expect(one.usedEventIds.length).toBeGreaterThan(0);
+
+    // Closing the first ticket spends what proved it.
+    book.claimEvidence(one.usedEventIds, first.id);
+
+    const two = reviewTicket(second, deps, SYSTEM);
+    expect(two.passed, 'the second ticket must need its own reset').toBe(false);
+
+    // And it passes as soon as the second ticket gets its own work: a reset,
+    // and the re-enrollment without which the account is left weaker.
+    idp.resetMfa(u.id, SYSTEM);
+    idp.enrollMfa(u.id, 'totp', SYSTEM);
+    expect(reviewTicket(second, deps, SYSTEM).passed).toBe(true);
+  });
+
+  it('leaves every event available when no ledger is supplied', () => {
+    // The evidence pack and the tests review tickets read-only; without a
+    // ledger nothing is spent and nothing is refused for having been counted.
+    const { dir, audit } = fixture();
+    const idp = new MockIdP(audit, dir);
+    const u = dir.createUser({
+      username: 'dan.rivera',
+      displayName: 'Dan Rivera',
+      email: 'dan.rivera@northwind.example',
+      department: 'IT',
+      title: 'Help Desk Tier 1',
+      mfa: 'totp',
+    });
+    idp.resetMfa(u.id, SYSTEM);
+    idp.enrollMfa(u.id, 'totp', SYSTEM);
+    const t = ticket({ kind: 'mfa-issue', relatedUserIds: [u.id] });
+    expect(reviewTicket(t, { dir, audit }, SYSTEM).passed).toBe(true);
+    expect(reviewTicket(t, { dir, audit }, SYSTEM).passed).toBe(true);
   });
 });
 

@@ -142,6 +142,25 @@ export function applyBaseline(dir: MockDirectory, idp: MockIdP, apps: MockAppSer
     undefined,
     'system' as UserId,
   );
+  // Roles the help-desk queues grant by name. A ticket saying "grant her
+  // role-db-prod-readonly" needs the role to exist before it can be granted.
+  const dbReadOnlyRole = dir.createRole(
+    'role-db-prod-readonly',
+    'Production database, read only',
+    ['db:prod:read'],
+    undefined,
+    'system' as UserId,
+  );
+  const jiraAdminRole = dir.createRole(
+    'role-jira-admin',
+    'Jira project administration',
+    ['jira:admin'],
+    undefined,
+    'system' as UserId,
+  );
+  roleIds['role-db-prod-readonly'] = dbReadOnlyRole.id;
+  roleIds['role-jira-admin'] = jiraAdminRole.id;
+
   roleIds['role-iam-admins'] = iamAdminRole.id;
   roleIds['role-domain-admins'] = domainAdminRole.id;
   roleIds['role-server-admins'] = serverAdminRole.id;

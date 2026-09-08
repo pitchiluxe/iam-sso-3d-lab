@@ -25,7 +25,7 @@ export function applyLab03Seed(
     kind: 'access-request',
     requesterId: greta,
     subject: 'Request payroll access for Jane Doe',
-    body: 'Jane needs to view and post payroll entries. Please grant via group, not direct permission.',
+    body: 'Jane needs to view and post payroll entries. Add her to grp-finance-payroll - grant it by group membership, not by a direct role assignment.',
     priority: 'normal',
     relatedUserIds: [jane],
     payload: {

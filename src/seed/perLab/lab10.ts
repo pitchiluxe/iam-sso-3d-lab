@@ -38,7 +38,7 @@ export function applyLab10Seed(
       kind: 'onboarding',
       requesterId: cara,
       subject: `Onboard ${user.displayName}`,
-      body: 'Provision account and grant payroll access.',
+      body: 'Provision the account and add them to grp-finance-payroll so they can process payroll.',
       priority: 'normal',
       relatedUserIds: [user.id],
       payload: {
@@ -54,7 +54,7 @@ export function applyLab10Seed(
     kind: 'transfer',
     requesterId: ivy,
     subject: 'Move Jane Doe to Engineering',
-    body: 'Jane is moving teams. Remove Finance access, add Engineering.',
+    body: 'Jane is moving teams. Remove her from grp-finance-analysts. Add her to grp-engineering-dev.',
     priority: 'normal',
     relatedUserIds: [base.userIds['jane.doe']!],
     payload: {
@@ -67,7 +67,7 @@ export function applyLab10Seed(
     kind: 'transfer',
     requesterId: ivy,
     subject: 'Move Alex Morgan to HR',
-    body: 'Alex is moving to HR. Update groups accordingly.',
+    body: 'Alex is moving to HR. Remove him from grp-finance-payroll. Add him to grp-hr-readers.',
     priority: 'normal',
     relatedUserIds: [base.userIds['alex.morgan']!],
     payload: {
@@ -82,7 +82,7 @@ export function applyLab10Seed(
     kind: 'termination',
     requesterId: cara,
     subject: 'Terminate Bob Sato',
-    body: 'Voluntary resignation effective immediately.',
+    body: 'Voluntary resignation, effective immediately. Disable the account, revoke all active sessions, and remove him from all groups.',
     priority: 'urgent',
     relatedUserIds: [base.userIds['bob.sato']!],
     payload: { userId: base.userIds['bob.sato']!, reason: 'resignation', immediate: true },

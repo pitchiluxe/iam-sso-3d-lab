@@ -310,7 +310,7 @@ export const LAB_TEMPLATES: LabTemplate[] = [
         kind: 'password-reset',
         requesterId: caraId,
         subject: 'Can’t log in to my account',
-        body: 'Cara Patel (cara.patel) reports she cannot sign in after several attempts.',
+        body: 'Cara Patel (cara.patel) reports she cannot sign in after several attempts. Reset her password, and unlock the account if it is locked out.',
         priority: 'normal',
         // The subject, said out loud. Without it the review had to guess from
         // the prose, and "Cara Patel" is not the logon it was looking for.
@@ -649,6 +649,20 @@ function buildBatchSeed(
       thenSuccess?: boolean;
       /** Put the subject's account into the 'locked' state. */
       lockAccount?: boolean;
+      /**
+       * Open a real session for the subject.
+       *
+       * A ticket that says "revoke the active sessions" needs there to be
+       * one: revoking nothing records nothing, and the review then sees an
+       * account nobody has touched however faithfully the learner followed
+       * the instruction.
+       */
+      openSession?: boolean;
+      /**
+       * Put the subject in these groups first. For the access-review tickets,
+       * whose whole subject is access the account should not have.
+       */
+      inGroups?: string[];
     };
     priority?: 'low' | 'normal' | 'high' | 'urgent';
   }>,
@@ -665,11 +679,25 @@ function buildBatchSeed(
     const cfg = ticketConfigs[i]!;
     const requesterId = ctx.dir.getUserByUsername(cfg.username)?.id ?? fallbackRequester;
 
-    // Who the ticket is about. Defaults to the requester (a user reporting
-    // their own lockout), but many tickets are filed on someone else's behalf.
-    const subjectName = cfg.subjectUsername ?? cfg.username;
-    let subject = ctx.dir.getUserByUsername(subjectName);
-    if (!subject && cfg.seedSubject) {
+    // Who the ticket is about, and no fallback to the requester.
+    //
+    // subjectUsername ?? username read as a convenience and behaved as a
+    // liability: a ticket that did not say who it was about was filed against
+    // whoever reported it, so resolving a ransomware ticket disabled the
+    // colleague who phoned it in, and a cross-training request granted the
+    // access to somebody terminated two tickets earlier. A ticket with no
+    // stated subject has none, and the review finds the person by the name in
+    // the text instead.
+    // Most tickets are reported by the person they are about, and falling
+    // back to the requester is right for those — but only for those, and the
+    // text is what decides. A ticket that never mentions the requester is not
+    // about them.
+    const mentionsRequester = `${cfg.subject} ${cfg.body}`
+      .toLowerCase()
+      .includes(cfg.username.toLowerCase());
+    const subjectName = cfg.subjectUsername ?? (mentionsRequester ? cfg.username : undefined);
+    let subject = subjectName ? ctx.dir.getUserByUsername(subjectName) : undefined;
+    if (!subject && subjectName && cfg.seedSubject) {
       subject = ctx.dir.ensureUser({
         username: subjectName,
         displayName: cfg.seedSubject.displayName,
@@ -679,7 +707,13 @@ function buildBatchSeed(
         mfa: 'none',
       });
     }
-    const subjectId = subject?.id ?? requesterId;
+    // No fallback to the requester. An onboarding ticket has no subject
+    // account yet — that is the work — and naming the requester instead meant
+    // the review checked the wrong person: it failed a joiner ticket because
+    // the manager who filed it had been disabled by an incident ticket
+    // elsewhere in the same queue. A payload with no userId is honest; the
+    // review then finds the joiner by the name in the text once created.
+    const subjectId = subject?.id;
 
     // Set the scene BEFORE raising the ticket.
     //
@@ -715,6 +749,28 @@ function buildBatchSeed(
           ...(ev.fromIp ? { ip: ev.fromIp } : {}),
         });
       }
+      if (ev.inGroups) {
+        for (const name of ev.inGroups) {
+          const g = ctx.dir.getGroupByName(name);
+          if (!g) continue;
+          ctx.dir.addToGroup(subject.id, g.id, SYSTEM_ACTOR);
+          // Back-date the grant. It happened months ago, for a project that
+          // finished — that is the whole story of an access-review ticket.
+          // Left at now() it lands in the same millisecond as the ticket, and
+          // the review reads the stale access as the learner's own work: the
+          // ticket then closed itself the moment it was raised.
+          const granted = ctx.audit.events[ctx.audit.events.length - 1];
+          if (granted && granted.action === 'group.add') {
+            granted.at = SCENE_START - 90 * 24 * 60 * 60 * 1000;
+          }
+        }
+      }
+      if (ev.openSession) {
+        // Before the account is locked, if it is going to be: signIn refuses
+        // a locked account, and then there would be no session to revoke.
+        ctx.idp.seedPasswords({ [subject.username]: 'Passw0rd!' });
+        ctx.idp.signIn(subject.username, 'Passw0rd!');
+      }
       if (ev.lockAccount) {
         // 'locked', not 'disabled': they are different states with different
         // remedies, and Unlock-ADAccount refuses a disabled account.
@@ -735,7 +791,7 @@ function buildBatchSeed(
       // userId is the SUBJECT, not the requester — pointing it at whoever
       // filed the ticket meant resolving it would act on the wrong account.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      payload: { userId: subjectId, method: 'helpdesk' } as any,
+      payload: { ...(subjectId ? { userId: subjectId } : {}), method: 'helpdesk' } as any,
       relatedUserIds: subject ? [subject.id] : [],
     });
   }
@@ -759,7 +815,8 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[0]!,
           kind: 'onboarding' as const,
           subject: 'New hire onboarding: Devin Park',
-          body: 'Please create an account for Devin Park, a new developer starting Monday. Department: Engineering. Title: Junior Developer. Add to grp-engineering-dev. Temporary contractor account with 90-day expiry.',
+          subjectUsername: 'devin.park',
+          body: 'Please create an account for Devin Park (devin.park), a new developer starting Monday. Department Engineering, title Junior Developer. Add devin.park to grp-engineering-dev. It is a contractor account with a 90-day expiry.',
           username: 'alex.morgan',
           priority: 'high' as const,
         },
@@ -791,6 +848,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[4]!,
           kind: 'onboarding' as const,
           subject: 'Contractor account for Maya Torres',
+          subjectUsername: 'maya.torres',
           body: 'Maya Torres is a contractor starting next week as a QA Engineer. Create a time-limited account expiring in 60 days. Username: maya.torres. Email: maya.torres@northwind.example. Add to grp-engineering-qa only.',
           username: 'erin.cho',
           priority: 'normal' as const,
@@ -817,7 +875,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[7]!,
           kind: 'transfer' as const,
           subject: "Transfer: Hank O'Neill from Engineering to IT Support",
-          body: "Hank O'Neill (hank.oneill) is transferring from Engineering to IT Support. Remove him from grp-engineering-dev and add him to grp-helpdesk-tier1. His last day in Engineering is Friday.",
+          body: "Hank O'Neill (hank.oneill) is moving from Server Administration to the Help Desk. Remove him from grp-server-admins and from grp-domain-admins. Add him to grp-helpdesk-tier1. He keeps no administrative access in the new role.",
           username: 'hank.oneill',
           priority: 'normal' as const,
         },
@@ -903,7 +961,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[1]!,
           kind: 'password-reset' as const,
           subject: 'Executive password reset: Greta Olsen (CFO)',
-          body: 'Greta Olsen (greta.olsen, greta.olsen@northwind.example) is locked out of her account. She is the CFO. Need immediate password reset via secure channel — do not send via email.',
+          body: 'Greta Olsen (greta.olsen) is locked out after repeated failed sign-ins, and she is the CFO. Unlock the account and reset her password, then pass the temporary password to her by phone — not by email.',
           username: 'bob.sato',
           subjectUsername: 'greta.olsen',
           evidence: { failedSignIns: 6, fromIp: '10.20.7.14', lockAccount: true },
@@ -929,6 +987,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[4]!,
           kind: 'onboarding' as const,
           subject: 'VP of Sales onboarding: Marcus Chen',
+          subjectUsername: 'marcus.chen',
           body: 'Marcus Chen starts tomorrow as VP of Sales. Create his account (marcus.chen). Title: VP of Sales, Department: Sales. Add to grp-sales-executives and grp-all-employees. Full IAM provisioning needed.',
           username: 'erin.cho',
           priority: 'high' as const,
@@ -937,7 +996,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[5]!,
           kind: 'access-request' as const,
           subject: 'PCI compliance group for Finance team',
-          body: 'Finance team needs a PCI-compliant access group (grp-finance-pci) for the upcoming PCI DSS audit. Create the group and add Finn Müller (finn.muller) and Greta Olsen (greta.olsen) as members.',
+          body: 'Finance needs a PCI-scoped access group for the upcoming PCI DSS audit. Create grp-finance-pci, then add finn.muller and greta.olsen to grp-finance-pci. Nobody else goes in it.',
           username: 'finn.muller',
           priority: 'normal' as const,
         },
@@ -945,7 +1004,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[6]!,
           kind: 'transfer' as const,
           subject: 'Promotion: Greta Olsen promoted to IAM Admin',
-          body: 'Greta Olsen (greta.olsen) has been promoted to IAM Admin. Remove her from grp-finance-payroll and grp-finance-analysts. Add her to grp-iam-admins and grp-all-employees.',
+          body: 'Greta Olsen (greta.olsen) has been promoted to IAM Admin. Remove her from grp-finance-payroll. Add her to grp-iam-admins. Her finance access does not carry over.',
           username: 'greta.olsen',
           priority: 'normal' as const,
         },
@@ -969,8 +1028,9 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
         {
           id: ticketIds[9]!,
           kind: 'onboarding' as const,
-          subject: 'Bulk hire: 5 summer interns (Engineering)',
-          body: 'Five summer interns starting next Monday: Alex Kim, Bella Santos, Chris Lee, Dana White, Evan Park. Create accounts in grp-engineering-interns with 90-day expiry. Department: Engineering.',
+          subject: 'Summer intern onboarding: Bella Santos (first of five)',
+          subjectUsername: 'bella.santos',
+          body: 'Five summer interns start next Monday and the first one needs an account today: Bella Santos (bella.santos), department Engineering, 90-day expiry. Create the account and add bella.santos to grp-engineering-dev. The other four follow once their paperwork clears.',
           username: 'jane.doe',
           priority: 'normal' as const,
         },
@@ -978,8 +1038,13 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[10]!,
           kind: 'access-request' as const,
           subject: "Cross-training access for Hank O'Neill to Sales",
-          body: "Manager Ivy Park requests 2-week read-only access for Hank O'Neill (hank.oneill) to the Sales team's shared resources. Grant grp-sales-readonly membership, expiring in 14 days.",
-          username: 'alex.morgan',
+          body: "Manager Ivy Park requests 2-week read-only access for Hank O'Neill (hank.oneill) to the Sales team's shared resources. Add hank.oneill to grp-sales-readonly.",
+          username: 'ivy.park',
+          // The ticket is written about Hank and was filed against Alex, who
+          // is terminated two tickets earlier in the same queue: resolving it
+          // granted the departed account fresh access, and the termination
+          // that had already been done correctly then failed its review.
+          subjectUsername: 'hank.oneill',
           priority: 'low' as const,
         },
         {
@@ -1008,7 +1073,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[13]!,
           kind: 'mfa-issue' as const,
           subject: 'SMS MFA codes not arriving for Dan Rivera',
-          body: 'Dan Rivera (dan.rivera) reports that SMS MFA codes are never arriving to his mobile (+1-555-0104). Investigate the SMS gateway configuration and fix delivery for dan.rivera.',
+          body: 'Dan Rivera (dan.rivera) reports that SMS MFA codes never arrive on his mobile. Delivery to his carrier is unreliable, so move him off SMS: reset his MFA enrollment and re-enroll him on TOTP.',
           username: 'dan.rivera',
           priority: 'normal' as const,
         },
@@ -1080,16 +1145,18 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[0]!,
           kind: 'incident' as const,
           subject: 'Credential stuffing attack: 50 failed logins from 185.220.101.x',
-          body: 'Multiple failed logins detected from IP 185.220.101.x targeting accounts in the Finance department. 50 failed attempts in 5 minutes. Block the IP, investigate the targeted accounts (greta.olsen, alex.morgan), and rotate passwords if compromised.',
+          subjectUsername: 'greta.olsen',
+          body: 'Fifty failed sign-ins in five minutes from 185.220.101.x, against Finance accounts. The edge team is blocking the address. Your part: for the targeted account greta.olsen, revoke the active sessions and reset the password, so a guessed credential is worth nothing.',
           username: 'alex.morgan',
           evidence: { failedSignIns: 12, fromIp: '185.220.101.44', thenSuccess: true },
           priority: 'urgent' as const,
         },
         {
           id: ticketIds[1]!,
-          kind: 'password-reset' as const,
+          kind: 'incident' as const,
           subject: "Ransomware infection: Cara Patel's workstation",
-          body: 'Cara Patel (cara.patel) reports a ransom note displayed on her workstation screen. Immediate action: disable her account (cara.patel), revoke all sessions, and disconnect her workstation from the network.',
+          subjectUsername: 'cara.patel',
+          body: 'Cara Patel (cara.patel) reports a ransom note on her workstation. Desktop support has the machine. Your part: disable her account (cara.patel) and revoke all active sessions, so the credential is worthless while the machine is quarantined.',
           username: 'bob.sato',
           priority: 'urgent' as const,
         },
@@ -1097,7 +1164,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[2]!,
           kind: 'mfa-issue' as const,
           subject: 'Suspicious MFA bypass for Greta Olsen (CFO account)',
-          body: 'MFA bypass request flagged for greta.olsen@northwind.example at 02:47 AM from an unrecognized device. CFO Greta Olsen is not in the office. Verify legitimacy immediately and revoke if unauthorized.',
+          body: 'An MFA bypass was requested for greta.olsen at 02:47 AM from a device nobody recognises, and the CFO is not in the office. Treat the enrollment as compromised: reset her MFA enrollment and re-enroll her on TOTP.',
           username: 'cara.patel',
           subjectUsername: 'greta.olsen',
           priority: 'urgent' as const,
@@ -1114,7 +1181,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[4]!,
           kind: 'access-request' as const,
           subject: 'Unauthorized admin role on svc-deploy service account',
-          body: 'Monthly audit found svc-deploy service account has unexpected role-admin membership in the Production namespace. Investigate who added it (check audit log), remove the unauthorized role, and document the change.',
+          body: 'The monthly audit found the svc-deploy service account holding grp-domain-admins, which a deployment account has no business in. Check the audit log for who added it, then remove svc-deploy from grp-domain-admins.',
           username: 'erin.cho',
           subjectUsername: 'svc-deploy',
           seedSubject: { displayName: 'svc-deploy', department: 'IT', title: 'Service Account' },
@@ -1130,18 +1197,18 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
         },
         {
           id: ticketIds[6]!,
-          kind: 'mfa-issue' as const,
+          kind: 'incident' as const,
           subject: 'Stale session: ivy.park session active after termination',
-          body: "Ivy Park's (ivy.park) account was terminated 3 days ago, but an active session is still valid in the HR Portal application. Revoke the session immediately and confirm account is disabled.",
+          body: "Ivy Park's (ivy.park) account was terminated three days ago, but a session against the HR Portal is still valid. Revoke all her active sessions and confirm the account is disabled.",
           username: 'greta.olsen',
           subjectUsername: 'ivy.park',
           priority: 'high' as const,
         },
         {
           id: ticketIds[7]!,
-          kind: 'access-request' as const,
-          subject: 'Dormant account reactivation: hank.oneill (90 days inactive)',
-          body: "Hank O'Neill's account (hank.oneill) had no sign-in activity for 90 days but was used at 14:22 today from IP 203.0.113.42. Disable the account, investigate the login, and confirm with Hank if this was legitimate.",
+          kind: 'incident' as const,
+          subject: 'Dormant account used after 90 days idle: hank.oneill',
+          body: "Hank O'Neill's account (hank.oneill) had no sign-in activity for 90 days, then signed in at 14:22 today from an address nobody recognises. Hank is on leave and unreachable. Disable the account and revoke its sessions until he confirms it was him.",
           username: 'hank.oneill',
           priority: 'high' as const,
         },
@@ -1159,7 +1226,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[9]!,
           kind: 'mfa-issue' as const,
           subject: 'MFA push fatigue attack: Jane Doe receiving 100+ notifications',
-          body: 'Jane Doe (jane.doe) is receiving over 100 MFA push notifications on her phone in the past hour. This indicates an MFA push fatigue attack. Deny all pending requests, temporarily disable push MFA for jane.doe, and advise her to use TOTP instead.',
+          body: 'Jane Doe (jane.doe) has had over 100 MFA push notifications in the past hour - a push fatigue attack. Take her off push: reset her MFA enrollment and re-enroll her on TOTP.',
           username: 'jane.doe',
           priority: 'high' as const,
         },
@@ -1167,6 +1234,9 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[10]!,
           kind: 'incident' as const,
           subject: 'OAuth token theft: third-party app "QuickReports" using stolen tokens',
+          // A session to revoke. Without one the instruction is a no-op that
+          // records nothing, and the ticket cannot be closed.
+          evidence: { openSession: true },
           body: 'Security team detected the third-party app "QuickReports" using OAuth tokens belonging to alex.morgan. Tokens were likely stolen via a phishing campaign. Revoke all OAuth tokens for alex.morgan, contact QuickReports support, and audit other compromised accounts.',
           username: 'alex.morgan',
           priority: 'high' as const,
@@ -1174,8 +1244,12 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
         {
           id: ticketIds[11]!,
           kind: 'access-request' as const,
-          subject: 'Privilege creep: cara.patel has 47 group memberships',
-          body: 'Q3 access review found Cara Patel (cara.patel) has 47 group memberships, including several production database roles she no longer needs. Review her current role (HR Business Partner), remove unnecessary groups, and document the cleanup.',
+          subject: 'Privilege creep: cara.patel holds access beyond her role',
+          body: 'The Q3 access review flagged Cara Patel (cara.patel): she is in grp-finance-payroll, which an HR Business Partner has no need of — it was granted for a project that finished. Remove her from grp-finance-payroll and note the change.',
+          // The access the ticket is about, so there is something to take
+          // away. The ticket said she held too much; the seed had put her in
+          // one group, which her role needs.
+          evidence: { inGroups: ['grp-finance-payroll'] },
           username: 'bob.sato',
           subjectUsername: 'cara.patel',
           priority: 'normal' as const,
@@ -1184,7 +1258,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[12]!,
           kind: 'password-reset' as const,
           subject: 'Brute force attack: 1,000 attempts from 198.51.100.50',
-          body: 'Brute force attack detected on the login page from IP 198.51.100.50 with 1,000+ attempts targeting Finance and HR accounts. Block the IP, force password reset for all accounts that had failed attempts (greta.olsen, cara.patel, finn.muller), and enable account lockout policy.',
+          body: 'A brute force run from 198.51.100.50 made over a thousand attempts against Finance and HR accounts, and the address is already blocked at the edge. It hit cara.patel hardest and the account is locked out. Unlock it, force a password reset, and revoke the active sessions on it.',
           username: 'cara.patel',
           evidence: { failedSignIns: 15, fromIp: '198.51.100.50', lockAccount: true },
           priority: 'high' as const,
@@ -1193,7 +1267,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[13]!,
           kind: 'mfa-issue' as const,
           subject: 'FIDO2 hardware key not registering: Dan Rivera',
-          body: 'Dan Rivera (dan.rivera) received a new YubiKey (serial: YK-8821-44190) but it is not registering during enrollment. Verify the YubiKey is not already enrolled to another account, check the FIDO2 RP ID configuration, and help Dan complete enrollment.',
+          body: 'Dan Rivera (dan.rivera) has a new YubiKey (serial YK-8821-44190) that will not register while his old enrollment is still in place. Reset his MFA enrollment and re-enroll him, so the new key can be registered.',
           username: 'dan.rivera',
           priority: 'normal' as const,
         },
@@ -1215,7 +1289,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           id: ticketIds[15]!,
           kind: 'password-reset' as const,
           subject: 'Password policy non-compliance: Greta Olsen (CFO) account',
-          body: "Greta Olsen's (greta.olsen) password does not meet the new complexity requirements (12+ chars, special characters). Assist her in setting a compliant password securely in person — do not send via email or chat.",
+          body: "Greta Olsen's (greta.olsen) password does not meet the new complexity requirements of 12 characters and a symbol. Reset her password to a compliant value, and hand it to her in person — not by email or chat.",
           username: 'finn.muller',
           subjectUsername: 'greta.olsen',
           priority: 'high' as const,
@@ -1223,32 +1297,40 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
         {
           id: ticketIds[16]!,
           kind: 'access-request' as const,
-          subject: 'SSO failure: partner company Contoso reports SAML login failing',
-          body: 'Partner company Contoso reports SSO to our HR Portal is failing with SAML assertion errors. Their entity ID: contoso-corp. Investigate the SAML trust relationship, check the certificate expiry, and contact Contoso IT.',
+          subject: 'Partner project: Erin Cho cannot open the Analytics Dashboard',
+          subjectUsername: 'erin.cho',
+          body: 'Erin Cho (erin.cho) is running the Contoso partner project and cannot open the Analytics Dashboard: she signs in, and the application refuses her. That access is granted by group - add her to grp-analytics-readers.',
           username: 'greta.olsen',
           priority: 'normal' as const,
         },
         {
           id: ticketIds[17]!,
-          kind: 'mfa-issue' as const,
-          subject: 'SAML assertion failure: hank.oneill cannot sign in to Jenkins',
-          body: "Hank O'Neill (hank.oneill) cannot sign in to the Jenkins CI/CD server. The IdP returns a SAML assertion error: 'Invalid NameID format'. Check the SAML NameID format mapping in Jenkins and update the claim configuration in the IdP.",
+          kind: 'access-request' as const,
+          subject: 'Hank O.Neill cannot sign in to the Jenkins build server',
+          body: "Hank O'Neill (hank.oneill) cannot sign in to the Jenkins build server. Jenkins authorises on group membership, and he is not in grp-build-servers. Add him to grp-build-servers, which is what his server administration work needs.",
           username: 'hank.oneill',
           priority: 'normal' as const,
         },
         {
           id: ticketIds[18]!,
-          kind: 'password-reset' as const,
-          subject: 'Bulk provisioning: 50 new users from Acme Corp acquisition',
-          body: 'Acquisition integration: provision 50 new user accounts from Acme Corp. Users are in the file: acme-onboarding-2026.xlsx. Create accounts in the Engineering department, add to grp-engineering-acme, set passwords to temporary values, and force password change on first login.',
+          kind: 'onboarding' as const,
+          subject: 'Acme acquisition: provision the first engineer, Priya Raman',
+          body: 'Acme Corp acquisition: the first engineer transfers today, the rest follow next week. Create an account for Priya Raman (priya.raman), department Engineering, and add her to grp-engineering-dev. Set a temporary password and force a change at first sign-in.',
           username: 'ivy.park',
+          // The joiner, who does not exist yet — that is the work. Without
+          // this the subject fell back to the requester, so the review of an
+          // onboarding ticket checked Ivy Park's account instead, and failed
+          // it for being disabled by an unrelated incident ticket in the same
+          // queue.
+          subjectUsername: 'priya.raman',
           priority: 'normal' as const,
         },
         {
           id: ticketIds[19]!,
           kind: 'access-request' as const,
-          subject: 'Q3 access review remediation: 23 over-privileged accounts',
-          body: 'Q3 access review flagged 23 accounts with excessive privileges. Priority list: alex.morgan (20 groups), cara.patel (47 groups), finn.muller (15 groups), bob.sato (12 groups), and 19 others listed in the attached report. Remove unneeded groups and document each change in the audit log.',
+          subject: 'Q3 access review remediation: start with finn.muller',
+          subjectUsername: 'finn.muller',
+          body: 'The Q3 access review flagged several accounts carrying access their role no longer justifies. Start with the clearest: Finn Muller (finn.muller) is still in grp-legacy-hr from a previous role. Remove that membership and record the change.',
           username: 'jane.doe',
           priority: 'normal' as const,
         },

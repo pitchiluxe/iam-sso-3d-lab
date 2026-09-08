@@ -18,17 +18,33 @@
  * told they did it right when they did not has been actively taught the wrong
  * lesson.
  */
-import type { Ticket, UserId } from '@/domain';
+import type { AuditEvent, Ticket, UserId } from '@/domain';
 import type { MockDirectory } from '@/services/mockDirectory';
 import type { MockAuditLog } from '@/services/mockAuditLog';
 import type { MockIdP } from '@/services/mockIdP';
 import type { MockAppServer } from '@/services/mockAppServer';
+
+/**
+ * Who has already used a given audit event as proof.
+ *
+ * Structural on purpose: MockTicketQueue satisfies it without importing
+ * anything from the conductor, and a caller with no ledger (a test, the
+ * evidence pack) simply omits it and every event stays available.
+ */
+export interface EvidenceLedger {
+  /** The ticket that already counted this event, if any. */
+  claimedBy(eventId: string): string | undefined;
+  /** Record that these events were what closed this ticket. */
+  claimEvidence(eventIds: string[], ticketId: string): void;
+}
 
 export interface ReviewDeps {
   dir: MockDirectory;
   audit: MockAuditLog;
   idp?: MockIdP;
   apps?: MockAppServer;
+  /** Omit to let every ticket count every event. */
+  ledger?: EvidenceLedger;
 }
 
 /** One thing that was checked, and what was found. */
@@ -45,6 +61,11 @@ export interface TicketReview {
   checks: ReviewCheck[];
   summary: string;
   at: number;
+  /**
+   * The audit events the checks counted. Claimed on a pass, so a second
+   * ticket about the same person cannot be closed by the same piece of work.
+   */
+  usedEventIds: string[];
 }
 
 const pass = (label: string, detail: string): ReviewCheck => ({ label, passed: true, detail });
@@ -102,12 +123,22 @@ function subjectsOf(ticket: Ticket, dir: MockDirectory) {
   return inSubject.length > 0 ? inSubject : named(ticket.body);
 }
 
+/**
+ * The events this ticket is allowed to count: after it was raised, and not
+ * already spent closing a different ticket.
+ */
+function evidenceFor(ticket: Ticket, deps: ReviewDeps) {
+  return deps.audit.events.filter((e) => {
+    if (e.at < ticket.createdAt) return false;
+    const owner = deps.ledger?.claimedBy(e.id);
+    return owner === undefined || owner === ticket.id;
+  });
+}
+
 /** Access granted or removed for this account since the ticket was raised. */
-function accessChangedSince(audit: MockAuditLog, ticket: Ticket, userId: UserId) {
+function accessChangedSince(events: AuditEvent[], userId: UserId) {
   const kinds = new Set(['group.add', 'group.remove', 'role.grant', 'role.revoke']);
-  return audit.events.filter(
-    (e) => e.at >= ticket.createdAt && kinds.has(e.action) && e.subjectId === userId,
-  );
+  return events.filter((e) => kinds.has(e.action) && e.subjectId === userId);
 }
 
 /**
@@ -134,10 +165,26 @@ const REMEDIATION = new Set([
   'app.config.changed',
 ]);
 
-function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
-  const { dir, audit } = deps;
+function runChecks(
+  ticket: Ticket,
+  deps: ReviewDeps,
+  countedEventIds: string[] = [],
+): ReviewCheck[] {
+  const { dir } = deps;
   const subjects = subjectsOf(ticket, dir);
   const checks: ReviewCheck[] = [];
+  // Everything below reads this list rather than the whole audit log.
+  const evidence = evidenceFor(ticket, deps);
+  /**
+   * What a check leaned on, and no more.
+   *
+   * Claiming every matching event starved the rest of the queue: Cara Patel
+   * has four tickets that each need a password reset, four resets were done,
+   * and the first ticket reviewed claimed all four. A check needs one piece
+   * of evidence to pass, so it spends one.
+   */
+  const used = (events: AuditEvent[]) => (events[0] ? [events[0].id as string] : []);
+  const counted: string[] = [];
 
   if (subjects.length === 0) {
     return [
@@ -163,9 +210,11 @@ function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
         // Being in a group is not enough on its own: some queues raise an
         // onboarding ticket for somebody the seed already placed, and the
         // ticket then closed itself. The grant has to be this ticket's.
-        const granted = accessChangedSince(audit, ticket, user.id).some(
+        const grants = accessChangedSince(evidence, user.id).filter(
           (e) => e.action === 'group.add' || e.action === 'role.grant',
         );
+        const granted = grants.length > 0;
+        counted.push(...used(grants));
         checks.push(
           groups.length > 0 && granted
             ? pass('Access granted', `Member of ${groups.map((g) => g.name).join(', ')}.`)
@@ -187,12 +236,15 @@ function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
 
       case 'transfer':
       case 'mover': {
-        const added = audit.events.some(
-          (e) => e.action === 'group.add' && e.subjectId === user.id && e.at >= ticket.createdAt,
+        const additions = evidence.filter(
+          (e) => e.action === 'group.add' && e.subjectId === user.id,
         );
-        const removed = audit.events.some(
-          (e) => e.action === 'group.remove' && e.subjectId === user.id && e.at >= ticket.createdAt,
+        const removals = evidence.filter(
+          (e) => e.action === 'group.remove' && e.subjectId === user.id,
         );
+        const added = additions.length > 0;
+        const removed = removals.length > 0;
+        counted.push(...used(additions), ...used(removals));
         checks.push(
           added
             ? pass(
@@ -233,14 +285,15 @@ function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
       }
 
       case 'password-reset': {
-        const reset = audit.events.some(
+        const resets = evidence.filter(
           (e) =>
             (e.action === 'password.reset' ||
               e.action === 'account.unlock' ||
               e.action === 'user.unlocked') &&
-            (e.targetId === user.id || e.subjectId === user.id) &&
-            e.at >= ticket.createdAt,
+            (e.targetId === user.id || e.subjectId === user.id),
         );
+        const reset = resets.length > 0;
+        counted.push(...used(resets));
         checks.push(
           reset
             ? pass('Credential seen to', 'A reset or unlock is recorded for this account.')
@@ -261,9 +314,11 @@ function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
       }
 
       case 'mfa-issue': {
-        const cleared = audit.events.some(
-          (e) => e.action === 'mfa.reset' && e.targetId === user.id && e.at >= ticket.createdAt,
+        const clearances = evidence.filter(
+          (e) => e.action === 'mfa.reset' && e.targetId === user.id,
         );
+        const cleared = clearances.length > 0;
+        counted.push(...used(clearances));
         checks.push(
           cleared
             ? pass('Registration cleared', 'An MFA reset is recorded for this account.')
@@ -290,7 +345,8 @@ function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
         // Removals count as well as grants: "remove Finn from grp-legacy-hr"
         // is filed as an access request too, and refusing it for not adding
         // anything would be refusing the work that was asked for.
-        const changes = accessChangedSince(audit, ticket, user.id);
+        const changes = accessChangedSince(evidence, user.id);
+        counted.push(...used(changes));
         checks.push(
           changes.length > 0
             ? pass(
@@ -308,17 +364,16 @@ function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
       }
 
       case 'incident': {
-        const responses = audit.events.filter(
-          (e) =>
-            e.at >= ticket.createdAt &&
-            REMEDIATION.has(e.action) &&
-            (e.targetId === user.id || e.subjectId === user.id),
+        const responses = evidence.filter(
+          (e) => REMEDIATION.has(e.action) && (e.targetId === user.id || e.subjectId === user.id),
         );
+        counted.push(...used(responses));
         checks.push(
           responses.length > 0
             ? pass(
                 'The account was acted on',
-                `${responses.map((e) => e.action).join(', ')} recorded for ${user.username}.`,
+                `${[...new Set(responses.map((e) => e.action))].join(', ')} recorded for ` +
+                  `${user.username}.`,
               )
             : fail(
                 'The account was acted on',
@@ -331,6 +386,8 @@ function runChecks(ticket: Ticket, deps: ReviewDeps): ReviewCheck[] {
     }
   }
 
+  countedEventIds.length = 0;
+  countedEventIds.push(...counted);
   return checks;
 }
 
@@ -354,7 +411,8 @@ function summarise(checks: ReviewCheck[]): string {
  * the opposite of what this teaches.
  */
 export function reviewTicket(ticket: Ticket, deps: ReviewDeps, actor: UserId): TicketReview {
-  const checks = runChecks(ticket, deps);
+  const usedEventIds: string[] = [];
+  const checks = runChecks(ticket, deps, usedEventIds);
   const passed = checks.every((c) => c.passed);
 
   for (const check of checks) {
@@ -372,5 +430,6 @@ export function reviewTicket(ticket: Ticket, deps: ReviewDeps, actor: UserId): T
     checks,
     summary: summarise(checks),
     at: Date.now(),
+    usedEventIds,
   };
 }

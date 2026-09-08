@@ -49,7 +49,7 @@ export function applyLab02Seed(
     kind: 'transfer',
     requesterId: ivy,
     subject: 'Transfer Jane Doe: Finance → Engineering',
-    body: 'Jane is moving to the Engineering team. Remove Finance Portal access; add to grp-engineering-dev.',
+    body: 'Jane is moving to the Engineering team. Remove her from grp-finance-analysts. Add her to grp-engineering-dev.',
     priority: 'normal',
     relatedUserIds: [jane],
     payload: { userId: jane, fromDepartment: 'Finance', toDepartment: 'Engineering' },

@@ -93,15 +93,15 @@ describe('generated batch tickets reference real directory accounts', () => {
       );
       template.seed(ctx as never, ids as never);
 
-      const unlinked = ctx.tickets
+      // An onboarding ticket is about somebody who does not exist yet — that
+      // is the point of the ticket — so it has nobody to link to. Exempted by
+      // kind rather than by subject wording: the wording is prose and gets
+      // rewritten, and this assertion started failing the day one of those
+      // subjects was reworded rather than the day anything broke.
+      const shouldLink = ctx.tickets
         .list()
-        .filter((t) => t.relatedUserIds.length === 0)
+        .filter((t) => t.relatedUserIds.length === 0 && t.kind !== 'onboarding')
         .map((t) => t.subject);
-      // Onboarding and bulk-provisioning tickets are about people who do not
-      // exist yet — that is the point of the ticket — so they are exempt.
-      const shouldLink = unlinked.filter(
-        (s) => !/onboard|bulk hire|bulk provisioning|new users/i.test(s),
-      );
       expect(shouldLink).toEqual([]);
     });
   }

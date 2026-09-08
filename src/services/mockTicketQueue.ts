@@ -100,7 +100,29 @@ export type NewTicket =
 export class MockTicketQueue {
   private tickets = new Map<TicketId, Ticket>();
 
+  /**
+   * Which ticket already used a given audit event as its proof.
+   *
+   * The review counts work done to an account since the ticket was raised,
+   * and a queue often holds several tickets about the same person: one MFA
+   * reset for Dan Rivera satisfied all four of his MFA tickets at once. An
+   * event spent closing one ticket is spent, so the next one needs its own.
+   *
+   * Session state, like the tickets themselves: a lab restart clears it.
+   */
+  private readonly evidenceClaims = new Map<string, TicketId>();
+
   constructor(private readonly audit: MockAuditLog) {}
+
+  claimedBy(eventId: string): string | undefined {
+    return this.evidenceClaims.get(eventId);
+  }
+
+  claimEvidence(eventIds: string[], ticketId: string): void {
+    for (const id of eventIds) {
+      if (!this.evidenceClaims.has(id)) this.evidenceClaims.set(id, ticketId as TicketId);
+    }
+  }
 
   list(filter?: { kind?: TicketKind; status?: Ticket['status'] }): Ticket[] {
     const all = Array.from(this.tickets.values());
