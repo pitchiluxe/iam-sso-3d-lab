@@ -157,11 +157,10 @@ jobs:
             Download the installer below and run it on any Windows 10/11 64-bit machine.
 
             ### Features
-            - 26 hands-on labs: IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass, OAuth App Governance, PKI Certificate Lifecycle, LDAP/Kerberos Troubleshooting, Cloud IAM Cross-Account Role, Non-Human Identity Governance, SCIM Provisioning at Scale, Identity Threat Detection (ITDR), B2B Guest Access, Zero Trust Device Compliance, M&A Identity Consolidation, SaaS License Reclamation, Passwordless/FIDO2 Migration, AD Attack-Path Review
+            - 17 hands-on labs (IAM Foundation, JML, RBAC, SSO/SAML/OIDC, MFA, Access Reviews, Break/Fix, Incident Response, PAM, Capstone, Conditional Access, Hybrid Identity Sync, Break-Glass, OAuth App Governance, PKI Certificate Lifecycle, LDAP/Kerberos Troubleshooting, Cloud IAM Cross-Account Role)
             - 3D virtual environment with interactive consoles — walk up to a monitor and press E to open the VM desktop
             - AI Supervisor (Socratic coaching via local Ollama LLM — never gives answers directly)
-            - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass) — every lab can now actually reach 100
-            - Real conditional access: device-compliance and ASN-based policies that actually block and audit sign-ins, not just narrated ones
+            - Full audit trail, evidence collection, scoring rubric (100 pts, 85 to pass)
 
             ### AI Supervisor setup
             1. Install [Ollama](https://ollama.com)
