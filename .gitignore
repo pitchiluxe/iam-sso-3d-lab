@@ -1,0 +1,16 @@
+# Independently versioned (own git repo, own GitHub remote branch)
+/app/
+
+# Already lives on the 'main' branch of this remote
+/landing-page/
+
+# Generated build/installer output — large binaries, not source
+/virtual-machine/
+
+# Local tooling / editor state, not part of the spec
+/.claude/
+/docs/superpowers/
+
+# Stale, superseded by app/.github/workflows/ci.yml (older config, wrong
+# paths for app/'s own repo root — dead leftover from before the split)
+/.github/
