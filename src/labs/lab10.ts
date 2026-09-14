@@ -3,7 +3,7 @@
  * Full end-to-end: lifecycle + SSO + MFA + review + incident.
  */
 import { mkLabId } from '@/domain';
-import type { Lab, UserId } from '@/domain';
+import type { Lab, UserId, AppId } from '@/domain';
 
 export const LAB_10: Lab = {
   id: mkLabId('lab10'),
@@ -12,7 +12,7 @@ export const LAB_10: Lab = {
   brief:
     'Build and operate the full identity environment. Onboard 5, move 2, terminate 1, configure SSO, enforce MFA, conduct access review, resolve an SSO outage and a security incident.',
   durationMinutes: 120,
-  zoneIds: ['hr', 'iam-ops', 'sec-ops', 'app-center', 'help-desk'],
+  zoneIds: ['hr', 'iam-ops', 'sec-ops', 'app-center', 'help-desk', 'executive'],
   startingZone: 'iam-ops',
   startingSeed: 'lab10',
   objectives: [
@@ -145,6 +145,18 @@ export const LAB_10: Lab = {
       applyAtStep: 's8',
       params: {},
       targetUserId: 'jane.doe' as UserId,
+    },
+    // s7's brief has claimed "an SSO fault has been injected" since this lab
+    // was written, but nothing ever injected one — app-finance stayed
+    // 'configured' the whole time. Once app-config-fixed started checking
+    // the fixing event instead of just polling status, that made the step
+    // genuinely unreachable rather than merely too easy.
+    {
+      id: 'f3',
+      kind: 'wrong-redirect-uri',
+      applyAtStep: 's7',
+      params: {},
+      targetAppId: 'app-finance' as AppId,
     },
   ],
   debriefQuestions: [

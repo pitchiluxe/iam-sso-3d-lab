@@ -1,5 +1,10 @@
 /**
  * labs/lab03.ts — RBAC & Least Privilege.
+ *
+ * The core RBAC lesson is authentication vs. authorization: signing in
+ * proves who you are, an allowed write proves what you're authorized to do.
+ * s3 and s5 make that contrast explicit — Jane's allowed write, Alex's
+ * denied one — rather than leaving authorization implicit in a sign-in check.
  */
 import { mkLabId } from '@/domain';
 import type { Lab, UserId } from '@/domain';
@@ -9,8 +14,8 @@ export const LAB_03: Lab = {
   number: 3,
   title: 'RBAC & Least Privilege',
   brief:
-    "Finance needs payroll access. Discover and remove Bob's standing admin privilege. Test the denial path.",
-  durationMinutes: 40,
+    "Finance needs payroll access. Discover and remove Bob's standing admin privilege. Prove the allow path and the deny path both work as designed.",
+  durationMinutes: 45,
   zoneIds: ['finance', 'iam-ops'],
   startingZone: 'finance',
   startingSeed: 'lab03',
@@ -24,12 +29,18 @@ export const LAB_03: Lab = {
     },
     {
       id: 'o3',
+      description: 'Prove Jane can perform the allowed action',
+      points: 8,
+      category: 'evidence',
+    },
+    {
+      id: 'o4',
       description: "Discover and remove Bob's excess priv",
       points: 10,
       category: 'least-privilege',
     },
-    { id: 'o4', description: 'Test and document denied action', points: 5, category: 'exec' },
-    { id: 'o5', description: 'Document the authorization model', points: 5, category: 'docs' },
+    { id: 'o5', description: 'Test and document denied action', points: 8, category: 'exec' },
+    { id: 'o6', description: 'Document the authorization model', points: 6, category: 'docs' },
   ],
   steps: [
     {
@@ -57,6 +68,20 @@ export const LAB_03: Lab = {
     },
     {
       id: 's3',
+      title: 'Prove the allowed action actually works',
+      brief:
+        'Signing in only proves authentication. As Jane, perform a payroll write in the Finance Portal and confirm it succeeds. Capture the result as evidence.',
+      validator: { kind: 'evidence-collected', params: { stepId: 's3' } },
+      evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
+      tutorPrompts: [
+        'What is the difference between "Jane can sign in" and "Jane is authorized to write payroll"?',
+        'If the write silently failed, would the sign-in check from the last step have caught it?',
+      ],
+      hintIds: ['lab03.s3.h1'],
+      points: { evidence: 6, exec: 2 },
+    },
+    {
+      id: 's4',
       title: "Discover and remove Bob's standing admin privilege",
       brief:
         'Bob has role-domain-admin standing. Find it, understand the risk, revoke it, document the removal.',
@@ -68,19 +93,35 @@ export const LAB_03: Lab = {
       tutorPrompts: [
         'What is the risk of a standing privileged account? How would an attacker use it?',
       ],
-      hintIds: ['lab03.s3.h1'],
+      hintIds: ['lab03.s4.h1'],
       points: { exec: 5, 'least-privilege': 10, docs: 5 },
     },
     {
-      id: 's4',
+      id: 's5',
       title: 'Test the denial path',
       brief:
         'Attempt a payroll write action as Alex Morgan (who has read-only access). Expect denied. Capture the audit log.',
       validator: { kind: 'fault-cleared', params: { kind: 'excessive-permissions' } },
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 5 } }],
-      tutorPrompts: ["If Alex can't write, what is the correct next step?"],
-      hintIds: ['lab03.s4.h1'],
+      tutorPrompts: [
+        "If Alex can't write, what is the correct next step?",
+        "Jane's write succeeded and Alex's was denied — same portal, same action. What single difference explains both outcomes?",
+      ],
+      hintIds: ['lab03.s5.h1'],
       points: { exec: 5, troubleshoot: 5 },
+    },
+    {
+      id: 's6',
+      title: 'Document the authorization model',
+      brief:
+        'Write up how authorization actually works here: role → group → user, why Bob was a risk, and how the allow/deny test proves the model is enforced, not just configured.',
+      validator: { kind: 'evidence-collected', params: { stepId: 's6' } },
+      evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
+      tutorPrompts: [
+        'If a new hire asked "how do I know what I can access", could your write-up answer it without reading the code?',
+      ],
+      hintIds: ['lab03.s6.h1'],
+      points: { docs: 6 },
     },
   ],
   faults: [
@@ -95,5 +136,6 @@ export const LAB_03: Lab = {
   debriefQuestions: [
     'If a group membership can grant a role, where does authorization actually happen?',
     'What is the blast radius of assigning permissions directly to users instead of via roles?',
+    'Authentication proved Jane is Jane. What proved she was authorized to write payroll — and why are those two checks not the same thing?',
   ],
 };

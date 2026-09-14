@@ -51,12 +51,22 @@ export function renderTerminalWindow(body: HTMLElement, conductor: Conductor): v
    * directory nobody was looking at any more and still reported success.
    */
   const currentCtx = (): CapabilityContext | null => {
-    if (!conductor.dir || !conductor.idp || !conductor.audit || !conductor.tickets) return null;
+    if (
+      !conductor.dir ||
+      !conductor.idp ||
+      !conductor.audit ||
+      !conductor.tickets ||
+      !conductor.apps
+    )
+      return null;
     return {
       dir: conductor.dir,
       idp: conductor.idp,
       tickets: conductor.tickets,
       audit: conductor.audit,
+      apps: conductor.apps,
+      oauthGrants: conductor.oauthGrants,
+      cloudRoles: conductor.cloudRoles,
       actor: 'system' as UserId,
     };
   };

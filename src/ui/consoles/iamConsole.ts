@@ -455,6 +455,9 @@ function renderIAMConsoleInner(body: HTMLElement, conductor: Conductor) {
       idp,
       tickets: conductor.tickets,
       audit,
+      apps: conductor.apps,
+      oauthGrants: conductor.oauthGrants,
+      cloudRoles: conductor.cloudRoles,
       actor: 'system' as UserId,
     };
     const capDeps = {
@@ -470,6 +473,9 @@ function renderIAMConsoleInner(body: HTMLElement, conductor: Conductor) {
       ['users', 'Lifecycle — Move / Transfer'],
       ['credentials', 'Credentials & Recovery'],
       ['access', 'Access & Sessions'],
+      ['apps', 'Application Configuration'],
+      ['oauth', 'OAuth App Governance'],
+      ['cloud', 'Cloud IAM Roles'],
     ] as const) {
       // Skip anything the bespoke forms above already render, so the generated
       // sections contain exactly what the console was previously missing.

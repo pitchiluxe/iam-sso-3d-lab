@@ -67,9 +67,16 @@ describe('every lab step can be completed by following its brief', () => {
         .filter((s) => NEEDS_EXISTING_STATE.has(s.validator.kind))
         .map((s) => `${lab.id}/${s.id} validates ${s.validator.kind}`),
     );
-    // Recorded rather than banned: a lab that seeds a session may use it. If
-    // this list grows, check the seed opens a session for that account.
-    expect(risky.length).toBeLessThanOrEqual(1);
+    // Recorded rather than banned: a step may use session-revoked if a
+    // session actually gets created first — either by the seed, or by the
+    // step's own brief instructing the learner to sign the account in
+    // before revoking. If this list grows, verify one of those two holds.
+    // lab02/s4 (bob.sato): seed/perLab/lab02.ts signs Bob in during setup.
+    // lab09/s4 (hank.oneill): the brief instructs signing Hank in via
+    // Verify Authentication before revoking — nothing else in the lab ever
+    // creates a session for him, so without that instruction this was
+    // unreachable (confirmed and fixed; see lab09PIM.test.ts).
+    expect(risky.length).toBeLessThanOrEqual(2);
   });
 
   it('gives a termination step a validator that a termination produces', () => {

@@ -53,7 +53,7 @@ describe('LAB_TEMPLATES', () => {
       const tickets = new MockTicketQueue(audit);
       applyBaseline(dir, idp, apps);
       expect(() => {
-        t.seed?.({ dir, idp, apps, tickets, reviews: undefined as never, incidents: undefined as never, audit });
+        t.seed?.({ dir, idp, apps, tickets, reviews: undefined as never, incidents: undefined as never, oauthGrants: undefined as never, cloudRoles: undefined as never, audit });
       }).not.toThrow();
     }
   });
@@ -100,7 +100,7 @@ describe('BATCH_TEMPLATES', () => {
         (_, i) => `test-${bt.id}-${String(i + 1).padStart(3, '0')}`,
       );
       expect(() => {
-        bt.seed({ dir, idp, apps, tickets, reviews: undefined as never, incidents: undefined as never, audit }, ticketIds);
+        bt.seed({ dir, idp, apps, tickets, reviews: undefined as never, incidents: undefined as never, oauthGrants: undefined as never, cloudRoles: undefined as never, audit }, ticketIds);
       }).not.toThrow();
       // After seeding, the ticket queue must contain exactly bt.ticketCount tickets.
       // buildBatchSeed uses a fallback requester so no ticket is ever silently skipped.

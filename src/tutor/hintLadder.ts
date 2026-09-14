@@ -80,12 +80,36 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'Remove Jane from grp-finance-payroll (and grp-finance-analysts), add her to grp-engineering-dev.',
     },
     s3: {
-      nudge: 'Termination has three parts: disable, revoke, remove.',
-      question: 'Why is disabling the account not enough? What else could Bob still do?',
+      nudge: 'Performing the move and proving the move happened are two different things.',
+      question:
+        'Doing the transfer emits its own audit events. What would you check that is not already covered by those events?',
       approach:
-        'IAM Console → use Group Membership to remove Bob from all groups, then verify sign-in fails.',
+        "Check Jane's group list in the IAM Console (no finance groups left) and capture that as the evidence for this step.",
       solution:
-        'Remove Bob from every group. The validator requires sign-in.succeeded for him — once he is out of all groups, sign-in fails.',
+        'Open the IAM Console, confirm jane.doe has zero finance groups and holds grp-engineering-dev, then capture a snapshot tagged to this step.',
+    },
+    s4: {
+      nudge: 'Termination starts with the account itself. What state should it be in?',
+      question: 'What does "disabled" actually block, and what does it not block?',
+      approach: 'IAM Console → disable bob.sato, then verify sign-in fails for him.',
+      solution: 'Disable bob.sato in the IAM Console. The validator fires on user.disabled.',
+    },
+    s5: {
+      nudge: 'A disabled account can still hold a session it opened before it was disabled.',
+      question:
+        'If Bob was signed in five minutes before termination, what is still valid right now?',
+      approach: 'IAM Console → Active Sessions → revoke every session for bob.sato.',
+      solution:
+        'Use Revoke-UserSession (or the Active Sessions form) against bob.sato. The validator fires on session.revoked.',
+    },
+    s6: {
+      nudge: 'Three tickets got worked. Nothing yet says who asked for what, or when.',
+      question:
+        'Six months from now, what would an auditor need to see to trust this was done correctly?',
+      approach:
+        'Write one note per ticket (or one combined note) naming the requester, the action taken, and the date, then capture it as evidence.',
+      solution:
+        "Write a change-log note covering Alex's onboarding, Jane's transfer, and Bob's termination — requester, action, date — then capture a snapshot tagged to this step.",
     },
   },
   lab03: {
@@ -111,6 +135,16 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
     },
     s3: {
       nudge:
+        'A sign-in proves identity, not permission. What would prove Jane can actually do the job she was granted access for?',
+      question:
+        'If the role-to-group wiring were subtly wrong, would the sign-in check from the last step have caught it?',
+      approach:
+        'As Jane, use the Finance Portal to perform a payroll write. Capture the successful result as evidence for this step.',
+      solution:
+        'Perform a payroll write as jane.doe, confirm it succeeds, then capture a snapshot tagged to this step.',
+    },
+    s4: {
+      nudge:
         'Standing privilege means a permission with no end date. Where would you look to see who has permanent access to dangerous actions?',
       question:
         'If Bob has role-domain-admin forever, what happens the day his laptop gets stolen?',
@@ -119,7 +153,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       solution:
         'SecOps → Roles → find role-domain-admin assigned to Bob → Revoke. Confirm via audit log that role.revoke was recorded.',
     },
-    s4: {
+    s5: {
       nudge:
         'A denied action is the proof that least privilege is working. Where would you see it recorded?',
       question:
@@ -129,27 +163,37 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       solution:
         'Open Finance Portal as Alex, attempt a payroll write, then read the SecOps Dashboard audit log for the denied entry.',
     },
+    s6: {
+      nudge:
+        'Three things happened: a role was wired through a group, a good write succeeded, a bad write was denied. Nothing yet says why in one place.',
+      question:
+        'If a new hire had to learn this system from a document instead of asking you, what would that document need to cover?',
+      approach:
+        "Write up the role → group → user chain, why Bob's standing admin was a risk, and what the allow/deny test proved.",
+      solution:
+        "Write a short authorization-model note: role-finance-payroll-writer flows through grp-finance-payroll to any member; direct role grants (like Bob's) bypass that and are the risk; the Jane/Alex test proves enforcement, not just configuration. Capture it as evidence for this step.",
+    },
   },
   lab04: {
     s1: {
       nudge:
         'A SAML client trusts the IdP to assert who a user is. What two things does the SAML config need to exchange first?',
       question:
-        'If the IdP and SP cannot agree on a signing certificate, what happens to the assertion?',
+        'The app started unconfigured, not missing — what does that tell you about where to look?',
       approach:
-        'IAM Console → Applications → register Finance Portal as SAML. Set the ACS URL, entity ID, and download the IdP metadata.',
+        'IAM Console → Application Configuration → Update App Configuration. App: app-finance, Field: entityId, then Field: redirectUri. Use the values from the brief.',
       solution:
-        'Register Finance Portal as a SAML SP: set ACS URL, entity ID, claim mapping (email + role). Download IdP metadata for the SP team.',
+        'Run Update App Configuration twice against app-finance: Field=entityId Value=urn:finance.northwind.example, then Field=redirectUri Value=https://finance.northwind.example/callback.',
     },
     s2: {
       nudge:
-        'OIDC is JSON over HTTPS, not XML over browser redirect. Where does the client secret live?',
+        'OIDC and SAML both end up as fields on the same app record here. Which two does the Help Desk Portal still need?',
       question:
-        'If the OIDC client secret is in source control, who else can impersonate your app?',
+        'If the OIDC issuer is wrong, does the login fail at the app, the IdP, or somewhere in between?',
       approach:
-        'IAM Console → Applications → register Help Desk Portal as OIDC. Configure client ID, client secret, redirect URI, and scopes (openid, email, profile).',
+        'IAM Console → Application Configuration → Update App Configuration. App: app-helpdesk-portal, Field: redirectUri, then Field: issuer.',
       solution:
-        'Register Help Desk Portal as OIDC: client_id, client_secret (store in vault), redirect_uri, scopes openid+email+profile.',
+        'Run Update App Configuration twice against app-helpdesk-portal: Field=redirectUri Value=https://helpdesk.northwind.example/callback, then Field=issuer Value=https://idp.northwind.example/realms/northwind.',
     },
     s3: {
       nudge:
@@ -169,6 +213,26 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'Sign in to both Finance Portal and Help Desk Portal. Confirm role claims are present in the sessions. Capture audit logs.',
       solution:
         'Use Verify Sign-in for both portals. Confirm the audit log shows signin.succeeded with the right portal ID and role claim.',
+    },
+    s5: {
+      nudge:
+        'A failed sign-in page is not a dead end — it names the exact field that no longer matches.',
+      question:
+        'Erin could sign in one step ago and cannot now. What changed on the app, not on Erin?',
+      approach:
+        'Attempt sign-in on Finance Portal, read the "Configuration mismatch" panel, then Update App Configuration with the Field and Value it names.',
+      solution:
+        'The mismatch panel names Field=redirectUri and the expected value. Run Update App Configuration: App=app-finance, Field=redirectUri, Value=https://finance.northwind.example/callback.',
+    },
+    s6: {
+      nudge:
+        'Two configs and one incident happened. Nothing yet ties the incident back to a cause a future on-call could search for.',
+      question:
+        'If this exact redirect-URI fault recurred at 2 AM, what would your document need to say for someone else to fix it in five minutes?',
+      approach:
+        'Write up both app configs (protocol, entity ID/issuer, redirect URI, claim mapping) plus the fault: what broke, how you found it, how you fixed it.',
+      solution:
+        'Document: Finance Portal (SAML, entityId, redirectUri), Help Desk (OIDC, issuer, redirectUri), role-claim mapping, and the redirect-URI incident (symptom → mismatch panel → fixed field). Capture it as evidence for this step.',
     },
   },
   lab05: {
@@ -202,12 +266,32 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
     },
     s4: {
       nudge:
-        'A conditional access policy adds rules on top of authentication. Where do those rules live?',
-      question: 'If you block all foreign sign-ins, what about a user who is traveling?',
+        'A conditional access policy adds rules on top of authentication. What condition and what effect does a foreign-ASN block need?',
+      question: 'What signal would actually tell you a sign-in came from a foreign ASN?',
       approach:
-        'IAM Console → Conditional Access → New Policy → "Block foreign sign-ins" → save. Test with a simulated foreign IP.',
+        'Write the policy (condition: ASN not in trusted list, effect: block), then simulate a sign-in from that ASN and confirm it is denied. Capture the denial as evidence.',
       solution:
-        'IAM Console → Conditional Access → Create Policy CA-001: condition = country != US, effect = block. Test with a foreign IP mock.',
+        'Design CA-001: condition = ASN not in trusted list, effect = block. Simulate a foreign-ASN sign-in, confirm signin.failure with a conditional-block reason, and capture a snapshot tagged to this step.',
+    },
+    s5: {
+      nudge:
+        'The block from the last step is correct in general and wrong for one specific, known, upcoming case.',
+      question:
+        'If the exception is "allow this ASN" instead of "allow this user, from this ASN, until this date", who else benefits from it?',
+      approach:
+        'Add a named-user, time-boxed exception to CA-001 for the traveling executive. Confirm the block still holds for everyone else from that ASN.',
+      solution:
+        "Add an exception scoped to the executive's user ID and an expiry date, not the ASN itself. Verify a different user from the same ASN is still blocked. Capture it as evidence for this step.",
+    },
+    s6: {
+      nudge:
+        'MFA rollout, a fixed prompt loop, a CA block, and an exception all happened. Nothing yet explains the exception to someone who did not watch you add it.',
+      question:
+        'If the exception outlived its expiry and nobody remembered why it existed, what would your document need to have said?',
+      approach:
+        'Write up: which roles require MFA, the prompt-loop root cause and fix, the CA block policy, and the exception with its expiry and justification.',
+      solution:
+        "Document all four pieces: MFA-required roles, the prompt-loop cause (clock/secret mismatch) and fix, CA-001's condition and effect, and the executive exception's scope and expiry. Capture it as evidence for this step.",
     },
   },
   lab06: {
@@ -229,14 +313,25 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'SecOps → Users → sort by group count → for each user over 5 groups, identify which groups do not match their department/title.',
     },
     s3: {
-      nudge: 'A review decision is keep, remove, or remediate. What evidence do you record?',
-      question: 'If you keep a permission, can you explain why in one sentence?',
+      nudge:
+        'Not every group is equal risk. Which of the 8 pending items grant something an attacker would want first?',
+      question:
+        'If you only had time to carefully review 2 of the 8 items, which 2 would you pick and why?',
       approach:
-        'For each flagged user/group, open the review record and pick one of: keep (justified), remove (action), or remediate (with note). Save the decision.',
+        'Look through the 8 pending decisions in SecOps Dashboard → Access Reviews. Flag the ones granting grp-iam-admins or grp-helpdesk-tier1 as privileged.',
       solution:
-        'For each row in the access review queue, pick an action (keep/remove/remediate), write one sentence, save. Aim for 8 decisions.',
+        "Identify Ivy Park's grp-iam-admins and grp-helpdesk-tier1 items as the privileged-access items in this campaign. Capture that as evidence for this step.",
     },
     s4: {
+      nudge:
+        'A review decision is approve or revoke, one row at a time — not one button for the whole batch.',
+      question: "If you click 'approve everything', what happens to Bob's two flagged items?",
+      approach:
+        'For each of the 8 rows, use its Approve or Revoke button — 6 approve, 2 revoke (Bob\'s dormant and excessive memberships). "Accept all remaining recommendations" only helps once you have actually looked at what each row recommends.',
+      solution:
+        "Approve the 6 legitimate items (Alex, Cara, Jane, Ivy×3) and Revoke Bob's two (grp-engineering-dev, grp-finance-analysts) using the per-row buttons.",
+    },
+    s5: {
       nudge: 'A campaign summary is what auditors read. What three things must it contain?',
       question: 'If an auditor asks "who approved this access", where is the answer?',
       approach:
@@ -266,13 +361,13 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
     },
     s3: {
       nudge:
-        'The fix has to match the root cause, not the symptom. Where do you confirm the root cause?',
+        'The fix has to match the root cause, not the symptom. Three tools exist: fix a field, restart a stuck service, or sync a clock — which one this run needs depends on what you saw in triage.',
       question:
-        'If users get 500 on /saml/acs, is the SAML config the cause, or is the IdP signing the wrong key?',
+        'If the failed sign-in showed a "Configuration mismatch" panel, is this a config problem or a connectivity problem? What if no panel appeared at all?',
       approach:
-        "Open the failing app's SAML config in the IAM Console. Compare the certificate fingerprint against the IdP's current signing cert.",
+        'If a mismatch panel named a field (redirectUri, cert.validUntil, clientSecret.match, claim.role, issuer): use Update App Configuration with that exact field. If the app shows offline with no field named: use Restart App Service. If nothing on the app looks wrong but sign-ins fail on timing/assertion validity: use Sync IdP Clock.',
       solution:
-        'IAM Console → Applications → Finance Portal → SAML → re-upload the correct IdP signing certificate. Save.',
+        'Match the tool to the symptom: Update App Configuration (field-level SAML/OIDC mismatches), Restart App Service (status: offline, no config diff), Sync IdP Clock (clock skew, no app-side symptom at all). Only one of the three will actually be the fault this run.',
     },
     s4: {
       nudge: 'A retest proves the fix worked. What log entries confirm that?',
@@ -315,22 +410,31 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
     },
     s4: {
       nudge:
+        'Every containment does not need the same response. What would make this one bigger than "one account, handled"?',
+      question:
+        'Step 3 found no other accounts touched by that ASN. Does that settle the escalation question, or just answer part of it?',
+      approach:
+        'Weigh what step 3 found — scope (one account vs. many), whether privilege escalation occurred, whether the pattern matches a known campaign — then record the decision and who you would notify if you escalated.',
+      solution:
+        'Record: "Not escalated — single account, no privilege escalation, no lateral movement found in step 3" (or the opposite, naming who gets notified and why). Capture it as evidence for this step.',
+    },
+    s5: {
+      nudge:
         'An incident report is read by management, legal, and auditors. What structure do they expect?',
       question: 'If the report omits the timeline, how does legal know what to disclose?',
       approach:
-        'Use the incident report template: summary, timeline (UTC), scope (accounts/data affected), containment, eradication, recovery, lessons learned.',
+        'Use the incident report template: summary, timeline (UTC), scope (accounts/data affected), containment, escalation decision, lessons learned.',
       solution:
-        'Write the report in 6 sections: summary, timeline, scope, containment, eradication, lessons learned. Attach audit log excerpts.',
+        'Write the report in 6 sections: summary, timeline, scope, containment, escalation decision, lessons learned. Attach audit log excerpts.',
     },
-    s5: {
+    s6: {
       nudge:
         'Closing an incident means the system is back to normal and the report is filed. What else?',
       question:
         'If you close the incident without scheduling a post-mortem, what improvement never happens?',
-      approach:
-        'Ticket Console → close incident → schedule post-mortem (calendar invite) → file report in the incident archive.',
+      approach: 'SecOps Dashboard → Incidents → once status is "recovered", click Close.',
       solution:
-        'Close the ticket, attach the report, set status=resolved, schedule a 30-min post-mortem with the on-call team.',
+        'Click "Mark recovered" then "Close" in the SecOps Dashboard incidents tab. Capture the closure as evidence.',
     },
   },
   lab09: {
@@ -360,12 +464,14 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'Open Ticket Console → New Request → PIM elevation → role=domain-admin → 1h → reason="incident response" → submit.',
     },
     s4: {
-      nudge: 'An elevated role must auto-revoke. Where do you confirm the timer ran?',
-      question: 'If the timer does not run, what happens the next day?',
+      nudge:
+        'A time-limited grant is only meaningful once someone actually uses it. What has to exist before it can expire?',
+      question:
+        'If Hank never signed in during the elevation window, what would revoking his sessions actually accomplish?',
       approach:
-        'After performing the admin action, wait for the timer. Check the audit log for role.revoke at the expected time.',
+        'IAM Console → Verify Authentication → sign in as hank.oneill (this is the session the elevation created). Then use Revoke-UserSession / Active Sessions to end it, simulating the 15-minute auto-expiry.',
       solution:
-        'Watch the audit log. At the 1-hour mark, confirm role.revoke for Hank. If it does not appear, file a fault.',
+        'Sign in as hank.oneill via Verify Authentication, then revoke his active session(s). The validator fires on session.revoked — with zero sessions open, revoking accomplishes nothing.',
     },
     s5: {
       nudge: 'A PAM policy is the written rule. Where does it live?',
@@ -632,6 +738,217 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'Schedule a planned recovery test: take IdP offline, sign in as bg-admin-1, perform one admin action, restore IdP, audit.',
       solution:
         'Planned test window → disable IdP sign-in for non-bg users → sign in as bg-admin-1 → restore IdP → audit log review → post-mortem.',
+    },
+  },
+  lab14: {
+    s1: {
+      nudge:
+        'Every grant on this list asked for scopes and got a "yes" from some user. What separates a reasonable "yes" from a dangerous one?',
+      question:
+        'TeamSync Meetings only asks to read calendars. What does the suspicious app ask for, and does that match what it claims to do?',
+      approach:
+        "Open IAM Console → OAuth App Governance → OAuth Consent Grants. Compare each grant's scopes, publisher, and grant time. One app requests mailbox and file-write access it has no obvious reason to need, from a publisher nobody recognizes, granted minutes ago.",
+      solution:
+        'QuickSign Docs — publisher "Bright Path Solutions (unverified)" — requests Mail.Read, Files.ReadWrite.All, and Contacts.Read, granted by dan.rivera 20 minutes ago. That is the grant to act on.',
+    },
+    s2: {
+      nudge: 'Detecting the grant and ending it are two different actions. Where do you end it?',
+      question: 'What does revoking a grant stop, and what has it already not undone?',
+      approach:
+        'IAM Console → OAuth App Governance → Revoke OAuth Grant. Identity: dan.rivera. App client ID: oauth-quicksign-docs.',
+      solution:
+        'Run Revoke OAuth Grant with Identity=dan.rivera, ClientId=oauth-quicksign-docs. This stops future access; anything already read or exfiltrated is a separate, already-done fact.',
+    },
+    s3: {
+      nudge:
+        'A phishing email is usually sent to more than one address. What would tell you if it landed on more than one victim?',
+      question:
+        "If you only look at Dan's grants, how would you ever notice a second person clicked the same link?",
+      approach:
+        'OAuth App Governance → OAuth Consent Grants (leave Identity blank to see everyone) → look for any other row with client ID oauth-quicksign-docs.',
+      solution:
+        'A second active grant for oauth-quicksign-docs exists under erin.cho, granted 35 minutes ago — same app, same scopes, a second victim of the same campaign.',
+    },
+    s4: {
+      nudge: 'You found a second victim. What is the same action you just took for the first one?',
+      question: 'Why would stopping after Dan have left the incident half-resolved?',
+      approach: 'Revoke OAuth Grant with Identity=erin.cho, ClientId=oauth-quicksign-docs.',
+      solution: 'Run Revoke OAuth Grant: Identity=erin.cho, ClientId=oauth-quicksign-docs.',
+    },
+    s5: {
+      nudge:
+        'Both known grants are gone. Is there anything stopping a third user from clicking "Accept" on the same app tomorrow?',
+      question: 'What is the difference between revoking a grant and blocking an app?',
+      approach: 'OAuth App Governance → Block OAuth App → ClientId: oauth-quicksign-docs.',
+      solution:
+        'Run Block OAuth App with ClientId=oauth-quicksign-docs. Revoking ends existing access; blocking prevents the next person from granting it in the first place.',
+    },
+    s6: {
+      nudge:
+        'Detection, two revokes, and a block all happened. Nothing yet says what Dan and Erin should be told, or what changes going forward.',
+      question:
+        'If admin-consent-required had already been enabled tenant-wide, would either user have been able to grant this app at all?',
+      approach:
+        'Write up: app name, scopes, both affected users, grant and revoke timestamps, the block action, and a recommendation to require admin approval for future third-party app consent.',
+      solution:
+        'Document QuickSign Docs (client oauth-quicksign-docs): scopes Mail.Read/Files.ReadWrite.All/Contacts.Read; victims dan.rivera and erin.cho; both revoked and the app blocked; recommend enabling admin-consent-required so users cannot self-approve high-risk scopes going forward. Capture it as evidence for this step.',
+    },
+  },
+  lab15: {
+    s1: {
+      nudge:
+        'A certificate has an expiry date whether anyone is watching it or not. Where would you see that date for each app?',
+      question:
+        'If two apps were issued certificates on the same day, would you expect them to expire close together?',
+      approach:
+        'IAM Console → Registered Applications. Note protocol and any visible config detail per app; identify which apps rely on certificate-backed trust.',
+      solution:
+        'Review the Registered Applications panel for Finance Portal (SAML) and Help Desk Portal (OIDC) — both are certificate-backed SSO integrations and candidates for expiry risk. Capture it as evidence for this step.',
+    },
+    s2: {
+      nudge:
+        'A failed sign-in page that shows a "Configuration mismatch" panel is telling you exactly what to fix, not just that something is wrong.',
+      question: 'What does the mismatch panel name as the expected value, and what field is that?',
+      approach:
+        'Attempt sign-in on Finance Portal, read the mismatch panel for the cert.validUntil field and expected date, then use Update App Configuration to set it.',
+      solution:
+        'Update App Configuration: App=app-finance, Field=cert.validUntil, Value=<the expected date shown on the mismatch panel>.',
+    },
+    s3: {
+      nudge: 'A fix on one app does not prove anything about a different app.',
+      question: 'Why sign in on Help Desk Portal too, if only Finance Portal was ever broken?',
+      approach: 'Sign in as Dan Rivera on Finance Portal, then as Erin Cho on Help Desk Portal.',
+      solution:
+        'Use Verify Authentication for dan.rivera on Finance Portal and erin.cho on Help Desk Portal — both must succeed.',
+    },
+    s4: {
+      nudge:
+        'Step 1 flagged a second app at risk. Nothing is broken there yet — that is exactly the point of doing this now instead of later.',
+      question:
+        'What is the cost difference between rotating this certificate now versus after it fails?',
+      approach:
+        'Update App Configuration: App=app-helpdesk-portal, Field=cert.validUntil, Value=a date at least a year out.',
+      solution:
+        'Run Update App Configuration with App=app-helpdesk-portal, Field=cert.validUntil, Value=<a far-future date, e.g. one year out>.',
+    },
+    s5: {
+      nudge:
+        'One reactive fix and one proactive rotation happened. Nothing yet says how the next expiry gets caught before it becomes an outage.',
+      question:
+        "If every certificate had a 30-day-out expiry alert, would this morning's Finance Portal outage have happened?",
+      approach:
+        "Write up: alert threshold (e.g. 30 days before expiry), who owns renewal, and the process that would have caught today's expiry in advance.",
+      solution:
+        'Document: alert 30 days before any cert.validUntil, renewal owned by IAM operations, tracked against the same Registered Applications inventory used in step 1. Capture it as evidence for this step.',
+    },
+  },
+  lab16: {
+    s1: {
+      nudge:
+        'A wrong password fails one person, once. What kind of failure hits several people at the same moment?',
+      question:
+        'These logons are domain workstations, not the SSO portal — what authentication protocol handles that, and what does it depend on that a password check does not?',
+      approach:
+        'Review the sign-in failure log for the affected users. Look at the timing and whether it clusters around one moment rather than being spread out.',
+      solution:
+        'Multiple users failing logon at the same clustered time, on domain-joined machines, points to something systemic in the authentication protocol itself — not individual bad passwords. Capture it as evidence for this step.',
+    },
+    s2: {
+      nudge:
+        'Kerberos issues time-stamped tickets and rejects ones that look impossibly old or from the future. What would make every ticket look wrong at once?',
+      question:
+        'Why would password authentication survive a clock drift that breaks Kerberos completely?',
+      approach: 'IAM Console → Application Configuration → Sync IdP Clock.',
+      solution:
+        "Run Sync IdP Clock. Kerberos tickets carry a timestamp and are rejected outside a narrow tolerance (~5 minutes by default) — resyncing the clock is the actual fix, not resetting any one user's credentials.",
+    },
+    s3: {
+      nudge:
+        'A lockout during an outage and a lockout from an attack look the same in the account status field. What tells them apart?',
+      question:
+        "If Greta's lockout coincides exactly with the clock-skew window, what does that timing tell you about the cause?",
+      approach: 'IAM Console → Unlock Account → Identity: greta.olsen.',
+      solution:
+        'Run Unlock Account for greta.olsen. The lockout timing matching the outage window is what supports "side effect," not "compromise" — document that reasoning in step 5.',
+    },
+    s4: {
+      nudge:
+        'Two separate fixes happened. A successful sign-in is the only thing that proves both actually worked together.',
+      question:
+        'If the clock fix worked but the unlock did not, what would this sign-in attempt show you?',
+      approach: 'Use Verify Authentication for greta.olsen.',
+      solution:
+        'Sign in as greta.olsen and confirm success — this depends on both the clock fix and the unlock.',
+    },
+    s5: {
+      nudge:
+        'One clock drifting caused a fleet-wide outage. Nothing yet explains why one bad clock has that much blast radius.',
+      question:
+        'If NTP had been monitored on the domain controller, would this have become an incident at all?',
+      approach:
+        "Write up: Kerberos's clock-tolerance mechanism, why it turned one drifting clock into a mass failure, and an NTP-monitoring recommendation.",
+      solution:
+        'Document: Kerberos rejects tickets outside its clock-skew tolerance (default ~5 min), so every ticket issued by a drifting DC fails at once — that is why it looked systemic rather than like isolated tickets. Recommend NTP monitoring with alerting on drift beyond a few minutes. Capture it as evidence for this step.',
+    },
+  },
+  lab17: {
+    s1: {
+      nudge:
+        'A role has two independent halves: what it can do, and who can become it. A problem in one says nothing about the other.',
+      question: 'The role is named "readonly" — does its permission list actually match that name?',
+      approach:
+        'Open IAM Console → Cloud IAM Roles. List prod-data-readonly and compare its permissions (s3:*, ec2:*, iam:PassRole) and trust policy (nearly every employee) against what a two-person data team actually needs.',
+      solution:
+        'prod-data-readonly grants far more than read access (ec2:*, iam:PassRole have nothing to do with reading data) and trusts far more people than the data team. Capture both findings as evidence for this step.',
+    },
+    s2: {
+      nudge:
+        'A wildcard is not a permission, it is the absence of a decision about which permissions are needed.',
+      question:
+        'What would iam:PassRole on a "read-only" role let someone do that has nothing to do with reading data?',
+      approach:
+        'Cloud IAM Roles → Scope Role Permissions. RoleName: prod-data-readonly. Permissions: s3:GetObject, s3:ListBucket.',
+      solution:
+        'Run Scope Role Permissions with RoleName=prod-data-readonly, Permissions=s3:GetObject, s3:ListBucket — dropping ec2:* and iam:PassRole entirely.',
+    },
+    s3: {
+      nudge:
+        'Trust and permission are separate settings on the same object — narrowing one does nothing to the other.',
+      question:
+        'If nine people were trusted and the role touches production data, what is the realistic blast radius of one compromised laptop?',
+      approach:
+        'Cloud IAM Roles → Scope Role Trust Policy. RoleName: prod-data-readonly. TrustedUsers: ivy.park, dan.rivera.',
+      solution:
+        'Run Scope Role Trust Policy with RoleName=prod-data-readonly, TrustedUsers=ivy.park, dan.rivera.',
+    },
+    s4: {
+      nudge: 'A narrowed trust policy should still work for the people it was actually meant for.',
+      question:
+        'Why test the allow case at all, if you already know Ivy is on the trust list you just wrote?',
+      approach:
+        'Cloud IAM Roles → Assume Cloud Role. RoleName: prod-data-readonly. Identity: ivy.park.',
+      solution:
+        'Run Assume Cloud Role with RoleName=prod-data-readonly, Identity=ivy.park — must succeed.',
+    },
+    s5: {
+      nudge:
+        'The negative test proves the policy actually excludes someone, not just that it includes the right people.',
+      question:
+        'If you only tested the allow case, would you actually know the trust policy was scoped correctly?',
+      approach:
+        'Cloud IAM Roles → Assume Cloud Role. RoleName: prod-data-readonly. Identity: bob.sato.',
+      solution:
+        'Run Assume Cloud Role with RoleName=prod-data-readonly, Identity=bob.sato — must be denied. A denial is still a recorded, auditable attempt.',
+    },
+    s6: {
+      nudge:
+        "Two separate defects got fixed and proven. Nothing yet explains, for someone who wasn't here, why the role looked the way it did and what it looks like now.",
+      question:
+        'If a new hire joined the data team next month, what would this document need to tell them to do?',
+      approach:
+        'Write up: the original wildcard permissions and over-broad trust, what each was scoped down to, and the allow/deny proof from steps 4 and 5.',
+      solution:
+        'Document: prod-data-readonly originally granted s3:*/ec2:*/iam:PassRole to nine users; scoped to s3:GetObject/s3:ListBucket for ivy.park and dan.rivera only; verified ivy.park can still assume it and bob.sato cannot. Capture it as evidence for this step.',
     },
   },
 };

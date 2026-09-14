@@ -8,7 +8,15 @@
  * enough for the learner to automate the work a ticket asks for.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MockAuditLog, MockDirectory, MockIdP, MockTicketQueue } from '@/services';
+import {
+  MockAuditLog,
+  MockDirectory,
+  MockIdP,
+  MockAppServer,
+  MockOAuthGrants,
+  MockCloudRoles,
+  MockTicketQueue,
+} from '@/services';
 import type { CapabilityContext } from '@/services';
 import { parseScript, runScript } from '@/terminal/script';
 
@@ -16,6 +24,9 @@ function makeCtx(): CapabilityContext {
   const audit = new MockAuditLog();
   const dir = new MockDirectory(audit);
   const idp = new MockIdP(audit, dir);
+  const apps = new MockAppServer(dir, idp, audit);
+  const oauthGrants = new MockOAuthGrants(audit);
+  const cloudRoles = new MockCloudRoles(audit);
   const tickets = new MockTicketQueue(audit);
   const admin = dir.createUser({
     username: 'admin',
@@ -26,7 +37,7 @@ function makeCtx(): CapabilityContext {
     mfa: 'none',
   });
   dir.createGroup('grp-finance-payroll', 'Payroll');
-  return { dir, idp, tickets, audit, actor: admin.id };
+  return { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: admin.id };
 }
 
 describe('parseScript', () => {

@@ -49,12 +49,15 @@ export function renderScriptEditorWindow(body: HTMLElement, conductor: Conductor
 
   /** Resolved per run: Conductor.start() replaces the service instances. */
   const currentCtx = (): CapabilityContext | null =>
-    conductor.dir && conductor.idp && conductor.audit && conductor.tickets
+    conductor.dir && conductor.idp && conductor.audit && conductor.tickets && conductor.apps
       ? {
           dir: conductor.dir,
           idp: conductor.idp,
           tickets: conductor.tickets,
           audit: conductor.audit,
+          apps: conductor.apps,
+          oauthGrants: conductor.oauthGrants,
+          cloudRoles: conductor.cloudRoles,
           actor: 'system' as UserId,
         }
       : null;

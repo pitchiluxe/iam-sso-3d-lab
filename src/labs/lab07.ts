@@ -5,10 +5,13 @@
 import { mkLabId } from '@/domain';
 import type { Lab, FaultKind, AppId } from '@/domain';
 
+// 'wrong-issuer' is deliberately excluded: its mutator no-ops on an app with
+// no `issuer` field, and the target here (app-finance) is SAML — issuer is
+// OIDC-only. Applying it silently broke nothing, leaving the fault
+// unreachable to fix and the step permanently stuck.
 const SSO_FAULTS: FaultKind[] = [
   'wrong-redirect-uri',
   'expired-cert',
-  'wrong-issuer',
   'wrong-client-secret',
   'wrong-claim-mapping',
   'clock-skew',
@@ -30,7 +33,7 @@ export const LAB_07: Lab = {
   brief:
     'At 09:05 AM employees report authentication errors on the Finance Portal. Triage, diagnose, and fix the SSO fault.',
   durationMinutes: 40,
-  zoneIds: ['iam-ops', 'app-center', 'sec-ops'],
+  zoneIds: ['iam-ops', 'app-center', 'sec-ops', 'network-ops'],
   startingZone: 'iam-ops',
   startingSeed: 'lab07',
   objectives: [
@@ -73,11 +76,17 @@ export const LAB_07: Lab = {
     {
       id: 's3',
       title: 'Identify and apply the fix',
-      brief: 'Use the IAM Console to correct the misconfigured field on the Finance Portal.',
-      validator: { kind: 'app-config-fixed', params: { appId: 'app-finance' } },
+      brief:
+        'Use "Update App Configuration" to correct the misconfigured field on the Finance Portal — or, if the fault reads as offline connectivity rather than a config mismatch, "Restart App Service." If the fault is clock skew (no config-diff panel appears at all), use "Sync IdP Clock" instead.',
+      // Validated against the specific fault this run drew, not against
+      // app.status alone — clock-skew never touches app-finance's config at
+      // all, so a status-only check could never fire for that draw regardless
+      // of what the learner did.
+      validator: { kind: 'fault-cleared', params: { kind: LAB_07_FAULT } },
       evidence: [{ kind: 'config-diff', capture: 'auto', params: { appId: 'app-finance' } }],
       tutorPrompts: [
         'What is the difference between the wrong issuer and a wrong redirect URI as failure modes?',
+        'If no configuration mismatch panel appears at all, what does that tell you about where the fault actually lives?',
       ],
       hintIds: ['lab07.s3.h1'],
       points: { exec: 5 },

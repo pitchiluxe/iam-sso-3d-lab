@@ -1,13 +1,23 @@
 /**
  * services/mockAccessReviews.ts — periodic access review campaigns.
  * Each campaign has a list of decisions per (userId, groupId[, roleId]).
+ *
+ * recordDecision() and close() emit real audit events. They used not to —
+ * this class had no audit dependency at all — so the 'review-decisions-recorded'
+ * validator, which only fires on an incoming audit event, had nothing to react
+ * to: clicking through a whole campaign never advanced the step on its own,
+ * only an unrelated event happening to fire afterward could trigger the
+ * re-check.
  */
 import { nanoid } from 'nanoid';
 import type { AccessReview, AccessReviewDecision, ReviewId, UserId } from '@/domain';
 import { mkReviewId } from '@/domain';
+import type { MockAuditLog } from './mockAuditLog';
 
 export class MockAccessReviews {
   private reviews = new Map<ReviewId, AccessReview>();
+
+  constructor(private readonly audit?: MockAuditLog) {}
 
   openCampaign(c: { campaign: string; openedAt: number; dueAt: number }): AccessReview {
     const id = mkReviewId(nanoid(10));
@@ -46,12 +56,25 @@ export class MockAccessReviews {
       r.decisions.push({ ...d, decidedAt: Date.now() });
     }
     r.status = 'in-progress';
+    this.audit?.record({
+      actorId: d.decidedBy,
+      action: 'review.decision',
+      targetId: d.groupId ?? d.roleId,
+      subjectId: d.userId,
+      diff: { campaign: r.campaign, decision: d.decision },
+    });
   }
 
   close(id: ReviewId): void {
     const r = this.reviews.get(id);
     if (!r) return;
     r.status = 'closed';
+    this.audit?.record({
+      actorId: 'system' as UserId,
+      action: 'review.closed',
+      targetId: id,
+      diff: { campaign: r.campaign, decisions: r.decisions.length },
+    });
   }
 
   list(): AccessReview[] {

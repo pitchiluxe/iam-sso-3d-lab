@@ -18,7 +18,10 @@ export type ZoneId =
   | 'finance'
   | 'engineering'
   | 'app-center'
-  | 'reception';
+  | 'reception'
+  | 'server-room'
+  | 'network-ops'
+  | 'executive';
 
 export interface ConsoleAnchor {
   /** Unique id used by the UI. */
@@ -963,6 +966,345 @@ const RECEPTION: ZoneBlueprint = {
 };
 
 /* -------------------------------------------------------------------------- */
+/* Server Room — cold-aisle rack row.                                         */
+/* Five labeled racks (DC, DNS, IdP, Database, App Servers) — the physical    */
+/* infrastructure other zones' consoles talk to. Blue cold-aisle lighting,   */
+/* raised-floor grid, one on-call engineer's workstation near the door.     */
+/* -------------------------------------------------------------------------- */
+const SERVER_ROOM: ZoneBlueprint = {
+  id: 'server-room',
+  displayName: 'Server Room',
+  spawnPoint: new THREE.Vector3(0, 1.7, 8),
+  spawnLookAt: new THREE.Vector3(0, 1.5, 0),
+
+  build() {
+    const g = new THREE.Group();
+    g.name = 'zone:server-room';
+    const consoles: ConsoleAnchor[] = [];
+
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#12151a', roughness: 0.85 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#1a1e24', roughness: 0.9 });
+    const mAccent = new THREE.MeshStandardMaterial({
+      color: '#5ab4ec',
+      roughness: 0.5,
+      emissive: '#0a2a3a',
+      emissiveIntensity: 0.4,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.7 });
+    const mRack = new THREE.MeshStandardMaterial({
+      color: '#16191e',
+      roughness: 0.4,
+      metalness: 0.5,
+    });
+
+    // Raised floor + cold-aisle grid
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    g.add(floor);
+    const grid = new THREE.GridHelper(20, 40, '#2a3038', '#1a1e24');
+    (grid.material as THREE.LineBasicMaterial).transparent = true;
+    (grid.material as THREE.LineBasicMaterial).opacity = 0.5;
+    g.add(grid);
+
+    // Walls
+    for (const [x, z, rw, rh, rd] of [
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
+    ] as [number, number, number, number, number][]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
+      wall.position.set(x, 2, z);
+      wall.receiveShadow = true;
+      g.add(wall);
+    }
+
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 0.4), mAccent);
+    beam.position.set(0, 3.9, -5);
+    g.add(beam);
+
+    const sign = props.makeWallSign('SERVER ROOM — RESTRICTED', 6, 0.6, '#5ab4ec', '#0e1116');
+    sign.position.set(0, 3.5, -9.9);
+    g.add(sign);
+
+    // Five labeled racks along the back wall: Domain Controller, DNS, IdP,
+    // Database, Application Servers — the physical infrastructure every
+    // other zone's console is actually talking to.
+    const rackSpecs: Array<{ label: string; leds: string[] }> = [
+      { label: 'DOMAIN CONTROLLER', leds: ['#5ab4ec', '#0d1014', '#5ab4ec'] },
+      { label: 'DNS', leds: ['#4ec9b0', '#0d1014', '#4ec9b0', '#0d1014'] },
+      { label: 'IDENTITY PROVIDER', leds: ['#c9a96e', '#c9a96e', '#0d1014'] },
+      { label: 'DATABASE', leds: ['#e06c75', '#0d1014', '#0d1014'] },
+      { label: 'APPLICATION SERVERS', leds: ['#5ab4ec', '#4ec9b0', '#5ab4ec', '#4ec9b0'] },
+    ];
+    const rackSpacing = 3.4;
+    const startX = -((rackSpecs.length - 1) * rackSpacing) / 2;
+    rackSpecs.forEach((spec, i) => {
+      const x = startX + i * rackSpacing;
+      const rack = props.makeServerRack(1.2, 2.4, 0.8, mRack, spec.leds);
+      rack.position.set(x, 0, -8.5);
+      g.add(rack);
+      const label = props.makeWallSign(spec.label, 2.4, 0.4, '#0d1014', '#5ab4ec');
+      label.position.set(x, 2.65, -8.9);
+      g.add(label);
+    });
+
+    // On-call engineer's desk near the entrance
+    const desk = props.makeDesk(2.4, 0.9, 1.2, mDesk);
+    desk.position.set(-6, 0, 3);
+    g.add(desk);
+    const screen = props.makeLockScreenMonitor(1.4, 0.9);
+    screen.position.set(-6, 0.9, 2.55);
+    screen.userData.interactable = 'workstation';
+    g.add(screen);
+    g.add(
+      props.makeChair(
+        'office',
+        new THREE.MeshStandardMaterial({ color: '#2d343d', roughness: 0.8 }),
+      ),
+    );
+    g.children[g.children.length - 1]!.position.set(-6, 0, 4.4);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI;
+
+    // Cold cold-aisle lighting — blue-white, low ambient warmth
+    const coldLight1 = new THREE.PointLight(0xbfe0ff, 0.5, 12);
+    coldLight1.position.set(-4, 3.5, -6);
+    g.add(coldLight1);
+    const coldLight2 = new THREE.PointLight(0xbfe0ff, 0.5, 12);
+    coldLight2.position.set(4, 3.5, -6);
+    g.add(coldLight2);
+
+    return { group: g, consoles };
+  },
+};
+
+/* -------------------------------------------------------------------------- */
+/* Network Operations — NOC with a monitor wall and router/switch racks.      */
+/* Amber/green status lighting, curved ops desk facing a bank of screens.    */
+/* -------------------------------------------------------------------------- */
+const NETWORK_OPS: ZoneBlueprint = {
+  id: 'network-ops',
+  displayName: 'Network Operations',
+  spawnPoint: new THREE.Vector3(0, 1.7, 8),
+  spawnLookAt: new THREE.Vector3(0, 1.5, 0),
+
+  build() {
+    const g = new THREE.Group();
+    g.name = 'zone:network-ops';
+    const consoles: ConsoleAnchor[] = [];
+
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#161310', roughness: 0.9 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#201c18', roughness: 0.9 });
+    const mAccent = new THREE.MeshStandardMaterial({
+      color: '#e8a33d',
+      roughness: 0.4,
+      emissive: '#3d2a08',
+      emissiveIntensity: 0.5,
+    });
+    const mDesk = new THREE.MeshStandardMaterial({ color: '#2a241c', roughness: 0.7 });
+    const mRack = new THREE.MeshStandardMaterial({
+      color: '#18140f',
+      roughness: 0.5,
+      metalness: 0.5,
+    });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    g.add(floor);
+
+    for (const [x, z, rw, rh, rd] of [
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
+    ] as [number, number, number, number, number][]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
+      wall.position.set(x, 2, z);
+      wall.receiveShadow = true;
+      g.add(wall);
+    }
+
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 0.4), mAccent);
+    beam.position.set(0, 3.9, -5);
+    g.add(beam);
+
+    const sign = props.makeWallSign('NETWORK OPERATIONS CENTER', 6, 0.6, '#e8a33d', '#0e1116');
+    sign.position.set(0, 3.5, -9.9);
+    g.add(sign);
+
+    // Monitor wall — a 3x2 grid of screens showing network health, above the
+    // routers/switches they're monitoring.
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 3; col++) {
+        const mon = props.makeLockScreenMonitor(1.5, 0.9);
+        mon.position.set(-3 + col * 3, 2.6 - row * 1.1, -9.6);
+        g.add(mon);
+      }
+    }
+
+    // Router/switch racks beneath the monitor wall
+    const rackLabels = ['CORE ROUTER', 'FIREWALL', 'DNS RESOLVER', 'VPN CONCENTRATOR'];
+    const rackLeds = [
+      ['#e8a33d', '#4ec9b0', '#e8a33d'],
+      ['#f48771', '#0d1014', '#4ec9b0'],
+      ['#4ec9b0', '#4ec9b0', '#0d1014'],
+      ['#e8a33d', '#4ec9b0', '#0d1014'],
+    ];
+    const spacing = 3.2;
+    const startX = -((rackLabels.length - 1) * spacing) / 2;
+    rackLabels.forEach((label, i) => {
+      const x = startX + i * spacing;
+      const rack = props.makeServerRack(1.0, 1.8, 0.7, mRack, rackLeds[i]!);
+      rack.position.set(x, 0, -6.5);
+      g.add(rack);
+      const tag = props.makeWallSign(label, 2.0, 0.35, '#0d1014', '#e8a33d');
+      tag.position.set(x, 2.05, -6.9);
+      g.add(tag);
+    });
+
+    // Curved NOC desk facing the monitor wall
+    const deskTop = new THREE.Mesh(new THREE.BoxGeometry(7, 0.06, 1.8), mDesk);
+    deskTop.position.set(0, 0.93, -2);
+    deskTop.castShadow = true;
+    g.add(deskTop);
+    for (const x of [-3, 0, 3]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), mAccent);
+      leg.position.set(x, 0.45, -2);
+      g.add(leg);
+    }
+    const deskMon = props.makeLockScreenMonitor(1.4, 0.9);
+    deskMon.position.set(0, 0.93, -2.5);
+    deskMon.userData.interactable = 'workstation';
+    g.add(deskMon);
+    g.add(
+      props.makeChair(
+        'office',
+        new THREE.MeshStandardMaterial({ color: '#2a241c', roughness: 0.8 }),
+      ),
+    );
+    g.children[g.children.length - 1]!.position.set(0, 0, -0.5);
+    g.children[g.children.length - 1]!.rotation.y = Math.PI;
+
+    const amberLight = new THREE.PointLight(0xe8a33d, 0.5, 10);
+    amberLight.position.set(-6, 3, 2);
+    g.add(amberLight);
+    const greenLight = new THREE.PointLight(0x4ec9b0, 0.4, 10);
+    greenLight.position.set(6, 3, 2);
+    g.add(greenLight);
+
+    return { group: g, consoles };
+  },
+};
+
+/* -------------------------------------------------------------------------- */
+/* Executive / Management — a boardroom.                                      */
+/* Warm wood/glass palette, long conference table, wall display for reports. */
+/* -------------------------------------------------------------------------- */
+const EXECUTIVE: ZoneBlueprint = {
+  id: 'executive',
+  displayName: 'Executive Suite',
+  spawnPoint: new THREE.Vector3(0, 1.7, 8),
+  spawnLookAt: new THREE.Vector3(0, 1.5, 0),
+
+  build() {
+    const g = new THREE.Group();
+    g.name = 'zone:executive';
+    const consoles: ConsoleAnchor[] = [];
+
+    const mFloor = new THREE.MeshStandardMaterial({ color: '#3a2c20', roughness: 0.5 });
+    const mWall = new THREE.MeshStandardMaterial({ color: '#2a2420', roughness: 0.8 });
+    const mAccent = new THREE.MeshStandardMaterial({
+      color: '#c9a96e',
+      roughness: 0.3,
+      metalness: 0.4,
+      emissive: '#3d2e10',
+      emissiveIntensity: 0.3,
+    });
+    const mTable = new THREE.MeshStandardMaterial({ color: '#4a2f1f', roughness: 0.25 });
+    const mChair = new THREE.MeshStandardMaterial({ color: '#1a1a1a', roughness: 0.6 });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mFloor);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    g.add(floor);
+
+    for (const [x, z, rw, rh, rd] of [
+      [0, -10, 20, 4, 0.3],
+      [-10, 0, 0.3, 4, 20],
+      [10, 0, 0.3, 4, 20],
+    ] as [number, number, number, number, number][]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, rd), mWall);
+      wall.position.set(x, 2, z);
+      wall.receiveShadow = true;
+      g.add(wall);
+    }
+
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(20, 0.15, 0.4), mAccent);
+    beam.position.set(0, 3.9, -5);
+    g.add(beam);
+
+    const sign = props.makeWallSign('EXECUTIVE SUITE', 5, 0.6, '#c9a96e', '#2d1f10');
+    sign.position.set(0, 3.5, -9.9);
+    g.add(sign);
+
+    // Wall display for the quarterly audit report / capstone briefing
+    const display = props.makeWhiteboard(
+      4,
+      2.2,
+      new THREE.MeshStandardMaterial({ color: '#0e1116', roughness: 0.2, metalness: 0.3 }),
+    );
+    display.position.set(0, 0.4, -9.85);
+    g.add(display);
+
+    // Long conference table
+    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 2.2), mTable);
+    tableTop.position.set(0, 0.9, -2.5);
+    tableTop.castShadow = true;
+    g.add(tableTop);
+    for (const [x, z] of [
+      [-2.8, -1.6],
+      [2.8, -1.6],
+      [-2.8, -3.4],
+      [2.8, -3.4],
+    ]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.12), mAccent);
+      leg.position.set(x!, 0.45, z!);
+      g.add(leg);
+    }
+
+    // Chairs around the table
+    for (const [x, z, ry] of [
+      [-2, -1.3, Math.PI],
+      [0, -1.3, Math.PI],
+      [2, -1.3, Math.PI],
+      [-2, -3.7, 0],
+      [0, -3.7, 0],
+      [2, -3.7, 0],
+    ] as [number, number, number][]) {
+      const chair = props.makeChair('office', mChair);
+      chair.position.set(x, 0, z);
+      chair.rotation.y = ry;
+      g.add(chair);
+    }
+
+    // Warm accent lighting — boardroom, not ops center
+    const warmLight1 = new THREE.PointLight(0xffe8b0, 0.5, 10);
+    warmLight1.position.set(-4, 3.5, -3);
+    g.add(warmLight1);
+    const warmLight2 = new THREE.PointLight(0xffe8b0, 0.5, 10);
+    warmLight2.position.set(4, 3.5, -3);
+    g.add(warmLight2);
+
+    g.add(props.makePlant('tree'));
+    g.children[g.children.length - 1]!.position.set(-8, 0, 5);
+    g.add(props.makePlant('tree'));
+    g.children[g.children.length - 1]!.position.set(8, 0, 5);
+
+    return { group: g, consoles };
+  },
+};
+
+/* -------------------------------------------------------------------------- */
 /* Registry                                                                   */
 /* -------------------------------------------------------------------------- */
 export const ZONE_BLUEPRINTS: Record<ZoneId, ZoneBlueprint> = {
@@ -974,6 +1316,9 @@ export const ZONE_BLUEPRINTS: Record<ZoneId, ZoneBlueprint> = {
   engineering: ENGINEERING,
   'app-center': APP_CENTER,
   reception: RECEPTION,
+  'server-room': SERVER_ROOM,
+  'network-ops': NETWORK_OPS,
+  executive: EXECUTIVE,
 };
 
 export const listZones = (): ZoneId[] => Object.keys(ZONE_BLUEPRINTS) as ZoneId[];
@@ -987,4 +1332,6 @@ export const IT_ZONE_IDS: ReadonlySet<ZoneId> = new Set<ZoneId>([
   'sec-ops',
   'help-desk',
   'engineering',
+  'server-room',
+  'network-ops',
 ]);

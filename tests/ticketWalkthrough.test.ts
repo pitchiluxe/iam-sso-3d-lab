@@ -44,7 +44,7 @@ function world() {
   const idp = new MockIdP(audit, dir);
   const apps = new MockAppServer(dir, idp, audit);
   const tickets = new MockTicketQueue(audit);
-  const reviews = new MockAccessReviews();
+  const reviews = new MockAccessReviews(audit);
   const incidents = new MockIncidents();
   return { bus, audit, dir, idp, apps, tickets, reviews, incidents };
 }
@@ -184,7 +184,7 @@ describe('every ticket in the product can be worked, and none closes itself', ()
   it('walks the seeded labs, the generated labs and the batch queues', () => {
     run('lab02', (w) => applyLab02Seed(w.dir, w.idp, w.apps, w.tickets));
     run('lab03', (w) => applyLab03Seed(w.dir, w.idp, w.apps, w.tickets));
-    run('lab10', (w) => applyLab10Seed(w.dir, w.idp, w.apps, w.tickets));
+    run('lab10', (w) => applyLab10Seed(w.dir, w.idp, w.apps, w.tickets, w.reviews));
 
     for (const tpl of LAB_TEMPLATES) {
       if (!tpl.seed) continue;

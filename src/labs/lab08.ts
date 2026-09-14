@@ -1,5 +1,12 @@
 /**
  * labs/lab08.ts — Identity Security Incident Response.
+ *
+ * s5 used to validate `{ kind: 'fault-cleared', params: {} }` — no `kind` in
+ * params means the check is `!faultStore.active.includes(undefined)`, which
+ * is always true (the array only ever holds real FaultKind strings). The
+ * step passed on the learner's first action after reaching it, whether or
+ * not the incident was actually closed. Switched to evidence-collected,
+ * which the existing "Close" button in the SecOps Dashboard already feeds.
  */
 import { mkLabId } from '@/domain';
 import type { Lab, UserId } from '@/domain';
@@ -9,8 +16,8 @@ export const LAB_08: Lab = {
   number: 8,
   title: 'Identity Security Incident',
   brief:
-    "Jane Doe's account shows suspicious sign-in activity. Contain, investigate, and write the incident report.",
-  durationMinutes: 45,
+    "Jane Doe's account shows suspicious sign-in activity. Contain, investigate, escalate if warranted, and write the incident report.",
+  durationMinutes: 50,
   zoneIds: ['sec-ops', 'iam-ops'],
   startingZone: 'sec-ops',
   startingSeed: 'lab08',
@@ -18,8 +25,9 @@ export const LAB_08: Lab = {
     { id: 'o1', description: 'Open and triage the incident', points: 5, category: 'exec' },
     { id: 'o2', description: "Contain Jane's account", points: 10, category: 'exec' },
     { id: 'o3', description: 'Search for related activity', points: 5, category: 'troubleshoot' },
-    { id: 'o4', description: 'Write incident report', points: 10, category: 'docs' },
-    { id: 'o5', description: 'Close the incident', points: 5, category: 'exec' },
+    { id: 'o4', description: 'Decide whether to escalate', points: 5, category: 'comms' },
+    { id: 'o5', description: 'Write incident report', points: 10, category: 'docs' },
+    { id: 'o6', description: 'Close the incident', points: 5, category: 'exec' },
   ],
   steps: [
     {
@@ -64,23 +72,37 @@ export const LAB_08: Lab = {
     },
     {
       id: 's4',
-      title: 'Write the incident report',
+      title: 'Decide whether to escalate',
       brief:
-        'Produce a concise incident report: timeline, indicators, containment actions, and next steps.',
+        'A single foreign-ASN credential-stuffing hit on one account may or may not warrant escalation beyond the IAM team. Decide, using what step 3 found, whether this stays a routine containment or gets escalated — and to whom.',
       validator: { kind: 'evidence-collected', params: { stepId: 's4' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'secOpsDashboard' } }],
-      tutorPrompts: ['What would you recommend to prevent this from happening again?'],
+      tutorPrompts: [
+        'What would turn this from "one contained account" into "notify the CISO"?',
+        'If you escalate everything, what happens to the signal-to-noise ratio the next time something is actually urgent?',
+      ],
       hintIds: ['lab08.s4.h1'],
-      points: { docs: 10 },
+      points: { comms: 5 },
     },
     {
       id: 's5',
+      title: 'Write the incident report',
+      brief:
+        'Produce a concise incident report: timeline, indicators, containment actions, escalation decision, and next steps.',
+      validator: { kind: 'evidence-collected', params: { stepId: 's5' } },
+      evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'secOpsDashboard' } }],
+      tutorPrompts: ['What would you recommend to prevent this from happening again?'],
+      hintIds: ['lab08.s5.h1'],
+      points: { docs: 10 },
+    },
+    {
+      id: 's6',
       title: 'Close the incident',
-      brief: 'Close the incident and mark it as recovered. Mark the campaign as closed.',
-      validator: { kind: 'fault-cleared', params: {} },
+      brief: 'Close the incident and mark it as recovered.',
+      validator: { kind: 'evidence-collected', params: { stepId: 's6' } },
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 3 } }],
       tutorPrompts: ["When would you re-enable Jane's account? What conditions must be met?"],
-      hintIds: ['lab08.s5.h1'],
+      hintIds: ['lab08.s6.h1'],
       points: { exec: 5 },
     },
   ],

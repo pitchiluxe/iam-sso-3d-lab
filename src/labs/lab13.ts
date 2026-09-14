@@ -24,7 +24,7 @@ export const LAB_13: Lab = {
   brief:
     'Design and stand up two break-glass accounts. Exclude them from CA policies, store credentials in the vault, alert on any sign-in, and run a quarterly access review on the accounts themselves.',
   durationMinutes: 35,
-  zoneIds: ['iam-ops', 'sec-ops'],
+  zoneIds: ['iam-ops', 'sec-ops', 'executive'],
   startingZone: 'iam-ops',
   startingSeed: 'lab13',
   objectives: [

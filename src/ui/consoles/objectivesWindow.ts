@@ -33,6 +33,13 @@ const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'mfa-reset': "Reset the user's MFA registration in IAM Console",
   'account-unlocked': 'Unlock the locked account in IAM Console',
   'users-provisioned': 'Provision the accounts into the target group (PowerShell ISE)',
+  'oauth-grant-revoked': 'Revoke the OAuth app consent grant in IAM Console',
+  'oauth-app-blocked': 'Block the app tenant-wide in IAM Console',
+  'cloud-role-least-privilege': "Scope the cloud role's permissions in IAM Console",
+  'cloud-role-trust-scoped': "Scope the cloud role's trust policy in IAM Console",
+  'cloud-role-assumed': 'Assume the cloud role as the trusted user in IAM Console',
+  'cloud-role-assume-denied':
+    'Attempt to assume the cloud role as an untrusted user in IAM Console',
 };
 
 // WindowManager.refresh() calls renderObjectivesWindow(body) again on the

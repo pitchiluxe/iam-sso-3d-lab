@@ -16,11 +16,14 @@
  * Lives in services/ rather than domain/ because it needs live service
  * instances; domain/ is pure types and must stay that way.
  */
-import type { MfaMethod, TicketKind, UserId, ValidatorKind } from '@/domain';
+import type { AppId, MfaMethod, TicketKind, UserId, ValidatorKind } from '@/domain';
 import type { MockAuditLog } from './mockAuditLog';
 import type { MockDirectory } from './mockDirectory';
 import type { MockIdP } from './mockIdP';
 import type { MockTicketQueue } from './mockTicketQueue';
+import type { MockAppServer } from './mockAppServer';
+import type { MockOAuthGrants } from './mockOAuthGrants';
+import type { MockCloudRoles } from './mockCloudRoles';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,6 +34,9 @@ export interface CapabilityContext {
   idp: MockIdP;
   tickets: MockTicketQueue;
   audit: MockAuditLog;
+  apps: MockAppServer;
+  oauthGrants: MockOAuthGrants;
+  cloudRoles: MockCloudRoles;
   /** Who is performing the action — the learner's operator identity. */
   actor: UserId;
 }
@@ -50,7 +56,13 @@ export interface CapabilityParam {
 export type CapabilityResult =
   { ok: true; message: string; rows?: Record<string, unknown>[] } | { ok: false; error: string };
 
-export type ConsoleSection = 'users' | 'groups' | 'credentials' | 'access' | 'audit';
+export type ConsoleSection =
+  'users' | 'groups' | 'credentials' | 'access' | 'audit' | 'apps' | 'oauth' | 'cloud';
+
+/** The fixed set of fictional business applications every baseline registers.
+ *  Used as static enum options — apps are seeded per-lab, not enumerable at
+ *  capability-definition time the way users/groups/roles are. */
+const APP_IDS = ['app-hr-portal', 'app-finance', 'app-helpdesk-portal', 'app-vpn-portal'] as const;
 
 export interface IamCapability {
   id: string;
@@ -556,6 +568,262 @@ export const CAPABILITIES: readonly IamCapability[] = [
           Target: e.targetId ?? '—',
         })),
       );
+    },
+  },
+
+  // ── Applications ─────────────────────────────────────────────────────────
+  {
+    id: 'app.config.update',
+    label: 'Update App Configuration',
+    synopsis: 'Correct a SAML/OIDC application setting — redirect URI, entity ID, or issuer.',
+    consoleSection: 'apps',
+    cmdlet: 'Set-AppConfig',
+    validator: 'app-config-fixed',
+    params: [
+      { name: 'App', label: 'Application', kind: 'enum', required: true, options: APP_IDS },
+      // Free text, not enum: the "Configuration mismatch" panel a learner
+      // sees on a failed sign-in names the exact field (redirectUri,
+      // cert.validUntil, clientSecret.match, claim.role, …) — this just
+      // needs to accept whatever it names.
+      { name: 'Field', label: 'Field (from the mismatch panel)', kind: 'text', required: true },
+      { name: 'Value', label: 'New value', kind: 'text', required: true },
+    ],
+    resolvesTicketKinds: [],
+    run(ctx, a) {
+      const app = ctx.apps.getApp(a.App as AppId);
+      if (!app) return err(`Cannot find an application '${a.App}'.`);
+      ctx.apps.fixConfigField(app.id, a.Field ?? '', a.Value ?? '', ctx.actor);
+      return ok(`Set ${a.Field} on ${app.name} to '${a.Value}'.`);
+    },
+  },
+  {
+    id: 'app.service.restart',
+    label: 'Restart App Service',
+    synopsis: 'Restart an app whose backing service is offline (e.g. a DNS/connectivity fault).',
+    consoleSection: 'apps',
+    cmdlet: 'Restart-AppService',
+    validator: 'app-config-fixed',
+    params: [{ name: 'App', label: 'Application', kind: 'enum', required: true, options: APP_IDS }],
+    resolvesTicketKinds: ['incident'],
+    run(ctx, a) {
+      const app = ctx.apps.getApp(a.App as AppId);
+      if (!app) return err(`Cannot find an application '${a.App}'.`);
+      if (app.status !== 'offline') return err(`${app.name} is not offline — nothing to restart.`);
+      app.status = 'configured';
+      ctx.audit.record({
+        actorId: ctx.actor,
+        action: 'app.config.changed',
+        targetId: app.id,
+        diff: { restarted: true },
+      });
+      return ok(`Restarted ${app.name}. Status: configured.`);
+    },
+  },
+  {
+    id: 'idp.clock.sync',
+    label: 'Sync IdP Clock',
+    synopsis:
+      'Resynchronize the IdP server clock — fixes token/assertion failures caused by clock skew.',
+    consoleSection: 'apps',
+    cmdlet: 'Sync-IdPClock',
+    validator: 'fault-cleared',
+    params: [],
+    resolvesTicketKinds: ['incident'],
+    run(ctx) {
+      ctx.idp.now = () => Date.now();
+      ctx.audit.record({ actorId: ctx.actor, action: 'idp.clock.synced' });
+      return ok('IdP clock resynchronized to system time.');
+    },
+  },
+
+  // ── OAuth app governance ─────────────────────────────────────────────────
+  {
+    id: 'oauth.grant.list',
+    legacyConsoleForm: false,
+    label: 'OAuth Consent Grants',
+    synopsis: 'List every third-party app a user has granted delegated access to.',
+    consoleSection: 'oauth',
+    cmdlet: 'Get-OAuthGrant',
+    readOnly: true,
+    params: [{ ...P.identity, required: false }],
+    resolvesTicketKinds: [],
+    run(ctx, a) {
+      const u = a.Identity ? findUser(ctx, a.Identity) : undefined;
+      if (a.Identity && !u) return err(`Cannot find an object with identity '${a.Identity}'.`);
+      const grants = ctx.oauthGrants.list().filter((g) => !u || g.grantedByUserId === u.id);
+      return ok(
+        `${grants.length} grant(s).`,
+        grants.map((g) => ({
+          User: ctx.dir.getUser(g.grantedByUserId)?.username ?? g.grantedByUserId,
+          App: g.appName,
+          Publisher: g.publisher,
+          ClientId: g.clientId,
+          Scopes: g.scopes.join(', '),
+          Status: g.status,
+          Blocked: ctx.oauthGrants.isBlocked(g.clientId) ? 'yes' : 'no',
+        })),
+      );
+    },
+  },
+  {
+    id: 'oauth.grant.revoke',
+    label: 'Revoke OAuth Grant',
+    synopsis: "Revoke one user's consent grant to a third-party app.",
+    consoleSection: 'oauth',
+    cmdlet: 'Revoke-OAuthGrant',
+    validator: 'oauth-grant-revoked',
+    params: [
+      P.identity,
+      { name: 'ClientId', label: 'App client ID', kind: 'text', required: true },
+    ],
+    resolvesTicketKinds: ['incident'],
+    run(ctx, a) {
+      const u = findUser(ctx, a.Identity ?? '');
+      if (!u) return err(`Cannot find an object with identity '${a.Identity}'.`);
+      const grant = ctx.oauthGrants
+        .list()
+        .find(
+          (g) => g.grantedByUserId === u.id && g.clientId === a.ClientId && g.status === 'active',
+        );
+      if (!grant) return err(`No active grant for client '${a.ClientId}' by ${u.username}.`);
+      ctx.oauthGrants.revoke(grant.id, ctx.actor);
+      return ok(`Revoked ${grant.appName} for ${u.username}.`);
+    },
+  },
+  {
+    id: 'oauth.app.block',
+    label: 'Block OAuth App',
+    synopsis: 'Block a third-party app tenant-wide so it cannot be granted consent again.',
+    consoleSection: 'oauth',
+    cmdlet: 'Block-OAuthApp',
+    validator: 'oauth-app-blocked',
+    params: [{ name: 'ClientId', label: 'App client ID', kind: 'text', required: true }],
+    resolvesTicketKinds: ['incident'],
+    run(ctx, a) {
+      if (!a.ClientId) return err('App client ID is required.');
+      if (ctx.oauthGrants.isBlocked(a.ClientId)) return err(`'${a.ClientId}' is already blocked.`);
+      ctx.oauthGrants.blockApp(a.ClientId, ctx.actor);
+      return ok(`Blocked '${a.ClientId}' tenant-wide.`);
+    },
+  },
+
+  // ── Cloud IAM ────────────────────────────────────────────────────────────
+  {
+    id: 'cloud.role.list',
+    legacyConsoleForm: false,
+    label: 'Cloud IAM Roles',
+    synopsis: 'List cross-account cloud IAM roles, their permissions, and their trust policy.',
+    consoleSection: 'cloud',
+    cmdlet: 'Get-CloudRole',
+    readOnly: true,
+    params: [],
+    resolvesTicketKinds: [],
+    run(ctx) {
+      const roles = ctx.cloudRoles.list();
+      return ok(
+        `${roles.length} role(s).`,
+        roles.map((r) => ({
+          Role: r.name,
+          Account: r.accountId,
+          Permissions: r.permissions.join(', '),
+          TrustedUsers: r.trustedUserIds
+            .map((id) => ctx.dir.getUser(id)?.username ?? id)
+            .join(', '),
+        })),
+      );
+    },
+  },
+  {
+    id: 'cloud.role.scope-permissions',
+    label: 'Scope Role Permissions',
+    synopsis: "Replace a cloud IAM role's permissions with a least-privilege list.",
+    consoleSection: 'cloud',
+    cmdlet: 'Set-CloudRolePermissions',
+    validator: 'cloud-role-least-privilege',
+    params: [
+      { name: 'RoleName', label: 'Role name', kind: 'text', required: true },
+      {
+        name: 'Permissions',
+        label: 'Permissions (comma-separated, e.g. s3:GetObject, s3:ListBucket)',
+        kind: 'text',
+        required: true,
+      },
+    ],
+    resolvesTicketKinds: [],
+    run(ctx, a) {
+      const perms = (a.Permissions ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (perms.length === 0) return err('At least one permission is required.');
+      try {
+        ctx.cloudRoles.updatePermissions(a.RoleName ?? '', perms, ctx.actor);
+      } catch (e) {
+        return err(e instanceof Error ? e.message : String(e));
+      }
+      return ok(`Updated permissions for ${a.RoleName}: ${perms.join(', ')}.`);
+    },
+  },
+  {
+    id: 'cloud.role.scope-trust',
+    label: 'Scope Role Trust Policy',
+    synopsis:
+      "Replace a cloud IAM role's trust policy with the specific users who should assume it.",
+    consoleSection: 'cloud',
+    cmdlet: 'Set-CloudRoleTrust',
+    validator: 'cloud-role-trust-scoped',
+    params: [
+      { name: 'RoleName', label: 'Role name', kind: 'text', required: true },
+      {
+        name: 'TrustedUsers',
+        label: 'Trusted usernames (comma-separated)',
+        kind: 'text',
+        required: true,
+      },
+    ],
+    resolvesTicketKinds: [],
+    run(ctx, a) {
+      const names = (a.TrustedUsers ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (names.length === 0) return err('At least one trusted user is required.');
+      const ids: UserId[] = [];
+      for (const name of names) {
+        const u = findUser(ctx, name);
+        if (!u) return err(`Cannot find an object with identity '${name}'.`);
+        ids.push(u.id);
+      }
+      try {
+        ctx.cloudRoles.updateTrust(a.RoleName ?? '', ids, ctx.actor);
+      } catch (e) {
+        return err(e instanceof Error ? e.message : String(e));
+      }
+      return ok(`Updated trust policy for ${a.RoleName}: ${names.join(', ')}.`);
+    },
+  },
+  {
+    id: 'cloud.role.assume',
+    label: 'Assume Cloud Role',
+    synopsis:
+      'Attempt to assume a cross-account cloud IAM role as a given user — tests the trust policy.',
+    consoleSection: 'cloud',
+    cmdlet: 'Invoke-AssumeRole',
+    validator: 'cloud-role-assumed',
+    params: [{ name: 'RoleName', label: 'Role name', kind: 'text', required: true }, P.identity],
+    resolvesTicketKinds: [],
+    run(ctx, a) {
+      const u = findUser(ctx, a.Identity ?? '');
+      if (!u) return err(`Cannot find an object with identity '${a.Identity}'.`);
+      let res: { ok: boolean };
+      try {
+        res = ctx.cloudRoles.assume(a.RoleName ?? '', u.id);
+      } catch (e) {
+        return err(e instanceof Error ? e.message : String(e));
+      }
+      return res.ok
+        ? ok(`${u.username} assumed ${a.RoleName}.`)
+        : err(`${u.username} is not trusted to assume ${a.RoleName} — access denied.`);
     },
   },
 ];

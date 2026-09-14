@@ -15,6 +15,8 @@ import {
   MockTicketQueue,
   MockAccessReviews,
   MockIncidents,
+  MockOAuthGrants,
+  MockCloudRoles,
 } from '@/services';
 import type { CapabilityContext } from '@/services';
 import { getSeed } from '@/conductor/seedRegistry';
@@ -30,16 +32,20 @@ function bootstrap() {
   const idp = new MockIdP(audit, dir);
   const apps = new MockAppServer(dir, idp, audit);
   const tickets = new MockTicketQueue(audit);
+  const oauthGrants = new MockOAuthGrants(audit);
+  const cloudRoles = new MockCloudRoles(audit);
   const seedCtx = {
     dir,
     idp,
     apps,
     tickets,
     audit,
-    reviews: new MockAccessReviews(),
+    reviews: new MockAccessReviews(audit),
     incidents: new MockIncidents(),
+    oauthGrants,
+    cloudRoles,
   };
-  return { seedCtx, dir, idp, tickets, audit };
+  return { seedCtx, dir, idp, apps, oauthGrants, cloudRoles, tickets, audit };
 }
 
 /** The script a learner would write from the shipped template for N names. */
@@ -63,7 +69,16 @@ describe.each([5, 10, 20])('bulk-provision-%i', (count) => {
     dir = b.dir;
     audit = b.audit;
     getSeed(`bulk-provision-${count}`)(b.seedCtx as never);
-    ctx = { dir: b.dir, idp: b.idp, tickets: b.tickets, audit: b.audit, actor: 'system' as never };
+    ctx = {
+      dir: b.dir,
+      idp: b.idp,
+      apps: b.apps,
+      oauthGrants: b.oauthGrants,
+      cloudRoles: b.cloudRoles,
+      tickets: b.tickets,
+      audit: b.audit,
+      actor: 'system' as never,
+    };
   });
 
   it('seeds the target group empty, so the step cannot start satisfied', () => {
@@ -120,6 +135,9 @@ describe('shipped script templates are runnable as-is', () => {
     const ctx: CapabilityContext = {
       dir: b.dir,
       idp: b.idp,
+      apps: b.apps,
+      oauthGrants: b.oauthGrants,
+      cloudRoles: b.cloudRoles,
       tickets: b.tickets,
       audit: b.audit,
       actor: 'system' as never,

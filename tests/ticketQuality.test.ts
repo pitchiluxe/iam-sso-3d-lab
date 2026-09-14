@@ -30,6 +30,7 @@ import { MockDirectory } from '@/services/mockDirectory';
 import { MockIdP } from '@/services/mockIdP';
 import { MockAppServer } from '@/services/mockAppServer';
 import { MockTicketQueue } from '@/services/mockTicketQueue';
+import { MockAccessReviews } from '@/services/mockAccessReviews';
 import { createEventBus } from '@/util/events';
 import { CAPABILITIES } from '@/services/capabilities';
 import { LAB_TEMPLATES, BATCH_TEMPLATES } from '@/labs/generated/templates';
@@ -48,7 +49,8 @@ function world() {
   const idp = new MockIdP(audit, dir);
   const apps = new MockAppServer(dir, idp, audit);
   const tickets = new MockTicketQueue(audit);
-  return { audit, dir, idp, apps, tickets };
+  const reviews = new MockAccessReviews(audit);
+  return { audit, dir, idp, apps, tickets, reviews };
 }
 
 type W = ReturnType<typeof world>;
@@ -64,7 +66,7 @@ function allTickets(): Array<{ label: string; ticket: Ticket; w: W }> {
 
   collect('lab02', (w) => applyLab02Seed(w.dir, w.idp, w.apps, w.tickets));
   collect('lab03', (w) => applyLab03Seed(w.dir, w.idp, w.apps, w.tickets));
-  collect('lab10', (w) => applyLab10Seed(w.dir, w.idp, w.apps, w.tickets));
+  collect('lab10', (w) => applyLab10Seed(w.dir, w.idp, w.apps, w.tickets, w.reviews));
   for (const tpl of LAB_TEMPLATES) {
     if (tpl.seed) collect(`gen:${tpl.id}`, (w) => tpl.seed!(w as never));
   }

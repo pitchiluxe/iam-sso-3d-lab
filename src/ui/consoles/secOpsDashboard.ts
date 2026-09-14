@@ -215,7 +215,7 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
           actions.appendChild(
             btn('Close', 'var(--accent)', () => {
               incidents.close(inc.id, 'system' as never);
-              addEvidence('s5', 'snapshot', `Closed incident: ${inc.title}`);
+              addEvidence('s6', 'snapshot', `Closed incident: ${inc.title}`);
               renderTab();
             }),
           );
@@ -224,7 +224,7 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
           btn('Write report', '#60a5fa', () => {
             const body2 = `## Incident Report\n\n${inc.title}\n\nSeverity: ${inc.severity}\n\nSummary: ${inc.summary}\n\nContainment actions: ${inc.containmentActions.length}\n\nIndicators: ${inc.indicators.join(', ')}`;
             incidents.writeReport(inc.id, body2, 'system' as never);
-            addEvidence('s4', 'snapshot', `Wrote report for: ${inc.title}`);
+            addEvidence('s5', 'snapshot', `Wrote report for: ${inc.title}`);
             renderTab();
           }),
         );
@@ -260,12 +260,59 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
         `;
         const list = document.createElement('div');
         list.style.cssText =
-          'max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;';
+          'max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;';
         for (const d of r.decisions) {
+          const decided = d.decidedBy !== 'pending';
           const row = document.createElement('div');
           row.style.cssText =
-            'padding:4px 8px;border-bottom:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between;align-items:center;';
-          row.innerHTML = `<span>${d.userId} → ${d.groupId ?? d.roleId}</span><span style="color:${d.decision === 'approve' ? 'var(--accent)' : 'var(--err)'}">${d.decision}</span>`;
+            'padding:4px 8px;border-bottom:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:8px;';
+          const label = document.createElement('span');
+          label.textContent = `${d.userId} → ${d.groupId ?? d.roleId}`;
+          row.appendChild(label);
+
+          const right = document.createElement('span');
+          right.style.cssText = 'display:flex;gap:6px;align-items:center;';
+          if (decided) {
+            const status = document.createElement('span');
+            status.textContent = d.decision;
+            status.style.color = d.decision === 'approve' ? 'var(--accent)' : 'var(--err)';
+            right.appendChild(status);
+          } else {
+            // Recommended-only until a manager actually calls it — the row's
+            // 'decision' field before this point is the tool's flag (e.g.
+            // "dormant → recommend revoke"), not a recorded decision. There
+            // used to be no way to accept one row's recommendation and
+            // reject another's: only two buttons existed, "approve every
+            // row" and "revoke every row", so a mixed campaign (6 approve,
+            // 2 revoke) could never be recorded correctly.
+            const recommended = document.createElement('span');
+            recommended.textContent = `(flagged: ${d.decision})`;
+            recommended.style.cssText = 'color:var(--muted);font-size:10px;';
+            right.appendChild(recommended);
+            right.appendChild(
+              btn('Approve', 'var(--accent)', () => {
+                reviews.recordDecision(r.id, {
+                  ...d,
+                  decision: 'approve',
+                  decidedBy: 'ivy.park' as never,
+                });
+                addEvidence('s4', 'log-excerpt', `Approved ${d.userId} → ${d.groupId ?? d.roleId}`);
+                renderTab();
+              }),
+            );
+            right.appendChild(
+              btn('Revoke', 'var(--err)', () => {
+                reviews.recordDecision(r.id, {
+                  ...d,
+                  decision: 'revoke',
+                  decidedBy: 'ivy.park' as never,
+                });
+                addEvidence('s4', 'log-excerpt', `Revoked ${d.userId} → ${d.groupId ?? d.roleId}`);
+                renderTab();
+              }),
+            );
+          }
+          row.appendChild(right);
           list.appendChild(row);
         }
         card.appendChild(list);
@@ -274,34 +321,25 @@ export function renderSecOpsDashboard(body: HTMLElement, conductor: Conductor) {
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
         actions.appendChild(
-          btn('Record all approvals', 'var(--accent)', () => {
-            for (const d of r.decisions) {
-              reviews.recordDecision(r.id, {
-                ...d,
-                decision: 'approve',
-                decidedBy: 'ivy.park' as never,
-              });
+          btn('Accept all remaining recommendations', 'var(--accent)', () => {
+            // Applies each pending row's own flagged value — a real bulk
+            // shortcut for a batch the manager has actually reviewed, not a
+            // way to force one outcome onto every row regardless of what it is.
+            for (const d of reviews.pending(r.id)) {
+              reviews.recordDecision(r.id, { ...d, decidedBy: 'ivy.park' as never });
             }
-            addEvidence('s3', 'log-excerpt', `Recorded approvals for ${r.campaign}`);
-            renderTab();
-          }),
-        );
-        actions.appendChild(
-          btn('Record revocations', 'var(--err)', () => {
-            for (const d of r.decisions) {
-              reviews.recordDecision(r.id, {
-                ...d,
-                decision: 'revoke',
-                decidedBy: 'ivy.park' as never,
-              });
-            }
+            addEvidence(
+              's4',
+              'log-excerpt',
+              `Accepted remaining recommendations for ${r.campaign}`,
+            );
             renderTab();
           }),
         );
         actions.appendChild(
           btn('Close campaign', '#60a5fa', () => {
             reviews.close(r.id);
-            addEvidence('s4', 'snapshot', `Closed campaign: ${r.campaign}`);
+            addEvidence('s5', 'snapshot', `Closed campaign: ${r.campaign}`);
             renderTab();
           }),
         );

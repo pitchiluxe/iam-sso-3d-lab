@@ -14,6 +14,8 @@ import type {
   LabId,
   EvidenceId,
   SessionId,
+  OAuthGrantId,
+  CloudRoleId,
 } from './types';
 import { nanoid } from 'nanoid';
 
@@ -70,6 +72,16 @@ export function mkEvidenceId(raw?: string): EvidenceId {
 /** Create a SessionId branded string. */
 export function mkSessionId(raw?: string): SessionId {
   return (raw ?? nanoid(16)) as SessionId;
+}
+
+/** Create an OAuthGrantId branded string. */
+export function mkOAuthGrantId(raw?: string): OAuthGrantId {
+  return (raw ?? nanoid(10)) as OAuthGrantId;
+}
+
+/** Create a CloudRoleId branded string. */
+export function mkCloudRoleId(raw?: string): CloudRoleId {
+  return (raw ?? nanoid(10)) as CloudRoleId;
 }
 
 /** Well-known system actor ID for fault injections. */

@@ -20,6 +20,8 @@ import type {
   ScoreCategory,
   AppId,
   UserId,
+  FaultKind,
+  FaultInjection,
 } from '@/domain';
 import type { EventBus } from '@/util';
 import { createEventBus } from '@/util';
@@ -32,6 +34,8 @@ import {
   MockTicketQueue,
   MockAccessReviews,
   MockIncidents,
+  MockOAuthGrants,
+  MockCloudRoles,
   FaultService,
 } from '@/services';
 import {
@@ -61,6 +65,8 @@ export class Conductor {
   tickets!: MockTicketQueue;
   reviews!: MockAccessReviews;
   incidents!: MockIncidents;
+  oauthGrants!: MockOAuthGrants;
+  cloudRoles!: MockCloudRoles;
   audit!: MockAuditLog;
   faults!: FaultService;
   bus: EventBus = createEventBus();
@@ -86,8 +92,10 @@ export class Conductor {
     this.idp = new MockIdP(this.audit, this.dir);
     this.apps = new MockAppServer(this.dir, this.idp, this.audit);
     this.tickets = new MockTicketQueue(this.audit);
-    this.reviews = new MockAccessReviews();
+    this.reviews = new MockAccessReviews(this.audit);
     this.incidents = new MockIncidents();
+    this.oauthGrants = new MockOAuthGrants(this.audit);
+    this.cloudRoles = new MockCloudRoles(this.audit);
     this.faults = new FaultService({
       dir: this.dir,
       idp: this.idp,
@@ -112,6 +120,8 @@ export class Conductor {
       tickets: this.tickets,
       reviews: this.reviews,
       incidents: this.incidents,
+      oauthGrants: this.oauthGrants,
+      cloudRoles: this.cloudRoles,
       audit: this.audit,
       _currentLab: this.currentLab,
     });
@@ -167,6 +177,8 @@ export class Conductor {
       tickets: this.tickets,
       reviews: this.reviews,
       incidents: this.incidents,
+      oauthGrants: this.oauthGrants,
+      cloudRoles: this.cloudRoles,
       audit: this.audit,
       faults: this.faults,
     };
@@ -179,7 +191,9 @@ export class Conductor {
   private handleEvent(e: AuditEvent) {
     auditStore.getState().append(e);
     const lab = this.currentLab;
-    if (!lab || this._advancePending) return;
+    if (!lab) return;
+    this.autoClearFaults(lab, e);
+    if (this._advancePending) return;
     const step = lab.steps[labStore.getState().stepIndex];
     if (!step) return;
 
@@ -238,7 +252,16 @@ export class Conductor {
       case 'role-revoked':
         return e.action === 'role.revoke' && e.subjectId === userId;
       case 'app-config-fixed':
-        return this.apps.getApp(p.appId as AppId)?.status === 'configured';
+        // Scoped to the fixing event itself, not just polled state — every
+        // other validator checks the event that just fired; this one used to
+        // check only apps.getApp().status, which is 'configured' by default
+        // on every baseline app, so the step passed on the learner's next
+        // unrelated click rather than on an actual fix.
+        return (
+          e.action === 'app.config.changed' &&
+          e.targetId === p.appId &&
+          this.apps.getApp(p.appId as AppId)?.status === 'configured'
+        );
       case 'signin-succeeded':
         return e.action === 'signin.success' && e.targetId === userId;
       case 'mfa-challenge-completed':
@@ -273,6 +296,40 @@ export class Conductor {
         const want = Number(p.count ?? 0);
         return !!g && g.memberIds.length >= want;
       }
+      case 'oauth-grant-revoked':
+        // Keyed on (userId, clientId), not the grant's own randomly
+        // generated id — that id isn't known when the lab is authored, the
+        // way a userId or clientId is.
+        return (
+          e.action === 'oauth.grant.revoked' &&
+          e.subjectId === userId &&
+          (e.diff as Record<string, unknown> | undefined)?.clientId === p.clientId
+        );
+      case 'oauth-app-blocked':
+        return e.action === 'oauth.app.blocked' && e.targetId === p.clientId;
+      case 'cloud-role-least-privilege': {
+        const role = this.cloudRoles.getByName(p.roleName ?? '');
+        return (
+          e.action === 'cloud.role.permissions.updated' &&
+          !!role &&
+          role.permissions.length > 0 &&
+          role.permissions.every((perm) => !perm.includes('*'))
+        );
+      }
+      case 'cloud-role-trust-scoped': {
+        const role = this.cloudRoles.getByName(p.roleName ?? '');
+        const mustInclude = resolveUserId(p.mustIncludeUserId ?? '');
+        return (
+          e.action === 'cloud.role.trust.updated' &&
+          !!role &&
+          role.trustedUserIds.length <= Number(p.maxTrusted ?? 999) &&
+          role.trustedUserIds.includes(mustInclude as never)
+        );
+      }
+      case 'cloud-role-assumed':
+        return e.action === 'cloud.role.assumed' && e.subjectId === userId;
+      case 'cloud-role-assume-denied':
+        return e.action === 'cloud.role.assume.denied' && e.subjectId === userId;
       case 'review-decisions-recorded': {
         // Every seeded decision has been called. This had no case at all, so
         // the step in lab06 and the capstone could never complete — the
@@ -286,6 +343,51 @@ export class Conductor {
         const unhandled: never = v.kind;
         void unhandled;
         return false;
+      }
+    }
+  }
+
+  /**
+   * Faults a `fault-cleared` step can actually complete against. faultStore
+   * only ever grows via applyFaultsFor() — nothing else calls its clear()
+   * — so any fault kind not listed here stays active forever and the step
+   * validating it is unreachable. Add an entry whenever a new lab pairs a
+   * fault with a fault-cleared step.
+   */
+  private static readonly FAULT_REMEDIATION: Partial<
+    Record<FaultKind, (e: AuditEvent, f: FaultInjection, resolvedUserId?: string) => boolean>
+  > = {
+    'excessive-permissions': (e, _f, resolvedUserId) =>
+      e.action === 'role.revoke' && e.subjectId === resolvedUserId,
+    'idp-mfa-outage': (e) => e.action === 'mfa.reset',
+    // These five all leave their mark as a configDiffFromBaseline entry on
+    // the target app, and all five clear the same way: an app.config.changed
+    // event against that app (from app.config.update or app.service.restart).
+    'wrong-redirect-uri': (e, f) =>
+      e.action === 'app.config.changed' && e.targetId === f.targetAppId,
+    'expired-cert': (e, f) => e.action === 'app.config.changed' && e.targetId === f.targetAppId,
+    'wrong-issuer': (e, f) => e.action === 'app.config.changed' && e.targetId === f.targetAppId,
+    'wrong-client-secret': (e, f) =>
+      e.action === 'app.config.changed' && e.targetId === f.targetAppId,
+    'wrong-claim-mapping': (e, f) =>
+      e.action === 'app.config.changed' && e.targetId === f.targetAppId,
+    'dns-resolution': (e, f) => e.action === 'app.config.changed' && e.targetId === f.targetAppId,
+    'clock-skew': (e) => e.action === 'idp.clock.synced',
+    'mfa-prompt-loop': (e, _f, resolvedUserId) =>
+      e.action === 'mfa.challenge' && e.targetId === resolvedUserId,
+  };
+
+  private autoClearFaults(lab: Lab, e: AuditEvent): void {
+    for (const f of lab.faults) {
+      if (!faultStore.getState().active.includes(f.kind)) continue;
+      const remediates = Conductor.FAULT_REMEDIATION[f.kind];
+      if (!remediates) continue;
+      let targetUserId = f.targetUserId as string | undefined;
+      if (targetUserId && !this.dir.getUser(targetUserId as UserId)) {
+        targetUserId = this.dir.getUserByUsername(targetUserId)?.id ?? targetUserId;
+      }
+      if (remediates(e, f, targetUserId)) {
+        faultStore.getState().clear(f.kind);
       }
     }
   }

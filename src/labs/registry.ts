@@ -1,5 +1,5 @@
 /**
- * labs/registry.ts — Single source of truth for all 10 labs.
+ * labs/registry.ts — Single source of truth for all 17 labs.
  * Imported by the conductor and the lab-selection UI.
  */
 import { LAB_01 } from './lab01';
@@ -15,6 +15,10 @@ import { LAB_10 } from './lab10';
 import { LAB_11 } from './lab11';
 import { LAB_12 } from './lab12';
 import { LAB_13 } from './lab13';
+import { LAB_14 } from './lab14';
+import { LAB_15 } from './lab15';
+import { LAB_16 } from './lab16';
+import { LAB_17 } from './lab17';
 
 import type { Lab } from '@/domain';
 import { generatedLabsStore } from '@/stores/generatedLabsStore';
@@ -33,6 +37,10 @@ export const LAB_REGISTRY: ReadonlyArray<Lab> = [
   LAB_11,
   LAB_12,
   LAB_13,
+  LAB_14,
+  LAB_15,
+  LAB_16,
+  LAB_17,
 ] as const;
 
 export const findLab = (id: string): Lab | undefined =>

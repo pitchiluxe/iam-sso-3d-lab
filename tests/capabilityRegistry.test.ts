@@ -7,7 +7,15 @@
  * exact failure this whole change exists to make impossible.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MockAuditLog, MockDirectory, MockIdP, MockTicketQueue } from '@/services';
+import {
+  MockAuditLog,
+  MockDirectory,
+  MockIdP,
+  MockAppServer,
+  MockOAuthGrants,
+  MockCloudRoles,
+  MockTicketQueue,
+} from '@/services';
 import {
   CAPABILITIES,
   CAPABILITY_BY_CMDLET,
@@ -79,6 +87,9 @@ describe('capability registry — execution', () => {
     const audit = new MockAuditLog();
     const dir = new MockDirectory(audit);
     const idp = new MockIdP(audit, dir);
+    const apps = new MockAppServer(dir, idp, audit);
+    const oauthGrants = new MockOAuthGrants(audit);
+    const cloudRoles = new MockCloudRoles(audit);
     const tickets = new MockTicketQueue(audit);
     const admin = dir.createUser({
       username: 'admin',
@@ -89,7 +100,7 @@ describe('capability registry — execution', () => {
       mfa: 'none',
     });
     actor = admin.id;
-    ctx = { dir, idp, tickets, audit, actor };
+    ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor };
     dir.createUser({
       username: 'carla',
       displayName: 'Carla Nunes',

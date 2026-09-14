@@ -17,6 +17,8 @@ export type ReviewId = string & { readonly __brand: 'ReviewId' };
 export type LabId = string & { readonly __brand: 'LabId' };
 export type EvidenceId = string & { readonly __brand: 'EvidenceId' };
 export type SessionId = string & { readonly __brand: 'SessionId' };
+export type OAuthGrantId = string & { readonly __brand: 'OAuthGrantId' };
+export type CloudRoleId = string & { readonly __brand: 'CloudRoleId' };
 
 // ---------------------------------------------------------------------------
 // Enumerations
@@ -291,7 +293,16 @@ export interface AuditEvent {
      *  Every check is recorded, not only the verdict: a reviewer that says
      *  "failed" without saying what it looked at asks to be taken on trust. */
     | 'ticket.review.passed'
-    | 'ticket.review.failed';
+    | 'ticket.review.failed'
+    | 'review.decision'
+    | 'review.closed'
+    | 'idp.clock.synced'
+    | 'oauth.grant.revoked'
+    | 'oauth.app.blocked'
+    | 'cloud.role.permissions.updated'
+    | 'cloud.role.trust.updated'
+    | 'cloud.role.assumed'
+    | 'cloud.role.assume.denied';
   /** Polysemous target: UserId | GroupId | RoleId | AppId | TicketId | SessionId */
   targetId?: string;
   /** For events that involve a subject distinct from the actor/target (group/role grants). */
@@ -331,6 +342,38 @@ export interface AccessReview {
   dueAt: number;
   status: 'open' | 'in-progress' | 'closed';
   decisions: AccessReviewDecision[];
+}
+
+// ---------------------------------------------------------------------------
+// OAuth app consent grants
+// ---------------------------------------------------------------------------
+/** A third-party app's delegated-access grant from one user's consent —
+ *  the OAuth equivalent of a group membership, and the mechanism a
+ *  consent-phishing attack abuses instead of stealing a password. */
+export interface OAuthGrant {
+  id: OAuthGrantId;
+  appName: string;
+  publisher: string;
+  clientId: string;
+  scopes: string[];
+  grantedByUserId: UserId;
+  grantedAt: number;
+  status: 'active' | 'revoked';
+}
+
+// ---------------------------------------------------------------------------
+// Cloud IAM — cross-account roles
+// ---------------------------------------------------------------------------
+/** A cloud IAM role a user assumes for cross-account access — the AWS/Azure
+ *  equivalent of a domain group, except the two halves (what it can DO and
+ *  WHO can become it) are separate, independently misconfigurable settings:
+ *  permissions and trust policy. */
+export interface CloudRole {
+  id: CloudRoleId;
+  name: string; // e.g. 'prod-data-readonly'
+  accountId: string; // fictional 12-digit account id
+  permissions: string[]; // e.g. ['s3:GetObject'] — a '*' anywhere is a red flag
+  trustedUserIds: UserId[]; // who may assume this role
 }
 
 export interface AccessReviewDecision {
@@ -373,7 +416,13 @@ export type ValidatorKind =
   /** N accounts provisioned into a named group — the bulk-automation labs.
    *  Counted by group membership rather than raw user count, so the baseline's
    *  existing users cannot satisfy it by accident. */
-  | 'users-provisioned';
+  | 'users-provisioned'
+  | 'oauth-grant-revoked'
+  | 'oauth-app-blocked'
+  | 'cloud-role-least-privilege'
+  | 'cloud-role-trust-scoped'
+  | 'cloud-role-assumed'
+  | 'cloud-role-assume-denied';
 
 export interface LabStep {
   id: string;

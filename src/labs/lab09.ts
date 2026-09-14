@@ -70,11 +70,16 @@ export const LAB_09: Lab = {
       id: 's4',
       title: 'Exercise admin action and auto-revoke',
       brief:
-        'After approval, exercise the elevated privilege. Complete the admin task. Verify the elevation auto-revokes after 15 minutes.',
+        'After approval, sign Hank in (Verify Authentication) to exercise the elevated access — this is the session the grant actually created. Complete the admin task, then revoke that session yourself to simulate the 15-minute auto-expiry.',
+      // A time-limited grant has to *create* a session before one can be
+      // revoked. Nothing else in this lab signs Hank in, so without this
+      // instruction session-revoked has nothing to fire on — Revoke-UserSession
+      // against zero sessions revokes zero, and emits no event at all.
       validator: { kind: 'session-revoked', params: { userId: 'hank.oneill' } },
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 5 } }],
       tutorPrompts: [
         'How does a time-limited grant differ from a standing privilege in an audit trail?',
+        'If nobody signed Hank in, what would revoking his sessions actually do?',
       ],
       hintIds: ['lab09.s4.h1'],
       points: { exec: 5, troubleshoot: 5 },

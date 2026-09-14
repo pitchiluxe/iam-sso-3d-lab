@@ -5,7 +5,15 @@
  * the job actually works.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MockAuditLog, MockDirectory, MockIdP, MockTicketQueue } from '@/services';
+import {
+  MockAuditLog,
+  MockDirectory,
+  MockIdP,
+  MockAppServer,
+  MockOAuthGrants,
+  MockCloudRoles,
+  MockTicketQueue,
+} from '@/services';
 import type { CapabilityContext } from '@/services';
 import { tokenize } from '@/terminal/tokenizer';
 import { createShellState, dispatch } from '@/terminal/dispatcher';
@@ -87,6 +95,9 @@ describe('dispatch', () => {
     const audit = new MockAuditLog();
     const dir = new MockDirectory(audit);
     const idp = new MockIdP(audit, dir);
+    const apps = new MockAppServer(dir, idp, audit);
+    const oauthGrants = new MockOAuthGrants(audit);
+    const cloudRoles = new MockCloudRoles(audit);
     const tickets = new MockTicketQueue(audit);
     const admin = dir.createUser({
       username: 'admin',
@@ -105,7 +116,7 @@ describe('dispatch', () => {
       mfa: 'totp',
     });
     idp.seedPasswords({ 'jane.doe': 'old' });
-    ctx = { dir, idp, tickets, audit, actor: admin.id };
+    ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: admin.id };
   });
 
   it('runs a query and returns a table', () => {
@@ -187,6 +198,9 @@ describe('Windows shell built-ins', () => {
     const audit = new MockAuditLog();
     const dir = new MockDirectory(audit);
     const idp = new MockIdP(audit, dir);
+    const apps = new MockAppServer(dir, idp, audit);
+    const oauthGrants = new MockOAuthGrants(audit);
+    const cloudRoles = new MockCloudRoles(audit);
     const tickets = new MockTicketQueue(audit);
     const admin = dir.createUser({
       username: 'admin',
@@ -204,7 +218,7 @@ describe('Windows shell built-ins', () => {
       title: 'Analyst',
       mfa: 'totp',
     });
-    ctx = { dir, idp, tickets, audit, actor: admin.id };
+    ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: admin.id };
   });
 
   it('dir lists the simulated filesystem', () => {

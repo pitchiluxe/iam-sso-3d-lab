@@ -19,7 +19,7 @@ import { updateManager, type UpdateStatus } from '@/util/updateManager';
 
 /** Escapes HTML-significant characters. Used for any text originating from
  * the AI flavor generator (LLM output is untrusted) before interpolating it
- * into innerHTML — the 13 hand-authored core lab titles/briefs don't need this. */
+ * into innerHTML — the 17 hand-authored core lab titles/briefs don't need this. */
 function escapeHtml(s: string): string {
   const div = document.createElement('div');
   div.textContent = s;
@@ -93,6 +93,29 @@ const LABS = [
     id: 'lab13',
     title: 'Break-Glass Accounts',
     brief: 'Design and test a break-glass emergency access policy with real-time alerting.',
+  },
+  {
+    id: 'lab14',
+    title: 'OAuth App Governance',
+    brief: 'Detect a consent-phishing grant, sweep for other victims, revoke, and block the app.',
+  },
+  {
+    id: 'lab15',
+    title: 'PKI & Certificate Lifecycle',
+    brief:
+      'Fix an expired signing certificate, verify both portals, then rotate another before it fails.',
+  },
+  {
+    id: 'lab16',
+    title: 'LDAP & Kerberos Troubleshooting',
+    brief:
+      'Triage a mass logon failure, find the clock skew behind it, and recover the account it locked.',
+  },
+  {
+    id: 'lab17',
+    title: 'Cloud IAM — Cross-Account Role',
+    brief:
+      "Scope a production role's wildcard permissions and over-broad trust policy, then prove both sides of the fix.",
   },
 ];
 

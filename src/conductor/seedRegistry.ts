@@ -21,6 +21,8 @@ import type {
   MockDirectory,
   MockIdP,
   MockIncidents,
+  MockOAuthGrants,
+  MockCloudRoles,
   MockTicketQueue,
 } from '@/services';
 import type { Lab } from '@/domain';
@@ -38,6 +40,10 @@ import { applyLab10Seed } from '@/seed/perLab/lab10';
 import { applyLab11Seed } from '@/seed/perLab/lab11';
 import { applyLab12Seed } from '@/seed/perLab/lab12';
 import { applyLab13Seed } from '@/seed/perLab/lab13';
+import { applyLab14Seed } from '@/seed/perLab/lab14';
+import { applyLab15Seed } from '@/seed/perLab/lab15';
+import { applyLab16Seed } from '@/seed/perLab/lab16';
+import { applyLab17Seed } from '@/seed/perLab/lab17';
 
 export interface SeedContext {
   dir: MockDirectory;
@@ -46,6 +52,8 @@ export interface SeedContext {
   tickets: MockTicketQueue;
   reviews: MockAccessReviews;
   incidents: MockIncidents;
+  oauthGrants: MockOAuthGrants;
+  cloudRoles: MockCloudRoles;
   audit: MockAuditLog;
   /** Current lab being seeded. Lets batch templates recover the ticket IDs
    *  stored on the lab object during generation. Optional. */
@@ -65,10 +73,14 @@ const SEEDS: Record<string, SeedFn> = {
   lab07: (ctx) => applyLab07Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents),
   lab08: (ctx) => applyLab08Seed(ctx.dir, ctx.idp, ctx.apps, ctx.incidents, ctx.audit),
   lab09: (ctx) => applyLab09Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab10: (ctx) => applyLab10Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab10: (ctx) => applyLab10Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets, ctx.reviews),
   lab11: (ctx) => applyLab11Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
   lab12: (ctx) => applyLab12Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
   lab13: (ctx) => applyLab13Seed(ctx.dir, ctx.idp, ctx.apps, ctx.tickets),
+  lab14: (ctx) => applyLab14Seed(ctx.dir, ctx.idp, ctx.apps, ctx.oauthGrants),
+  lab15: (ctx) => applyLab15Seed(ctx.dir, ctx.idp, ctx.apps),
+  lab16: (ctx) => applyLab16Seed(ctx.dir, ctx.idp, ctx.apps),
+  lab17: (ctx) => applyLab17Seed(ctx.dir, ctx.idp, ctx.apps, ctx.cloudRoles),
 };
 
 /**

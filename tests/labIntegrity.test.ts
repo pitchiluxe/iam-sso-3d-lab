@@ -33,6 +33,10 @@ const LAB_IDS = [
   'lab11',
   'lab12',
   'lab13',
+  'lab14',
+  'lab15',
+  'lab16',
+  'lab17',
 ];
 
 /** Validators whose subject must exist by the time the step runs. */
@@ -51,6 +55,9 @@ const NEEDS_EXISTING_USER = new Set([
   'password-reset',
   'mfa-reset',
   'account-unlocked',
+  'oauth-grant-revoked',
+  'cloud-role-assumed',
+  'cloud-role-assume-denied',
 ]);
 
 const CREATES_USER = new Set(['user-created']);

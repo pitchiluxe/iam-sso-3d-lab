@@ -11,6 +11,8 @@ export { MockTicketQueue } from './mockTicketQueue';
 export type { NewTicket } from './mockTicketQueue';
 export { MockAccessReviews } from './mockAccessReviews';
 export { MockIncidents } from './mockIncidents';
+export { MockOAuthGrants } from './mockOAuthGrants';
+export { MockCloudRoles } from './mockCloudRoles';
 export { FaultService, faultRegistry } from './faultService';
 export type { FaultContext, FaultMutator } from './faultService';
 export { OllamaSupervisor } from './ollamaSupervisor';

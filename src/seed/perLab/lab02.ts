@@ -65,4 +65,10 @@ export function applyLab02Seed(
     relatedUserIds: [bob],
     payload: { userId: bob, reason: 'voluntary resignation', immediate: false },
   });
+
+  // Bob is mid-shift when the termination lands — a live session is exactly
+  // why "disable the account" alone does not finish the job; the lab's
+  // revoke-sessions step has something real to revoke.
+  idp.seedPasswords({ 'bob.sato': 'bob.sato123' });
+  idp.signIn('bob.sato', 'bob.sato123');
 }
