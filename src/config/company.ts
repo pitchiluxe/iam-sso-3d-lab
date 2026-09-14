@@ -10,16 +10,6 @@ export const COMPANY = {
   idpUrl: 'https://idp.northwind.example/realms/northwind',
 } as const;
 
-/** The one external company these labs reference — a B2B guest-access
- *  partner in lab21 and the acquired company in lab23's M&A consolidation.
- *  A second fictional entity only exists because those two labs need one;
- *  no other lab should invent a third. */
-export const PARTNER_COMPANY = {
-  name: 'Fabrikam Analytics',
-  domain: 'fabrikam-analytics.example',
-  tld: 'example',
-} as const;
-
 export const OU_NAMES = ['Users', 'Groups', 'Computers', 'Servers', 'ServiceAccounts'] as const;
 
 export const DEPARTMENTS = ['HR', 'Finance', 'Engineering', 'IT', 'Security'] as const;

@@ -27,37 +27,37 @@ export const LAB_11: Lab = {
     {
       id: 'o1',
       description: 'Design CA-001: block legacy auth protocols',
-      points: 23,
+      points: 10,
       category: 'exec',
     },
     {
       id: 'o2',
       description: 'Design CA-002: MFA for privileged roles',
-      points: 25,
+      points: 10,
       category: 'exec',
     },
     {
       id: 'o3',
       description: 'Enforce CA-001 by assigning to all apps',
-      points: 13,
+      points: 5,
       category: 'exec',
     },
     {
       id: 'o4',
       description: 'Verify legacy auth is blocked in sign-in simulation',
-      points: 13,
+      points: 5,
       category: 'troubleshoot',
     },
     {
       id: 'o5',
       description: 'Enroll privileged user in MFA and test CA-002',
-      points: 13,
+      points: 5,
       category: 'exec',
     },
     {
       id: 'o6',
       description: 'Document the CA policy design rationale',
-      points: 13,
+      points: 5,
       category: 'docs',
     },
   ],
@@ -80,7 +80,7 @@ export const LAB_11: Lab = {
         'What is the blast radius of a legacy auth compromise?',
       ],
       hintIds: ['lab11.s1.h1'],
-      points: { exec: 8 },
+      points: { exec: 5 },
     },
     {
       id: 's2',
@@ -108,7 +108,7 @@ export const LAB_11: Lab = {
         'What happens to a legitimate IMAP client when this policy is enforced?',
       ],
       hintIds: ['lab11.s2.h1', 'lab11.s2.h2'],
-      points: { exec: 19, docs: 5 },
+      points: { exec: 10, docs: 3 },
     },
     {
       id: 's3',
@@ -134,7 +134,7 @@ export const LAB_11: Lab = {
         'How would you test this policy before assigning it to all admins?',
       ],
       hintIds: ['lab11.s3.h1'],
-      points: { exec: 17, troubleshoot: 8 },
+      points: { exec: 10, troubleshoot: 5 },
     },
     {
       id: 's4',
@@ -154,7 +154,7 @@ export const LAB_11: Lab = {
         'What audit event is emitted when CA-001 blocks a sign-in?',
       ],
       hintIds: ['lab11.s4.h1'],
-      points: { troubleshoot: 8, evidence: 8 },
+      points: { troubleshoot: 5, evidence: 5 },
     },
     {
       id: 's5',
@@ -174,7 +174,7 @@ export const LAB_11: Lab = {
         'What compensating control would you add alongside this exception?',
       ],
       hintIds: ['lab11.s5.h1'],
-      points: { exec: 8, 'least-privilege': 8, docs: 3 },
+      points: { exec: 5, 'least-privilege': 5, docs: 2 },
     },
     {
       id: 's6',
@@ -194,7 +194,7 @@ export const LAB_11: Lab = {
         'Who should own the policy review: IAM, SecOps, or the business?',
       ],
       hintIds: ['lab11.s6.h1'],
-      points: { docs: 8 },
+      points: { docs: 5 },
     },
   ],
   faults: [

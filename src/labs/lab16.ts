@@ -23,31 +23,31 @@ export const LAB_16: Lab = {
     {
       id: 'o1',
       description: 'Triage the logon failure pattern across multiple workstations',
-      points: 20,
+      points: 10,
       category: 'troubleshoot',
     },
     {
       id: 'o2',
       description: 'Diagnose and fix the underlying clock skew',
-      points: 30,
+      points: 15,
       category: 'troubleshoot',
     },
     {
       id: 'o3',
       description: 'Unlock the account locked out during the incident',
-      points: 20,
+      points: 10,
       category: 'exec',
     },
     {
       id: 'o4',
       description: 'Verify sign-in succeeds post-fix',
-      points: 16,
+      points: 8,
       category: 'evidence',
     },
     {
       id: 'o5',
       description: 'Document the Kerberos-specific root cause and prevention',
-      points: 14,
+      points: 7,
       category: 'docs',
     },
   ],
@@ -64,7 +64,7 @@ export const LAB_16: Lab = {
         'What is different about a Kerberos ticket failure versus a simple wrong-credential failure?',
       ],
       hintIds: ['lab16.s1.h1'],
-      points: { troubleshoot: 20 },
+      points: { troubleshoot: 10 },
     },
     {
       id: 's2',
@@ -78,7 +78,7 @@ export const LAB_16: Lab = {
         'What tool would you use on a real domain controller to check its time source?',
       ],
       hintIds: ['lab16.s2.h1'],
-      points: { troubleshoot: 30 },
+      points: { troubleshoot: 15 },
     },
     {
       id: 's3',
@@ -91,7 +91,7 @@ export const LAB_16: Lab = {
         'How would you tell the difference between a lockout caused by this outage and one caused by an actual credential-stuffing attempt?',
       ],
       hintIds: ['lab16.s3.h1'],
-      points: { exec: 20 },
+      points: { exec: 10 },
     },
     {
       id: 's4',
@@ -103,7 +103,7 @@ export const LAB_16: Lab = {
         'If the sign-in still failed here, which of the two fixes would you suspect first?',
       ],
       hintIds: ['lab16.s4.h1'],
-      points: { evidence: 16 },
+      points: { evidence: 8 },
     },
     {
       id: 's5',
@@ -116,7 +116,7 @@ export const LAB_16: Lab = {
         'Why did this incident affect many users at once instead of looking like isolated help-desk tickets?',
       ],
       hintIds: ['lab16.s5.h1'],
-      points: { docs: 14 },
+      points: { docs: 7 },
     },
   ],
   faults: [

@@ -117,60 +117,6 @@ const LABS = [
     brief:
       "Scope a production role's wildcard permissions and over-broad trust policy, then prove both sides of the fix.",
   },
-  {
-    id: 'lab18',
-    title: 'Non-Human Identity & Service Account Governance',
-    brief:
-      'Audit three service accounts: strip a leftover admin grant, rotate a never-rotated credential, and contain an anomalous sign-in.',
-  },
-  {
-    id: 'lab19',
-    title: 'SCIM Provisioning at Scale',
-    brief:
-      'Run a bulk-onboarding batch, resolve a name collision without merging two different people, and catch a termination the deprovisioning feed silently dropped.',
-  },
-  {
-    id: 'lab20',
-    title: 'Identity Threat Detection (ITDR)',
-    brief:
-      'Three accounts show overnight sign-in alerts. Two are false positives — rule them out on the record. Find the real one and contain it.',
-  },
-  {
-    id: 'lab21',
-    title: 'B2B Guest Access & External Collaboration',
-    brief:
-      'Provision a contractor from a partner company narrowly and on the record, then find a guest account that outlived its access window by four months.',
-  },
-  {
-    id: 'lab22',
-    title: 'Zero Trust: Device Compliance for Privileged Access',
-    brief:
-      'Require a compliant device for admin roles, then prove the block actually holds and a compliant device still gets through.',
-  },
-  {
-    id: 'lab23',
-    title: 'M&A Identity Consolidation',
-    brief:
-      'Northwind acquires Fabrikam Analytics. Migrate three employees, resolve a genuine username collision, map access on need rather than on title, and refuse to migrate a shared login.',
-  },
-  {
-    id: 'lab24',
-    title: 'SaaS License Reclamation & Entitlement Governance',
-    brief:
-      "Find out why the VPN and analytics license counts don't match headcount, reclaim what's owed, and report the number to Finance.",
-  },
-  {
-    id: 'lab25',
-    title: 'Passwordless / FIDO2 Migration',
-    brief:
-      'Three high-value accounts, three different phishable MFA methods. Migrate all three to FIDO2.',
-  },
-  {
-    id: 'lab26',
-    title: 'Active Directory Attack-Path Review',
-    brief:
-      "Find the shortest path from a help-desk account to full domain compromise, prove it's real, then close it.",
-  },
 ];
 
 export function showStartScreen(onStart: (labId: string) => void, onDismiss: () => void) {

@@ -20,7 +20,6 @@ import type {
   ScoreCategory,
   AppId,
   UserId,
-  RoleId,
   FaultKind,
   FaultInjection,
 } from '@/domain';
@@ -269,20 +268,6 @@ export class Conductor {
         return e.action === 'mfa.challenge' && e.targetId === userId;
       case 'mfa-policy-enforced':
         return e.action === 'policy.updated' && this.idp.hasMfaPolicy();
-      case 'ca-policy-created':
-        return (
-          e.action === 'policy.updated' &&
-          this.idp.hasPolicy(
-            p.policyKind as 'device-compliance' | 'foreign-asn',
-            p.roleId ? (p.roleId as RoleId) : undefined,
-          )
-        );
-      case 'signin-blocked':
-        return (
-          e.action === 'signin.failure' &&
-          e.targetId === userId &&
-          (e.diff as { reason?: string } | undefined)?.reason === 'conditional-block'
-        );
       case 'session-revoked':
         return e.action === 'session.revoked' && e.subjectId === userId;
       case 'fault-cleared':
@@ -512,18 +497,11 @@ function computeScore(
   const penalty = Math.min(failCount * 2, 10);
   earned.troubleshoot = Math.max(0, earned.troubleshoot - penalty);
 
-  // Bonus/penalty: 0 on least-privilege if Bob still actually holds domain-admin
-  // (checked by role membership, not just "does the role exist somewhere").
-  const bob = dir.getUserByUsername('bob.sato');
-  if (bob) {
-    const roleNames = new Set(dir.listRoles().map((r) => [r.id, r.name] as const));
-    const bobRoleIds = new Set(dir.effectiveRoleIds(bob.id));
-    const bobHasDomainAdmin = [...roleNames].some(
-      ([id, name]) => name === 'role-domain-admins' && bobRoleIds.has(id),
-    );
-    if (bobHasDomainAdmin) {
-      earned['least-privilege'] = Math.min(earned['least-privilege'], 5);
-    }
+  // Bonus/penalty: 0 on least-privilege if any user has an obviously excessive role
+  if (
+    dir.listRoles().some((r) => r.name === 'role-domain-admin' && dir.getUserByUsername('bob.sato'))
+  ) {
+    earned['least-privilege'] = Math.min(earned['least-privilege'], 5);
   }
   // 0 on evidence if any required evidence is missing
   const requiredByStep = new Map<string, number>();

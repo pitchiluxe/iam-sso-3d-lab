@@ -3,7 +3,6 @@
  */
 export {
   COMPANY,
-  PARTNER_COMPANY,
   OU_NAMES,
   DEPARTMENTS,
   GROUP_NAMES,

@@ -5,11 +5,9 @@
  * described an unrelated foreign-ASN conditional-access policy — the step
  * would complete off s3's MFA fix regardless of whether the learner did any
  * CA work at all. Split cleanly: s3 owns the MFA-loop fix, s4 owns the CA
- * policy — now the real policy.conditionalAccess.set capability added for
- * lab22, with Verify Authentication actually passing an ASN through and a
- * genuine block getting audited, not just narrated.
- * s5 (the named exception) stays evidence-collected/narrative: this app's
- * policy model has no per-user exception override, only role/tenant scoping.
+ * policy (evidence-collected, same pattern lab11's CA-policy steps use —
+ * this app has no CA-policy authoring capability, so it's narrative/manual
+ * like every other CA step, not mechanically enforced).
  */
 import { mkLabId } from '@/domain';
 import type { Lab, UserId } from '@/domain';
@@ -25,27 +23,22 @@ export const LAB_05: Lab = {
   startingZone: 'iam-ops',
   startingSeed: 'lab05',
   objectives: [
-    { id: 'o1', description: 'Enable MFA for privileged roles', points: 21, category: 'exec' },
-    { id: 'o2', description: 'Enroll Erin in TOTP', points: 11, category: 'exec' },
-    { id: 'o3', description: 'Fix MFA prompt loop', points: 17, category: 'troubleshoot' },
+    { id: 'o1', description: 'Enable MFA for privileged roles', points: 10, category: 'exec' },
+    { id: 'o2', description: 'Enroll Erin in TOTP', points: 5, category: 'exec' },
+    { id: 'o3', description: 'Fix MFA prompt loop', points: 8, category: 'troubleshoot' },
     {
       id: 'o4',
       description: 'Design and test a foreign-ASN conditional access policy',
-      points: 21,
+      points: 10,
       category: 'exec',
     },
     {
       id: 'o5',
       description: 'Test a policy exception without weakening the block',
-      points: 15,
+      points: 7,
       category: 'least-privilege',
     },
-    {
-      id: 'o6',
-      description: 'Document the MFA and CA configuration',
-      points: 15,
-      category: 'docs',
-    },
+    { id: 'o6', description: 'Document the MFA and CA configuration', points: 7, category: 'docs' },
   ],
   steps: [
     {
@@ -56,7 +49,7 @@ export const LAB_05: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['Why should MFA be required for privileged accounts, not all accounts?'],
       hintIds: ['lab05.s1.h1'],
-      points: { exec: 21 },
+      points: { exec: 10 },
     },
     {
       id: 's2',
@@ -66,7 +59,7 @@ export const LAB_05: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 3 } }],
       tutorPrompts: ['What happens when a user loses their TOTP device?'],
       hintIds: ['lab05.s2.h1'],
-      points: { exec: 11 },
+      points: { exec: 5 },
     },
     {
       id: 's3',
@@ -79,21 +72,21 @@ export const LAB_05: Lab = {
         'What log fields distinguish a genuine failure from a loop caused by misconfiguration?',
       ],
       hintIds: ['lab05.s3.h1'],
-      points: { troubleshoot: 17 },
+      points: { troubleshoot: 8 },
     },
     {
       id: 's4',
       title: 'Design and test a conditional access policy',
       brief:
-        'Use Set Conditional Access Policy to block sign-ins from ASN AS-99999 tenant-wide (leave Role blank). Then use Verify Authentication with ASN set to AS-99999 and confirm the sign-in is actually blocked, not just described as blocked.',
-      validator: { kind: 'ca-policy-created', params: { policyKind: 'foreign-asn' } },
+        'Write a CA policy that blocks sign-ins from a foreign ASN. Simulate a sign-in from that ASN and confirm it is blocked. Capture the block as evidence.',
+      validator: { kind: 'evidence-collected', params: { stepId: 's4' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'secOpsDashboard' } }],
       tutorPrompts: [
         'Where would you evaluate a conditional access policy: IdP, app, or proxy?',
         'What signal tells you a sign-in is from a foreign ASN in the first place?',
       ],
       hintIds: ['lab05.s4.h1'],
-      points: { exec: 21 },
+      points: { exec: 10 },
     },
     {
       id: 's5',
@@ -107,7 +100,7 @@ export const LAB_05: Lab = {
         'How would you make sure the exception expires instead of becoming permanent?',
       ],
       hintIds: ['lab05.s5.h1'],
-      points: { 'least-privilege': 15 },
+      points: { 'least-privilege': 7 },
     },
     {
       id: 's6',
@@ -120,7 +113,7 @@ export const LAB_05: Lab = {
         'Six months from now, would your document explain why the exception exists, or just that it does?',
       ],
       hintIds: ['lab05.s6.h1'],
-      points: { docs: 15 },
+      points: { docs: 7 },
     },
   ],
   faults: [

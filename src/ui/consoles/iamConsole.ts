@@ -550,14 +550,9 @@ function renderIAMConsoleInner(body: HTMLElement, conductor: Conductor) {
           'siuser',
           users.map((u) => ({ v: u.username, t: u.username })),
         ),
-        inp('siasn', 'ASN (optional, e.g. AS-99999)'),
-        chk('sidevice', 'device compliant', true),
         btn('Sign in (verify)', () => {
           const username = body.querySelector<HTMLSelectElement>('[data-k="siuser"]')!.value;
-          const asn = val('siasn').trim() || undefined;
-          const deviceCompliant =
-            body.querySelector<HTMLInputElement>('[data-k="sidevice"]')!.checked;
-          const result = idp.signIn(username, `${username}123`, undefined, asn, deviceCompliant);
+          const result = idp.signIn(username, `${username}123`);
           if (result.ok) {
             if (result.user.mfa !== 'none') {
               const mfa = idp.completeMfa(result.session.id, result.user.mfa as MfaMethod);
@@ -615,19 +610,6 @@ function sel(key: string, options: { v: string; t: string }[]): HTMLElement {
     s.appendChild(opt);
   }
   return s;
-}
-
-function chk(key: string, label: string, checkedByDefault: boolean): HTMLElement {
-  const wrap = document.createElement('label');
-  wrap.style.cssText =
-    'display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);white-space:nowrap;';
-  const cb = document.createElement('input');
-  cb.type = 'checkbox';
-  cb.setAttribute('data-k', key);
-  cb.checked = checkedByDefault;
-  wrap.appendChild(cb);
-  wrap.appendChild(document.createTextNode(label));
-  return wrap;
 }
 
 function btn(label: string, onClick: () => void): HTMLElement {

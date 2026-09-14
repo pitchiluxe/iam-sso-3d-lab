@@ -23,11 +23,7 @@ export interface IdPConditionalPolicy {
   userId?: UserId;
   roleId?: RoleId;
   requireMfa: boolean;
-  blockIf?: (ctx: { user: User; ip?: string; asn?: string; deviceCompliant: boolean }) => boolean;
-  /** Tags what `blockIf` actually checks, since the closure itself can't be
-   *  introspected — lets a validator confirm which policy got created
-   *  without re-deriving it from the audit log. */
-  kind?: 'device-compliance' | 'foreign-asn';
+  blockIf?: (ctx: { user: User; ip?: string; asn?: string }) => boolean;
 }
 
 export class MockIdP {
@@ -50,13 +46,7 @@ export class MockIdP {
     for (const [u, p] of Object.entries(map)) this.passwords.set(u, p);
   }
 
-  signIn(
-    username: string,
-    password: string,
-    ip?: string,
-    asn?: string,
-    deviceCompliant = true,
-  ): SignInResult {
+  signIn(username: string, password: string, ip?: string, asn?: string): SignInResult {
     const user = this.dir.getUserByUsername(username);
     if (!user) return { ok: false, reason: 'bad-password' };
     if (user.status === 'disabled') return { ok: false, reason: 'disabled' };
@@ -83,21 +73,7 @@ export class MockIdP {
 
     for (const p of this.policies) {
       if (p.userId && p.userId !== user.id) continue;
-      // roleId was declared on this type but never checked, so a policy
-      // written to scope to one role silently applied to every user instead.
-      if (p.roleId && !this.dir.effectiveRoleIds(user.id).includes(p.roleId)) continue;
-      if (p.blockIf && p.blockIf({ user, ip, asn, deviceCompliant })) {
-        // A blocked sign-in used to leave no audit trail at all — SecOps had
-        // no way to see a conditional-access policy had actually fired.
-        const sessionId = mkSessionId('blocked-' + nanoid(8));
-        this.audit.record({
-          actorId: user.id,
-          action: 'signin.failure',
-          targetId: user.id,
-          sessionId,
-          ip,
-          diff: { reason: 'conditional-block' },
-        });
+      if (p.blockIf && p.blockIf({ user, ip, asn })) {
         return { ok: false, reason: 'conditional-block' };
       }
     }
@@ -219,9 +195,6 @@ export class MockIdP {
   }
   hasMfaPolicy(): boolean {
     return this.policies.some((p) => p.requireMfa);
-  }
-  hasPolicy(kind: 'device-compliance' | 'foreign-asn', roleId?: RoleId): boolean {
-    return this.policies.some((p) => p.kind === kind && (!roleId || p.roleId === roleId));
   }
 
   samlAssertion(

@@ -20,27 +20,27 @@ export const LAB_03: Lab = {
   startingZone: 'finance',
   startingSeed: 'lab03',
   objectives: [
-    { id: 'o1', description: 'Create a role for Finance access', points: 12, category: 'exec' },
+    { id: 'o1', description: 'Create a role for Finance access', points: 5, category: 'exec' },
     {
       id: 'o2',
       description: 'Grant Jane access via group membership',
-      points: 12,
+      points: 5,
       category: 'exec',
     },
     {
       id: 'o3',
       description: 'Prove Jane can perform the allowed action',
-      points: 19,
+      points: 8,
       category: 'evidence',
     },
     {
       id: 'o4',
       description: "Discover and remove Bob's excess priv",
-      points: 24,
+      points: 10,
       category: 'least-privilege',
     },
-    { id: 'o5', description: 'Test and document denied action', points: 19, category: 'exec' },
-    { id: 'o6', description: 'Document the authorization model', points: 14, category: 'docs' },
+    { id: 'o5', description: 'Test and document denied action', points: 8, category: 'exec' },
+    { id: 'o6', description: 'Document the authorization model', points: 6, category: 'docs' },
   ],
   steps: [
     {
@@ -52,7 +52,7 @@ export const LAB_03: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['Why should roles be granted via group membership, not directly to users?'],
       hintIds: ['lab03.s1.h1'],
-      points: { exec: 9, 'least-privilege': 5 },
+      points: { exec: 5, 'least-privilege': 3 },
     },
     {
       id: 's2',
@@ -64,7 +64,7 @@ export const LAB_03: Lab = {
         'If a group membership can grant a role, where does authorization actually happen?',
       ],
       hintIds: ['lab03.s2.h1'],
-      points: { exec: 9 },
+      points: { exec: 5 },
     },
     {
       id: 's3',
@@ -78,7 +78,7 @@ export const LAB_03: Lab = {
         'If the write silently failed, would the sign-in check from the last step have caught it?',
       ],
       hintIds: ['lab03.s3.h1'],
-      points: { evidence: 11, exec: 4 },
+      points: { evidence: 6, exec: 2 },
     },
     {
       id: 's4',
@@ -94,7 +94,7 @@ export const LAB_03: Lab = {
         'What is the risk of a standing privileged account? How would an attacker use it?',
       ],
       hintIds: ['lab03.s4.h1'],
-      points: { exec: 9, 'least-privilege': 15, docs: 9 },
+      points: { exec: 5, 'least-privilege': 10, docs: 5 },
     },
     {
       id: 's5',
@@ -108,7 +108,7 @@ export const LAB_03: Lab = {
         "Jane's write succeeded and Alex's was denied — same portal, same action. What single difference explains both outcomes?",
       ],
       hintIds: ['lab03.s5.h1'],
-      points: { exec: 9, troubleshoot: 9 },
+      points: { exec: 5, troubleshoot: 5 },
     },
     {
       id: 's6',
@@ -121,7 +121,7 @@ export const LAB_03: Lab = {
         'If a new hire asked "how do I know what I can access", could your write-up answer it without reading the code?',
       ],
       hintIds: ['lab03.s6.h1'],
-      points: { docs: 11 },
+      points: { docs: 6 },
     },
   ],
   faults: [

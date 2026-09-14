@@ -76,19 +76,7 @@ describe('every lab step can be completed by following its brief', () => {
     // Verify Authentication before revoking — nothing else in the lab ever
     // creates a session for him, so without that instruction this was
     // unreachable (confirmed and fixed; see lab09PIM.test.ts).
-    // lab18/s5 (svc-monitor): seed/perLab/lab18.ts signs svc-monitor in
-    // during setup, same as lab02 — the anomalous sign-in left a session
-    // open for the learner to revoke.
-    // lab19/s5 (priya.fernandes): seed/perLab/lab19.ts signs her in during
-    // setup — the deprovisioning feed silently dropped, so her session is
-    // still live for the learner to find and revoke.
-    // lab20/s6 (finn.muller): seed/perLab/lab20.ts signs him in during
-    // setup — the suspicious sign-in the lab is built around left a session
-    // open for the learner to revoke.
-    // lab21/s5 (layla.haddad): seed/perLab/lab21.ts signs her in during
-    // setup — her guest access window expired unnoticed, so her session is
-    // still live for the learner to find and revoke.
-    expect(risky.length).toBeLessThanOrEqual(6);
+    expect(risky.length).toBeLessThanOrEqual(2);
   });
 
   it('gives a termination step a validator that a termination produces', () => {

@@ -27,31 +27,31 @@ export const LAB_15: Lab = {
     {
       id: 'o1',
       description: 'Inventory application certificates and identify expiry risk',
-      points: 18,
+      points: 10,
       category: 'troubleshoot',
     },
     {
       id: 'o2',
       description: "Diagnose and fix Finance Portal's expired certificate",
-      points: 27,
+      points: 15,
       category: 'troubleshoot',
     },
     {
       id: 'o3',
       description: 'Verify sign-in for two users post-fix',
-      points: 18,
+      points: 10,
       category: 'evidence',
     },
     {
       id: 'o4',
       description: "Proactively rotate Help Desk Portal's certificate before it expires",
-      points: 22,
+      points: 12,
       category: 'exec',
     },
     {
       id: 'o5',
       description: 'Document a certificate monitoring and renewal policy',
-      points: 15,
+      points: 8,
       category: 'docs',
     },
   ],
@@ -67,7 +67,7 @@ export const LAB_15: Lab = {
         'What breaks first when a signing certificate expires — authentication, or the trust the assertion relies on?',
       ],
       hintIds: ['lab15.s1.h1'],
-      points: { troubleshoot: 18 },
+      points: { troubleshoot: 10 },
     },
     {
       id: 's2',
@@ -81,7 +81,7 @@ export const LAB_15: Lab = {
         'Who in a real organization owns certificate renewal — IAM, network engineering, or whoever set it up originally?',
       ],
       hintIds: ['lab15.s2.h1'],
-      points: { troubleshoot: 27 },
+      points: { troubleshoot: 15 },
     },
     {
       id: 's3',
@@ -92,7 +92,7 @@ export const LAB_15: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 5 } }],
       tutorPrompts: ['Why verify a second, unaffected app instead of only the one you just fixed?'],
       hintIds: ['lab15.s3.h1'],
-      points: { evidence: 18 },
+      points: { evidence: 10 },
     },
     {
       id: 's4',
@@ -107,7 +107,7 @@ export const LAB_15: Lab = {
         "What is the advantage of rotating this certificate now versus waiting for it to fail like Finance Portal's did?",
       ],
       hintIds: ['lab15.s4.h1'],
-      points: { exec: 22 },
+      points: { exec: 12 },
     },
     {
       id: 's5',
@@ -120,7 +120,7 @@ export const LAB_15: Lab = {
         "If every certificate in this tenant were monitored with a 30-day-out alert, would today's incident have happened?",
       ],
       hintIds: ['lab15.s5.h1'],
-      points: { docs: 15 },
+      points: { docs: 8 },
     },
   ],
   faults: [

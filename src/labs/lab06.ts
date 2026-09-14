@@ -15,17 +15,17 @@ export const LAB_06: Lab = {
   startingZone: 'sec-ops',
   startingSeed: 'lab06',
   objectives: [
-    { id: 'o1', description: 'Identify dormant accounts', points: 19, category: 'exec' },
-    { id: 'o2', description: 'Identify excessive memberships', points: 16, category: 'exec' },
+    { id: 'o1', description: 'Identify dormant accounts', points: 8, category: 'exec' },
+    { id: 'o2', description: 'Identify excessive memberships', points: 7, category: 'exec' },
     {
       id: 'o3',
       description: 'Identify privileged accounts in scope',
-      points: 19,
+      points: 8,
       category: 'least-privilege',
     },
-    { id: 'o4', description: 'Record 8 review decisions correctly', points: 22, category: 'exec' },
-    { id: 'o5', description: 'Close campaign and produce summary', points: 12, category: 'docs' },
-    { id: 'o6', description: 'Collect review evidence', points: 12, category: 'evidence' },
+    { id: 'o4', description: 'Record 8 review decisions correctly', points: 10, category: 'exec' },
+    { id: 'o5', description: 'Close campaign and produce summary', points: 5, category: 'docs' },
+    { id: 'o6', description: 'Collect review evidence', points: 5, category: 'evidence' },
   ],
   steps: [
     {
@@ -39,7 +39,7 @@ export const LAB_06: Lab = {
         'What signals make an account "dormant"? Is dormancy alone enough to revoke access?',
       ],
       hintIds: ['lab06.s1.h1'],
-      points: { exec: 19 },
+      points: { exec: 8 },
     },
     {
       id: 's2',
@@ -50,7 +50,7 @@ export const LAB_06: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['What signals would tell you a review campaign is being rubber-stamped?'],
       hintIds: ['lab06.s2.h1'],
-      points: { exec: 16 },
+      points: { exec: 7 },
     },
     {
       id: 's3',
@@ -63,7 +63,7 @@ export const LAB_06: Lab = {
         'Should a privileged-group item get the same 30-second glance as a routine one?',
       ],
       hintIds: ['lab06.s3.h1'],
-      points: { 'least-privilege': 19 },
+      points: { 'least-privilege': 8 },
     },
     {
       id: 's4',
@@ -74,7 +74,7 @@ export const LAB_06: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 8 } }],
       tutorPrompts: ['What would you do if a manager approved every item without reading it?'],
       hintIds: ['lab06.s4.h1'],
-      points: { exec: 22 },
+      points: { exec: 10 },
     },
     {
       id: 's5',
@@ -84,7 +84,7 @@ export const LAB_06: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'secOpsDashboard' } }],
       tutorPrompts: ['What should an access review summary contain for a compliance auditor?'],
       hintIds: ['lab06.s5.h1'],
-      points: { docs: 12, evidence: 12 },
+      points: { docs: 5, evidence: 5 },
     },
   ],
   faults: [

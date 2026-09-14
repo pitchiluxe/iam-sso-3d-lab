@@ -44,15 +44,6 @@ import { applyLab14Seed } from '@/seed/perLab/lab14';
 import { applyLab15Seed } from '@/seed/perLab/lab15';
 import { applyLab16Seed } from '@/seed/perLab/lab16';
 import { applyLab17Seed } from '@/seed/perLab/lab17';
-import { applyLab18Seed } from '@/seed/perLab/lab18';
-import { applyLab19Seed } from '@/seed/perLab/lab19';
-import { applyLab20Seed } from '@/seed/perLab/lab20';
-import { applyLab21Seed } from '@/seed/perLab/lab21';
-import { applyLab22Seed } from '@/seed/perLab/lab22';
-import { applyLab23Seed } from '@/seed/perLab/lab23';
-import { applyLab24Seed } from '@/seed/perLab/lab24';
-import { applyLab25Seed } from '@/seed/perLab/lab25';
-import { applyLab26Seed } from '@/seed/perLab/lab26';
 
 export interface SeedContext {
   dir: MockDirectory;
@@ -90,15 +81,6 @@ const SEEDS: Record<string, SeedFn> = {
   lab15: (ctx) => applyLab15Seed(ctx.dir, ctx.idp, ctx.apps),
   lab16: (ctx) => applyLab16Seed(ctx.dir, ctx.idp, ctx.apps),
   lab17: (ctx) => applyLab17Seed(ctx.dir, ctx.idp, ctx.apps, ctx.cloudRoles),
-  lab18: (ctx) => applyLab18Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab19: (ctx) => applyLab19Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab20: (ctx) => applyLab20Seed(ctx.dir, ctx.idp, ctx.apps, ctx.audit),
-  lab21: (ctx) => applyLab21Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab22: (ctx) => applyLab22Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab23: (ctx) => applyLab23Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab24: (ctx) => applyLab24Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab25: (ctx) => applyLab25Seed(ctx.dir, ctx.idp, ctx.apps),
-  lab26: (ctx) => applyLab26Seed(ctx.dir, ctx.idp, ctx.apps),
 };
 
 /**
