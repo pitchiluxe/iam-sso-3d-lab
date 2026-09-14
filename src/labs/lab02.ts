@@ -7,7 +7,7 @@
  * matching the 1:1 step-to-evidence shape used by the later labs.
  */
 import { mkLabId } from '@/domain';
-import type { Lab } from '@/domain';
+import type { Lab, UserId } from '@/domain';
 
 export const LAB_02: Lab = {
   id: mkLabId('lab02'),
@@ -23,37 +23,37 @@ export const LAB_02: Lab = {
     {
       id: 'o1',
       description: 'Onboard Alex Morgan with least-privilege access',
-      points: 12,
+      points: 18,
       category: 'exec',
     },
     {
       id: 'o2',
       description: 'Transfer Jane Doe: add new access, remove old',
-      points: 13,
+      points: 19,
       category: 'exec',
     },
     {
       id: 'o3',
       description: "Verify Jane's Finance access is actually gone",
-      points: 10,
+      points: 15,
       category: 'troubleshoot',
     },
     {
       id: 'o4',
       description: "Disable Bob Sato's account on termination",
-      points: 10,
+      points: 15,
       category: 'exec',
     },
     {
       id: 'o5',
       description: "Revoke Bob's active sessions and capture proof",
-      points: 12,
+      points: 18,
       category: 'evidence',
     },
     {
       id: 'o6',
       description: 'Write the change-log note for all three tickets',
-      points: 10,
+      points: 15,
       category: 'docs',
     },
   ],
@@ -73,7 +73,7 @@ export const LAB_02: Lab = {
         'How do you verify a new user was actually provisioned correctly, not just created?',
       ],
       hintIds: ['lab02.s1.h1'],
-      points: { exec: 10, evidence: 2 },
+      points: { exec: 15, evidence: 3 },
     },
     {
       id: 's2',
@@ -86,7 +86,7 @@ export const LAB_02: Lab = {
         'A transfer is two operations, not one — which comes first, add or remove, and does the order matter?',
       ],
       hintIds: ['lab02.s2.h1'],
-      points: { exec: 8, 'least-privilege': 5, evidence: 2 },
+      points: { exec: 11, 'least-privilege': 7, evidence: 3 },
     },
     {
       id: 's3',
@@ -100,12 +100,13 @@ export const LAB_02: Lab = {
         'If you only checked her group list and not her app access, what could you still be missing?',
       ],
       hintIds: ['lab02.s3.h1'],
-      points: { troubleshoot: 8, 'least-privilege': 3 },
+      points: { troubleshoot: 11, 'least-privilege': 4 },
     },
     {
       id: 's4',
       title: 'Terminate Bob Sato',
-      brief: "Open the termination ticket. Disable Bob's account. Verify Bob cannot sign in.",
+      brief:
+        "Open the termination ticket. Before you disable anything, check Bob's actual group and role memberships against what the ticket lists — the ticket only names what HR knows about. Disable Bob's account. Verify Bob cannot sign in.",
       // Not signin-succeeded. This step ends "verify Bob cannot sign in", and
       // validating a successful sign-in meant the step only advanced if the
       // termination had failed -- so a learner who did it correctly could
@@ -114,9 +115,10 @@ export const LAB_02: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: [
         'Is disabling the account sufficient on its own, or is a session still live underneath it?',
+        "The ticket lists Bob's known groups. Does his effective role list match the ticket exactly, or does he have something nobody thought to mention?",
       ],
       hintIds: ['lab02.s4.h1'],
-      points: { exec: 8, 'least-privilege': 2 },
+      points: { exec: 11, 'least-privilege': 3 },
     },
     {
       id: 's5',
@@ -130,7 +132,7 @@ export const LAB_02: Lab = {
         'What is the blast radius of skipping session revocation on a termination?',
       ],
       hintIds: ['lab02.s5.h1'],
-      points: { exec: 4, troubleshoot: 3, evidence: 5 },
+      points: { exec: 6, troubleshoot: 4, evidence: 7 },
     },
     {
       id: 's6',
@@ -143,14 +145,23 @@ export const LAB_02: Lab = {
         'If an auditor asked "who authorized Jane\'s transfer" six months from now, would your note answer it?',
       ],
       hintIds: ['lab02.s6.h1'],
-      points: { docs: 6, comms: 4 },
+      points: { docs: 9, comms: 6 },
     },
   ],
-  faults: [],
+  faults: [
+    {
+      id: 'f1',
+      kind: 'excessive-permissions',
+      applyAtStep: 's4',
+      params: {},
+      targetUserId: 'bob.sato' as UserId,
+    },
+  ],
   debriefQuestions: [
     'What is the smallest set of actions that would have left Jane with stale HR access? How would you detect it after the fact?',
     'What is the blast radius of skipping session revocation on termination?',
     'Onboarding, transfer, and termination each touch groups and sessions differently — which one carries the most risk if rushed, and why?',
     'How would you prove to an auditor that Bob lost access on the day he left, not the day someone remembered to revoke it?',
+    "Bob's termination ticket didn't mention his leftover domain-admin grant from an old project. What process failure let that happen, and whose job is it to catch it?",
   ],
 };

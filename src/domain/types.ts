@@ -402,6 +402,8 @@ export type ValidatorKind =
   | 'signin-succeeded'
   | 'mfa-challenge-completed'
   | 'mfa-policy-enforced'
+  | 'ca-policy-created'
+  | 'signin-blocked'
   | 'session-revoked'
   | 'review-decisions-recorded'
   | 'evidence-collected'

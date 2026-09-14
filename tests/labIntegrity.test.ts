@@ -37,6 +37,15 @@ const LAB_IDS = [
   'lab15',
   'lab16',
   'lab17',
+  'lab18',
+  'lab19',
+  'lab20',
+  'lab21',
+  'lab22',
+  'lab23',
+  'lab24',
+  'lab25',
+  'lab26',
 ];
 
 /** Validators whose subject must exist by the time the step runs. */
@@ -185,5 +194,20 @@ describe.each(LAB_IDS)('%s integrity', (id) => {
     const { lab } = startLab(id);
     expect(lab.brief.trim().length).toBeGreaterThan(0);
     expect(lab.debriefQuestions.length).toBeGreaterThan(0);
+  });
+
+  it('step points sum to exactly 100 — a lab that cannot reach 100 can never score full marks', () => {
+    const { lab } = startLab(id);
+    const total = lab.steps.reduce(
+      (sum, step) => sum + Object.values(step.points ?? {}).reduce((a, b) => a + (b ?? 0), 0),
+      0,
+    );
+    expect(total).toBe(100);
+  });
+
+  it('objective points sum to exactly 100 — the briefing rubric must match the 100-point score', () => {
+    const { lab } = startLab(id);
+    const total = lab.objectives.reduce((sum, o) => sum + o.points, 0);
+    expect(total).toBe(100);
   });
 });

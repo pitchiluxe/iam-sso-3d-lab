@@ -401,6 +401,15 @@ async function bootstrap() {
         'lab15',
         'lab16',
         'lab17',
+        'lab18',
+        'lab19',
+        'lab20',
+        'lab21',
+        'lab22',
+        'lab23',
+        'lab24',
+        'lab25',
+        'lab26',
       ];
     },
     get() {

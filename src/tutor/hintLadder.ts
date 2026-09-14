@@ -269,9 +269,9 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'A conditional access policy adds rules on top of authentication. What condition and what effect does a foreign-ASN block need?',
       question: 'What signal would actually tell you a sign-in came from a foreign ASN?',
       approach:
-        'Write the policy (condition: ASN not in trusted list, effect: block), then simulate a sign-in from that ASN and confirm it is denied. Capture the denial as evidence.',
+        'Access & Sessions → Set Conditional Access Policy. Leave Role blank, Block ASN = AS-99999. Then Verify Authentication with ASN set to AS-99999 and confirm it is actually denied.',
       solution:
-        'Design CA-001: condition = ASN not in trusted list, effect = block. Simulate a foreign-ASN sign-in, confirm signin.failure with a conditional-block reason, and capture a snapshot tagged to this step.',
+        'Run Set Conditional Access Policy with BlockForeignAsn=AS-99999 and Role blank. Verify Authentication for any user with ASN=AS-99999 — the sign-in is blocked and logged as signin.failure with a conditional-block reason. Capture a snapshot tagged to this step.',
     },
     s5: {
       nudge:
@@ -949,6 +949,475 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'Write up: the original wildcard permissions and over-broad trust, what each was scoped down to, and the allow/deny proof from steps 4 and 5.',
       solution:
         'Document: prod-data-readonly originally granted s3:*/ec2:*/iam:PassRole to nine users; scoped to s3:GetObject/s3:ListBucket for ivy.park and dan.rivera only; verified ivy.park can still assume it and bob.sato cannot. Capture it as evidence for this step.',
+    },
+  },
+  lab18: {
+    s1: {
+      nudge:
+        'A service account has no manager to notice when something is wrong with it. That is exactly why it needs a heavier audit, not a lighter one.',
+      question:
+        'None of these three accounts should ever produce an interactive sign-in. Which audit fields would tell you if one just did?',
+      approach:
+        'Open the IAM Console and look up svc-backup, svc-monitor, and svc-idp-sync one at a time: group memberships, last sign-in, and sign-in source.',
+      solution:
+        'svc-backup carries standing grp-domain-admins membership, svc-idp-sync has never had its credential rotated since creation, and svc-monitor shows sign-in activity outside its normal pattern. Capture the inventory as evidence for this step.',
+    },
+    s2: {
+      nudge: 'A nightly backup job reads files. It does not administer the domain.',
+      question:
+        "A backup job needs to read data, not administer the domain. What's the blast radius if this credential leaks?",
+      approach: 'IAM Console → find svc-backup → revoke its domain-admin role.',
+      solution:
+        "Revoke svc-backup's role-domain-admins grant and record the reason (leftover from a migration project, never revoked).",
+    },
+    s3: {
+      nudge:
+        'A credential that has never rotated is a credential that has had its entire lifetime to leak.',
+      question:
+        'Why does an unrotated service-account credential matter more than an unrotated human password?',
+      approach: 'IAM Console → svc-idp-sync → Reset Password (Rotate Credential).',
+      solution:
+        "Reset svc-idp-sync's credential. A human notices a password stopped working; nothing notices a sync connector silently using a leaked one.",
+    },
+    s4: {
+      nudge:
+        'A monitoring job authenticates on the same schedule from the same source, every time. Anything else is the anomaly.',
+      question:
+        "If a person's account showed this pattern, you'd call it a credential-stuffing attempt. Does that change because the account belongs to a service, not a person?",
+      approach:
+        "Open SecOps Dashboard or the IAM Console audit view and filter svc-monitor's sign-in history for failed attempts followed by an unexpected success.",
+      solution:
+        'svc-monitor shows three failed sign-ins followed by a success from an external address — the same signature a suspicious human sign-in would show. Capture it as evidence for this step.',
+    },
+    s5: {
+      nudge: 'Disabling nothing yet — first cut off whatever session that sign-in already created.',
+      question:
+        "Service accounts don't file tickets when something feels wrong — who is supposed to notice this instead?",
+      approach: 'IAM Console → svc-monitor → Revoke Sessions.',
+      solution: 'Revoke every active session for svc-monitor.',
+    },
+    s6: {
+      nudge:
+        'Revoking the session stops what is happening right now. It says nothing about whether the credential itself is still good.',
+      question:
+        'If this policy had existed before today, would the svc-backup finding or the svc-monitor anomaly have been caught sooner?',
+      approach:
+        "Reset svc-monitor's credential, then write a short non-human-identity policy: inventory, owner, rotation cadence, and sign-in review responsibility for each service account.",
+      solution:
+        "Reset svc-monitor's credential. Document: three service accounts (svc-backup, svc-monitor, svc-idp-sync), their purpose and owner, a rotation cadence, and who reviews their sign-in activity going forward. Capture it as evidence for this step.",
+    },
+  },
+  lab19: {
+    s1: {
+      nudge: 'Five accounts, identical shape. This is exactly what automation is for.',
+      question:
+        'What is the fastest way to provision five accounts identically, without five separate chances to mistype a field?',
+      approach:
+        'Open PowerShell → "Bulk onboarding — new hires". Put the five usernames in $names, set the group to grp-analytics-readers, run it.',
+      solution:
+        'Run the bulk-onboarding script with $names = nina.volkov, theo.marsh, yuki.abe, devon.clarke, ines.rocha and the group set to grp-analytics-readers.',
+    },
+    s2: {
+      nudge:
+        'The directory already has an opinion about this username. Ask it before you create anything.',
+      question:
+        'Lab 12 taught you to join a genuine same-person soft-match instead of deleting one side. What tells you this case is different?',
+      approach:
+        'Look up the existing sam.oduya — a contractor whose engagement ended eighteen months ago. The new hire is a different person; provision them as sam.oduya2 and leave the old record alone.',
+      solution:
+        'Create sam.oduya2 for the new hire. Do not touch, merge, or delete the existing sam.oduya record — it belongs to someone else.',
+    },
+    s3: {
+      nudge:
+        "HR says one thing. The directory says another. Trust the directory's state, not the story.",
+      question:
+        'A joiner feed and a leaver feed are two different automated jobs. Why would one silently fail while the other keeps working?',
+      approach: "Open the IAM Console and check priya.fernandes's account status directly.",
+      solution:
+        'priya.fernandes is still active six weeks after HR marked her terminated — the deprovisioning side of the SCIM feed never fired. Capture the finding as evidence for this step.',
+    },
+    s4: {
+      nudge:
+        'Every day between the termination date and today was excess access nobody knew about.',
+      question:
+        'Six weeks of access nobody tracked — what would you check to find out whether any of it was actually used?',
+      approach: 'IAM Console → priya.fernandes → Disable Account, then remove grp-engineering-dev.',
+      solution: 'Disable priya.fernandes and remove her from grp-engineering-dev.',
+    },
+    s5: {
+      nudge: 'Disabling the account and ending her session are two different actions.',
+      question:
+        'A termination feed that only disables the account and never checks for a live session — what does that miss?',
+      approach: 'IAM Console → priya.fernandes → Revoke Sessions.',
+      solution: 'Revoke every active session for priya.fernandes.',
+    },
+    s6: {
+      nudge:
+        'The connector failing once is an incident. Nothing yet explains how you would catch the next one.',
+      question:
+        'If this audit had run weekly, how many days of excess access would Priya have actually had?',
+      approach:
+        'Write up: what the SCIM deprovisioning feed dropped, how you found it (directory status vs. HR termination date), and a periodic stale-account audit to run going forward.',
+      solution:
+        "Document: the SCIM feed silently dropped priya.fernandes's termination event; found by comparing HR's termination date against her still-active directory status; recommend a weekly automated comparison between HR termination records and directory status so a dropped event surfaces in days, not weeks. Capture it as evidence for this step.",
+    },
+  },
+  lab20: {
+    s1: {
+      nudge: 'Three alerts look similar at a glance. They are not similar underneath.',
+      question:
+        'What in a sign-in event distinguishes an anomaly from an ordinary mistake — the failure count, the source, the timing, or the combination?',
+      approach:
+        'Open SecOps Dashboard and review the audit trail for dan.rivera, greta.olsen, and finn.muller one at a time.',
+      solution:
+        'Three sign-in alerts reviewed: Dan (one failed attempt, normal location), Greta (new city, no failures), Finn (three failures then success from a foreign address). Capture the triage as evidence for this step.',
+    },
+    s2: {
+      nudge: 'A single mistyped password from a normal place is not, by itself, an incident.',
+      question:
+        'One failed sign-in from a normal location — what would have to be true for you to escalate this instead of closing it?',
+      approach:
+        'Confirm dan.rivera has no privilege change following the sign-in, then record: ruled out, single failed attempt from his usual location.',
+      solution:
+        "Record that Dan's alert is a false positive: one failed sign-in, normal location, no follow-on privilege change.",
+    },
+    s3: {
+      nudge:
+        'A new location is a fact. Whether it is suspicious depends on context you have to go get.',
+      question:
+        'A new-location sign-in with no failed attempts and a business reason on file — what makes this different from a real impossible-travel case?',
+      approach:
+        'Confirm greta.olsen has no privilege change following the sign-in, then record: ruled out, travelling for a board meeting this week.',
+      solution:
+        "Record that Greta's alert is a false positive: new city, no failed attempts, confirmed business travel, no follow-on privilege change.",
+    },
+    s4: {
+      nudge:
+        'The sign-in pattern by itself looks like the other two. What happened right after it does not.',
+      question:
+        'Finn is on your own team. Does that change how you investigate his account, or how you should?',
+      approach:
+        "Check finn.muller's account for any role granted right after the sign-in burst — compare timestamps.",
+      solution:
+        'Finn gained standing role-domain-admins moments after three failed sign-ins and a success from a foreign address — nobody requested that grant. That combination, not the sign-in alone, is what makes this real. Capture it as evidence for this step.',
+    },
+    s5: {
+      nudge:
+        'The account can still authenticate normally. The privilege it should not have is the active risk.',
+      question:
+        'Why revoke the privilege before disabling the account, rather than the other way around?',
+      approach: 'IAM Console → finn.muller → revoke the role-domain-admins grant.',
+      solution: "Revoke finn.muller's role-domain-admins grant.",
+    },
+    s6: {
+      nudge:
+        'The privilege is gone. Whatever session that sign-in opened is not, until you close it.',
+      question: 'If someone asked why you did not also disable Dan and Greta, what is your answer?',
+      approach:
+        "Revoke finn.muller's sessions, then write the report: what happened, why Dan and Greta were ruled out, and what evidence made Finn's case real.",
+      solution:
+        "Revoke finn.muller's sessions. Document: three alerts reviewed, two ruled out with reasons (mistyped password; confirmed travel), one confirmed real because the sign-in was followed by an unrequested privilege grant. Capture it as evidence for this step.",
+    },
+  },
+  lab21: {
+    s1: {
+      nudge: 'A guest account with no owner and no end date is a permanent guest.',
+      question:
+        'A guest account with no sponsor and no end date on record — who is accountable for it six months from now?',
+      approach:
+        'IAM Console → Provision User. Username marcus.webb, department "External — Fabrikam Analytics", title recording sponsor (Ivy Park) and access window (14 days).',
+      solution:
+        'Create marcus.webb with department "External — Fabrikam Analytics" and title "Guest — sponsored by Ivy Park, access window 14 days".',
+    },
+    s2: {
+      nudge: 'A data-review engagement needs read access to data. Nothing else.',
+      question:
+        'An external contractor with the same access as a full-time employee — what makes that riskier than the same mistake for an internal hire?',
+      approach: 'IAM Console → Group Membership → add marcus.webb to grp-analytics-readers only.',
+      solution: 'Add marcus.webb to grp-analytics-readers. No other group.',
+    },
+    s3: {
+      nudge:
+        'The directory does not enforce an access window by itself. Only a review catches an expired one.',
+      question: 'Nothing technical enforces a guest access window by itself. What does?',
+      approach:
+        "Run Get-ADUser and read the Title column for every external account — one guest's recorded access window ended months ago.",
+      solution:
+        "layla.haddad's title records an access window that expired 2026-05-01, four months before this lab. Capture the finding as evidence for this step.",
+    },
+    s4: {
+      nudge: 'The engagement ended. The account did not.',
+      question:
+        'Four months of access past the intended end date — what would you check to see whether any of it was used?',
+      approach: 'IAM Console → layla.haddad → Disable Account.',
+      solution: 'Disable layla.haddad.',
+    },
+    s5: {
+      nudge: 'Disabling the account and ending her session are two different actions.',
+      question:
+        'A guest account with no expiry enforcement and no session review — how long could this have run unnoticed if nobody had looked?',
+      approach: 'IAM Console → layla.haddad → Revoke Sessions.',
+      solution: 'Revoke every active session for layla.haddad.',
+    },
+    s6: {
+      nudge:
+        'Marcus is provisioned the right way today. Nothing yet says what happens when his 14 days are up.',
+      question:
+        'If this review had run monthly, how many months of unnecessary access would Layla have actually had?',
+      approach:
+        'Write up: every guest gets a named sponsor, a hard access-window end date, and a periodic review comparing guest accounts against that date.',
+      solution:
+        "Document: guest-access policy requires a named sponsor, a recorded end date, and a periodic (recommend monthly) review comparing every external account's recorded window against its current status — the review that would have caught Layla in month one instead of month four. Capture it as evidence for this step.",
+    },
+  },
+  lab22: {
+    s1: {
+      nudge:
+        'Nothing today distinguishes an admin signing in from their work laptop from an admin signing in from anywhere else.',
+      question:
+        'A stolen but otherwise valid admin credential — what stops it from being used today, and what should?',
+      approach:
+        'Open the IAM Console and confirm role-iam-admins and role-domain-admins have no conditional access policy yet.',
+      solution:
+        'Confirm no policy currently restricts sign-in by device for either privileged role. Capture it as evidence for this step.',
+    },
+    s2: {
+      nudge:
+        'Start with the role that can do the most damage if its device requirement is wrong on day one — the smaller one.',
+      question: 'Why scope this to role-iam-admins instead of every employee on day one?',
+      approach:
+        'IAM Console → Access & Sessions → Set Conditional Access Policy. Role: role-iam-admins. Require compliant device: on.',
+      solution:
+        'Set Conditional Access Policy with Role=role-iam-admins, RequireCompliantDevice=true.',
+    },
+    s3: {
+      nudge:
+        'A policy that has never actually blocked anything has not been tested — only described.',
+      question:
+        'If this had failed silently instead of logging a blocked sign-in, how would anyone know the policy was working at all?',
+      approach:
+        'IAM Console → Verify Authentication. Select erin.cho, uncheck "device compliant", click Sign in (verify).',
+      solution:
+        'Attempt Verify Authentication for erin.cho with device compliant unchecked — the sign-in is blocked and the block is logged.',
+    },
+    s4: {
+      nudge: 'The policy should stop a bad device, not stop Erin.',
+      question: 'Why test the allow case at all, if you already confirmed the block works?',
+      approach:
+        'IAM Console → Verify Authentication. Select erin.cho, check "device compliant", click Sign in (verify).',
+      solution:
+        'Attempt Verify Authentication for erin.cho with device compliant checked — the sign-in succeeds.',
+    },
+    s5: {
+      nudge: 'Domain admin is at least as sensitive as IAM admin, and currently has the same gap.',
+      question:
+        'What would you check to make sure this second policy did not accidentally weaken the first one?',
+      approach:
+        'IAM Console → Access & Sessions → Set Conditional Access Policy. Role: role-domain-admins. Require compliant device: on.',
+      solution:
+        'Set Conditional Access Policy with Role=role-domain-admins, RequireCompliantDevice=true.',
+    },
+    s6: {
+      nudge:
+        'The policy exists now. Nothing yet says what happens when a legitimate admin gets a new, unenrolled laptop.',
+      question:
+        'An admin is issued a new laptop today and needs to work before MDM enrollment finishes. What is the safe exception, and what is not?',
+      approach:
+        'Write up: which roles require a compliant device, what "compliant" means, and a time-boxed exception process for a new device pending enrollment.',
+      solution:
+        'Document: role-iam-admins and role-domain-admins require a compliant device (MDM-enrolled, encrypted, patched); a new device gets a short, named, time-boxed exception during enrollment — never a permanent one. Capture it as evidence for this step.',
+    },
+  },
+  lab23: {
+    s1: {
+      nudge:
+        'Two companies of any size will always share at least one name. That is a coincidence, not a data problem, until you check.',
+      question:
+        'Two companies of any real size will always share at least one common name. What do you check before assuming a match means the same person?',
+      approach:
+        'Look up "alex.morgan" in the IAM Console before creating any of the three Fabrikam accounts.',
+      solution:
+        'Northwind already has an alex.morgan in Finance — a different person from the Fabrikam Alex Morgan on the migration roster. Capture the finding as evidence for this step.',
+    },
+    s2: {
+      nudge:
+        'Renaming the existing account to make room for a name that arrived later breaks everything already pointed at it.',
+      question:
+        'What would break for the existing Alex Morgan if you renamed her account to make room for the new hire?',
+      approach: 'IAM Console → Provision User. Username: alex.morgan2.',
+      solution:
+        'Create alex.morgan2 for the Fabrikam hire. Leave the existing alex.morgan untouched.',
+    },
+    s3: {
+      nudge:
+        "Fabrikam's org chart does not exist at Northwind. What Priya actually did with her access does.",
+      question:
+        "Priya's Fabrikam job title doesn't exist at Northwind. What do you map against instead of the title?",
+      approach: 'Create priya.iyer, then add her to grp-analytics-readers.',
+      solution: 'Provision priya.iyer and add her to grp-analytics-readers.',
+    },
+    s4: {
+      nudge: 'A title from the acquired company is a claim, not a grant.',
+      question:
+        'If you had granted grp-sales-executives on the strength of his old title alone, what would you actually be verifying?',
+      approach: 'Create tom.reeves, then add him to grp-sales-readonly only.',
+      solution:
+        'Provision tom.reeves and add him to grp-sales-readonly. Do not add grp-sales-executives.',
+    },
+    s5: {
+      nudge:
+        'An account nobody can attribute to one person is an account nobody can hold accountable.',
+      question:
+        'If this account had a real, encrypted service purpose instead of being shared by people, would your answer change? What would you check to tell the difference?',
+      approach: 'IAM Console → fabrikam-shared-login → Disable Account.',
+      solution:
+        'Disable fabrikam-shared-login. Do not provision a replacement under one name — ask which specific people need access.',
+    },
+    s6: {
+      nudge:
+        'Three access decisions and one refusal got made. Nothing yet explains the reasoning to someone who reviews this in six months.',
+      question:
+        'Six months from now, a Fabrikam manager asks why their team lost the shared login they always used. Does your document answer that?',
+      approach:
+        'Write up: the alex.morgan collision and how the two people were told apart, the access-mapping rationale for Priya and Tom, and why the shared login was refused.',
+      solution:
+        'Document: alex.morgan (existing) and alex.morgan2 (new hire) are different people, kept separate; priya.iyer mapped to grp-analytics-readers on actual job function; tom.reeves given grp-sales-readonly only, pending a real review before any executive-level access; fabrikam-shared-login disabled because no single person could be held accountable for it. Capture it as evidence for this step.',
+    },
+  },
+  lab24: {
+    s1: {
+      nudge:
+        'A license group has no idea whether its members still work here or still use the tool. Only you checking does.',
+      question:
+        "A license group's member count and the number of people actually paying for is not the same fact. What closes that gap?",
+      approach:
+        "Run Get-ADUser and review grp-vpn-users and grp-analytics-readers membership against each member's enabled status and last sign-in.",
+      solution:
+        'hank.oneill is disabled but still in grp-vpn-users; cara.patel is active but dormant 90+ days and in grp-analytics-readers. Capture both findings as evidence for this step.',
+    },
+    s2: {
+      nudge:
+        'Disabling an account stops the front door. It does nothing to the group memberships already granted.',
+      question: 'Disabling an account stops sign-in. What does it not automatically stop?',
+      approach: 'IAM Console → Group Membership → remove hank.oneill from grp-vpn-users.',
+      solution: 'Remove hank.oneill from grp-vpn-users.',
+    },
+    s3: {
+      nudge: 'An unused seat and a misused seat cost the same amount either way.',
+      question:
+        'A dormant seat and a departed employee cost the same license fee. Why does one get caught by offboarding and the other does not?',
+      approach:
+        "Confirm cara.patel's last sign-in is 90+ days old, then remove her from grp-analytics-readers.",
+      solution: 'Remove cara.patel from grp-analytics-readers.',
+    },
+    s4: {
+      nudge: 'Finance does not want a story. Finance wants a number and a date.',
+      question:
+        'If Finance asked "how do we know this won\'t just happen again next quarter", what would your report need to say?',
+      approach:
+        'Write up: 2 seats reclaimed (1 VPN, 1 analytics), who held each, why, and the effective date.',
+      solution:
+        'Report to Finance: reclaimed 1 VPN seat (hank.oneill, departed) and 1 analytics seat (cara.patel, 90+ day dormancy), effective today. Capture it as evidence for this step.',
+    },
+    s5: {
+      nudge:
+        'This time it was two seats found by hand. Next quarter it should not require anyone to look by hand at all.',
+      question:
+        'Whose job should this recurring check be: IAM, Finance, or the app owner — and why?',
+      approach:
+        'Document a monthly recurring reconciliation: cross-reference every license group against account status and last-sign-in.',
+      solution:
+        'Document: a monthly automated reconciliation comparing every license-bearing group against account status (enabled/disabled) and last-sign-in, owned by IAM with Finance notified of every reclamation. Capture it as evidence for this step.',
+    },
+  },
+  lab25: {
+    s1: {
+      nudge:
+        'SMS, TOTP, and FIDO2 all say "MFA enabled" on the same dashboard. They do not all mean the same thing.',
+      question:
+        'SMS, TOTP, and FIDO2 are all "MFA". What specific attack does each one fail to stop that FIDO2 does?',
+      approach: 'Check MFA status for erin.cho, greta.olsen, and finn.muller in the IAM Console.',
+      solution:
+        'erin.cho: no MFA. greta.olsen: SMS. finn.muller: TOTP. None are phishing-resistant. Capture it as evidence for this step.',
+    },
+    s2: {
+      nudge:
+        'A brand-new privileged enrollment has no legacy method to migrate away from — start it at the destination.',
+      question:
+        'Why enroll a new privileged account straight into FIDO2 instead of TOTP first and upgrading later?',
+      approach: 'IAM Console → Enrol MFA. Identity: erin.cho. Method: fido2.',
+      solution: 'Enrol erin.cho with Method=fido2.',
+    },
+    s3: {
+      nudge: 'SMS can be intercepted by a SIM swap without the victim doing anything wrong at all.',
+      question:
+        'What specifically about SMS makes it the weakest of the three methods this lab covers?',
+      approach: 'IAM Console → Enrol MFA. Identity: greta.olsen. Method: fido2.',
+      solution: 'Enrol greta.olsen with Method=fido2.',
+    },
+    s4: {
+      nudge:
+        'A real-time phishing proxy relays a TOTP code the instant the victim types it. It cannot relay a FIDO2 signature.',
+      question:
+        'TOTP codes are typically considered stronger than SMS. What attack still works against TOTP that does not work against FIDO2?',
+      approach: 'IAM Console → Enrol MFA. Identity: finn.muller. Method: fido2.',
+      solution: 'Enrol finn.muller with Method=fido2.',
+    },
+    s5: {
+      nudge:
+        'Three accounts are migrated. Nothing yet says what happens to the fourth account that has not received its key yet.',
+      question:
+        'If the fallback process is "just use TOTP until your key arrives", what stops that from quietly becoming permanent?',
+      approach:
+        'Write up: all three accounts now on FIDO2, a retirement date for SMS/TOTP, and a time-boxed fallback exception for anyone still waiting on a hardware key.',
+      solution:
+        'Document: erin.cho, greta.olsen, and finn.muller are on FIDO2; SMS and TOTP retire in 90 days; anyone without a key gets a named, dated fallback exception, not an indefinite one. Capture it as evidence for this step.',
+    },
+  },
+  lab26: {
+    s1: {
+      nudge:
+        "A group membership is one kind of edge in this graph. A capability over someone else's account is another.",
+      question:
+        'Dan holds no admin group membership at all. Why does that not mean he has no path to admin?',
+      approach:
+        'Check who can reset passwords (help-desk tier 1) and cross-reference against who holds standing domain-admin (hank.oneill).',
+      solution:
+        "dan.rivera (Help Desk Tier 1, password-reset rights) -> resets hank.oneill's password -> hank.oneill holds standing role-domain-admins. One hop. Capture the path as evidence for this step.",
+    },
+    s2: {
+      nudge:
+        'The permission existing on paper and the permission actually working are two different claims.',
+      question:
+        'You just did, with permission, exactly what a compromised help-desk account could do without it. What does that tell you about where the real privilege boundary sits?',
+      approach: 'IAM Console → hank.oneill → Reset Password.',
+      solution: "Reset hank.oneill's password to prove the path is exercisable, not theoretical.",
+    },
+    s3: {
+      nudge:
+        'Taking password-reset away from help desk breaks their entire job. Taking standing admin away from Hank does not break his.',
+      question:
+        'Why does removing standing privilege close this path more effectively than trying to restrict what help desk can reset?',
+      approach: 'IAM Console → hank.oneill → revoke role-domain-admins.',
+      solution: "Revoke hank.oneill's role-domain-admins grant.",
+    },
+    s4: {
+      nudge: 'One path closed. The question is whether it was the only one.',
+      question:
+        'If you only fixed the one path you were shown, what would still be true about every other standing admin in the tenant?',
+      approach: 'Review every other privileged group for the same one-hop password-reset exposure.',
+      solution:
+        'Confirm whether any other standing-privilege account is reachable in one hop from a password-reset-capable role. Capture the review as evidence for this step.',
+    },
+    s5: {
+      nudge:
+        'This review found one path today by hand. Nothing yet says how the next one gets found.',
+      question:
+        'A one-time fix closes this path. What closes the next one that shows up after the org chart changes?',
+      approach:
+        'Write up: the path found, the proof, the fix, and a recommendation for PAM/JIT elevation on all standing privilege plus a recurring path review.',
+      solution:
+        "Document: dan.rivera -> password reset -> hank.oneill -> standing domain-admin was a real, one-hop path; fixed by revoking Hank's standing privilege; recommend PAM/JIT elevation (lab09) for every standing admin and a recurring, not one-time, attack-path review. Capture it as evidence for this step.",
     },
   },
 };

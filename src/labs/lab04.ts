@@ -23,19 +23,19 @@ export const LAB_04: Lab = {
     {
       id: 'o1',
       description: 'Configure Finance Portal as SAML client',
-      points: 10,
+      points: 22,
       category: 'exec',
     },
-    { id: 'o2', description: 'Configure Help Desk as OIDC client', points: 10, category: 'exec' },
-    { id: 'o3', description: 'Map the role claim', points: 5, category: 'exec' },
-    { id: 'o4', description: 'Verify SSO for Dan and Erin', points: 5, category: 'troubleshoot' },
+    { id: 'o2', description: 'Configure Help Desk as OIDC client', points: 22, category: 'exec' },
+    { id: 'o3', description: 'Map the role claim', points: 11, category: 'exec' },
+    { id: 'o4', description: 'Verify SSO for Dan and Erin', points: 11, category: 'troubleshoot' },
     {
       id: 'o5',
       description: 'Diagnose and fix an injected redirect-URI fault',
-      points: 8,
+      points: 18,
       category: 'troubleshoot',
     },
-    { id: 'o6', description: 'Document SSO configuration', points: 7, category: 'docs' },
+    { id: 'o6', description: 'Document SSO configuration', points: 16, category: 'docs' },
   ],
   steps: [
     {
@@ -47,7 +47,7 @@ export const LAB_04: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['What is the trust boundary in SAML — the browser, the IdP, or the SP?'],
       hintIds: ['lab04.s1.h1'],
-      points: { exec: 10 },
+      points: { exec: 21 },
     },
     {
       id: 's2',
@@ -58,7 +58,7 @@ export const LAB_04: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['What does the OIDC issuer URL represent in the trust chain?'],
       hintIds: ['lab04.s2.h1'],
-      points: { exec: 10 },
+      points: { exec: 21 },
     },
     {
       id: 's3',
@@ -69,7 +69,7 @@ export const LAB_04: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 3 } }],
       tutorPrompts: ['What attributes would you need to map to grant Finance access?'],
       hintIds: ['lab04.s3.h1'],
-      points: { exec: 5 },
+      points: { exec: 11 },
     },
     {
       id: 's4',
@@ -80,7 +80,7 @@ export const LAB_04: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 5 } }],
       tutorPrompts: ['What evidence proves SSO is working and not just cached credentials?'],
       hintIds: ['lab04.s4.h1'],
-      points: { exec: 5, troubleshoot: 2 },
+      points: { exec: 11, troubleshoot: 4 },
     },
     {
       id: 's5',
@@ -94,7 +94,7 @@ export const LAB_04: Lab = {
         'Why does a wrong redirect URI fail closed instead of silently logging in to the wrong place?',
       ],
       hintIds: ['lab04.s5.h1'],
-      points: { troubleshoot: 8 },
+      points: { troubleshoot: 17 },
     },
     {
       id: 's6',
@@ -107,7 +107,7 @@ export const LAB_04: Lab = {
         'If a new SSO integration used your document as a template, would it have every field it needs?',
       ],
       hintIds: ['lab04.s6.h1'],
-      points: { docs: 7 },
+      points: { docs: 15 },
     },
   ],
   faults: [

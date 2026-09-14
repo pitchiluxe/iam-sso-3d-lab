@@ -154,6 +154,7 @@ export const CAPABILITIES: readonly IamCapability[] = [
           Name: u.displayName,
           SamAccountName: u.username,
           Department: u.department,
+          Title: u.title,
           Enabled: u.status === 'active',
           LockedOut: u.status === 'locked',
           MFA: u.mfa,
@@ -633,6 +634,57 @@ export const CAPABILITIES: readonly IamCapability[] = [
       ctx.idp.now = () => Date.now();
       ctx.audit.record({ actorId: ctx.actor, action: 'idp.clock.synced' });
       return ok('IdP clock resynchronized to system time.');
+    },
+  },
+  {
+    id: 'policy.conditionalAccess.set',
+    label: 'Set Conditional Access Policy',
+    synopsis:
+      'Require a compliant device and/or block a named ASN, scoped to a role or tenant-wide, then have sign-ins actually evaluate it.',
+    consoleSection: 'access',
+    cmdlet: 'Set-ConditionalAccessPolicy',
+    validator: 'ca-policy-created',
+    params: [
+      { name: 'Role', label: 'Role (blank = tenant-wide)', kind: 'role', required: false },
+      {
+        name: 'RequireCompliantDevice',
+        label: 'Require compliant device',
+        kind: 'bool',
+        required: false,
+      },
+      { name: 'BlockForeignAsn', label: 'Block ASN', kind: 'text', required: false },
+    ],
+    resolvesTicketKinds: [],
+    run(ctx, a) {
+      const roleName = a.Role?.trim();
+      const role = roleName ? findRole(ctx, roleName) : undefined;
+      if (roleName && !role) return err(`Cannot find a role '${a.Role}'.`);
+      const requireDevice = truthy(a.RequireCompliantDevice);
+      const blockAsn = a.BlockForeignAsn?.trim();
+      if (!requireDevice && !blockAsn) {
+        return err('Specify RequireCompliantDevice, BlockForeignAsn, or both.');
+      }
+      // Two independent conditions can share one policy object; blockIf ORs
+      // them, but `kind` can only tag one for the validator/test to name —
+      // device compliance wins the tag since that is what every capability
+      // caller so far actually asks for one role at a time to enforce.
+      ctx.idp.setConditionalPolicy(
+        {
+          roleId: role?.id,
+          requireMfa: false,
+          kind: requireDevice ? 'device-compliance' : 'foreign-asn',
+          blockIf: (c) =>
+            (requireDevice && !c.deviceCompliant) || (!!blockAsn && c.asn === blockAsn),
+        },
+        ctx.actor,
+      );
+      const parts = [
+        requireDevice ? 'non-compliant devices' : null,
+        blockAsn ? `ASN ${blockAsn}` : null,
+      ].filter(Boolean);
+      return ok(
+        `Conditional access policy set for ${role ? role.name : 'the whole tenant'}: block ${parts.join(' and ')}.`,
+      );
     },
   },
 

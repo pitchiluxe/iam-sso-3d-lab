@@ -2,7 +2,7 @@
  * labs/lab09.ts — Privileged Access Management.
  */
 import { mkLabId } from '@/domain';
-import type { Lab } from '@/domain';
+import type { Lab, UserId } from '@/domain';
 
 export const LAB_09: Lab = {
   id: mkLabId('lab09'),
@@ -18,32 +18,33 @@ export const LAB_09: Lab = {
     {
       id: 'o1',
       description: 'Identify and remove standing privilege',
-      points: 15,
+      points: 44,
       category: 'least-privilege',
     },
     {
       id: 'o2',
       description: 'Create time-limited elevation workflow',
-      points: 5,
+      points: 14,
       category: 'exec',
     },
-    { id: 'o3', description: 'Approve and exercise elevation', points: 5, category: 'exec' },
-    { id: 'o4', description: 'Review admin activity log', points: 5, category: 'troubleshoot' },
-    { id: 'o5', description: 'Document the PAM policy', points: 5, category: 'docs' },
+    { id: 'o3', description: 'Approve and exercise elevation', points: 14, category: 'exec' },
+    { id: 'o4', description: 'Review admin activity log', points: 14, category: 'troubleshoot' },
+    { id: 'o5', description: 'Document the PAM policy', points: 14, category: 'docs' },
   ],
   steps: [
     {
       id: 's1',
       title: "Identify Hank's standing privilege",
       brief:
-        "Review group memberships. Hank O'Neill has role-domain-admin standing via grp-domain-admins.",
+        "Review group memberships. Hank O'Neill has role-domain-admin standing via grp-domain-admins. While you're auditing privileged groups, check whether anyone else holds standing admin who shouldn't — the ticket only named Hank.",
       validator: { kind: 'evidence-collected', params: { stepId: 's1' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: [
         'What is wrong with an administrator using a privileged account for daily email?',
+        'The ticket only named Hank. If you stop looking once his access is fixed, what could you be missing?',
       ],
       hintIds: ['lab09.s1.h1'],
-      points: { exec: 5, 'least-privilege': 10 },
+      points: { exec: 11, 'least-privilege': 23 },
     },
     {
       id: 's2',
@@ -53,7 +54,7 @@ export const LAB_09: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 3 } }],
       tutorPrompts: ['What is a break-glass account, and when is it appropriate?'],
       hintIds: ['lab09.s2.h1'],
-      points: { exec: 5, docs: 5 },
+      points: { exec: 11, docs: 11 },
     },
     {
       id: 's3',
@@ -64,7 +65,7 @@ export const LAB_09: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'ticketConsole' } }],
       tutorPrompts: ['What guardrails should a break-glass workflow still have?'],
       hintIds: ['lab09.s3.h1'],
-      points: { exec: 5 },
+      points: { exec: 11 },
     },
     {
       id: 's4',
@@ -82,7 +83,7 @@ export const LAB_09: Lab = {
         'If nobody signed Hank in, what would revoking his sessions actually do?',
       ],
       hintIds: ['lab09.s4.h1'],
-      points: { exec: 5, troubleshoot: 5 },
+      points: { exec: 11, troubleshoot: 11 },
     },
     {
       id: 's5',
@@ -93,12 +94,21 @@ export const LAB_09: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['What guardrails does a break-glass account still need?'],
       hintIds: ['lab09.s5.h1'],
-      points: { docs: 5 },
+      points: { docs: 11 },
     },
   ],
-  faults: [],
+  faults: [
+    {
+      id: 'f1',
+      kind: 'excessive-permissions',
+      applyAtStep: 's1',
+      params: {},
+      targetUserId: 'dan.rivera' as UserId,
+    },
+  ],
   debriefQuestions: [
     'When is a break-glass account appropriate, and what guardrails does it still need?',
     'What audit evidence proves the elevation was legitimate and not abused?',
+    'Dan Rivera — Help Desk Tier 1 — also turned up with standing domain admin, and nobody asked about him. How does a PAM audit find every over-privileged account instead of just the one named in the ticket?',
   ],
 };

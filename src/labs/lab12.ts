@@ -31,37 +31,37 @@ export const LAB_12: Lab = {
     {
       id: 'o1',
       description: 'Configure on-prem AD and install cloud sync agent',
-      points: 10,
+      points: 23,
       category: 'exec',
     },
     {
       id: 'o2',
       description: 'Enable password hash sync (PHS)',
-      points: 10,
+      points: 22,
       category: 'exec',
     },
     {
       id: 'o3',
       description: 'Run initial sync and verify cloud identities',
-      points: 5,
+      points: 11,
       category: 'exec',
     },
     {
       id: 'o4',
       description: 'Process joiner / mover / leaver delta sync',
-      points: 10,
+      points: 22,
       category: 'exec',
     },
     {
       id: 'o5',
       description: 'Diagnose and resolve a soft-match conflict',
-      points: 5,
+      points: 11,
       category: 'troubleshoot',
     },
     {
       id: 'o6',
       description: 'Document the sync topology and recovery plan',
-      points: 5,
+      points: 11,
       category: 'docs',
     },
   ],
@@ -84,7 +84,7 @@ export const LAB_12: Lab = {
         'Why is the choice of UPN suffix important for cloud sign-in?',
       ],
       hintIds: ['lab12.s1.h1'],
-      points: { exec: 5, evidence: 3 },
+      points: { exec: 8, evidence: 5 },
     },
     {
       id: 's2',
@@ -104,7 +104,7 @@ export const LAB_12: Lab = {
         'What happens if the service account password expires?',
       ],
       hintIds: ['lab12.s2.h1'],
-      points: { exec: 5 },
+      points: { exec: 8 },
     },
     {
       id: 's3',
@@ -125,7 +125,7 @@ export const LAB_12: Lab = {
         'What is the risk of an attacker stealing the PHS blob, and how do you mitigate it?',
       ],
       hintIds: ['lab12.s3.h1', 'lab12.s3.h2'],
-      points: { exec: 10, docs: 3 },
+      points: { exec: 11, docs: 5 },
     },
     {
       id: 's4',
@@ -145,7 +145,7 @@ export const LAB_12: Lab = {
         'What is a delta sync, and how often does it run by default?',
       ],
       hintIds: ['lab12.s4.h1'],
-      points: { exec: 5, troubleshoot: 3 },
+      points: { exec: 8, troubleshoot: 5 },
     },
     {
       id: 's5',
@@ -174,7 +174,7 @@ export const LAB_12: Lab = {
         'If a leaver is disabled in on-prem, how long until the cloud refuses sign-in?',
       ],
       hintIds: ['lab12.s5.h1'],
-      points: { exec: 10, troubleshoot: 5 },
+      points: { exec: 15, troubleshoot: 8 },
     },
     {
       id: 's6',
@@ -195,7 +195,7 @@ export const LAB_12: Lab = {
         'If you accidentally delete the cloud object during conflict resolution, what is the blast radius?',
       ],
       hintIds: ['lab12.s6.h1', 'lab12.s6.h2'],
-      points: { troubleshoot: 5, evidence: 5, docs: 2 },
+      points: { troubleshoot: 8, evidence: 8, docs: 3 },
     },
     {
       id: 's7',
@@ -215,7 +215,7 @@ export const LAB_12: Lab = {
         'What KPI would you track to know sync is healthy?',
       ],
       hintIds: ['lab12.s7.h1'],
-      points: { docs: 5 },
+      points: { docs: 8 },
     },
   ],
   faults: [

@@ -22,12 +22,12 @@ export const LAB_08: Lab = {
   startingZone: 'sec-ops',
   startingSeed: 'lab08',
   objectives: [
-    { id: 'o1', description: 'Open and triage the incident', points: 5, category: 'exec' },
-    { id: 'o2', description: "Contain Jane's account", points: 10, category: 'exec' },
-    { id: 'o3', description: 'Search for related activity', points: 5, category: 'troubleshoot' },
-    { id: 'o4', description: 'Decide whether to escalate', points: 5, category: 'comms' },
-    { id: 'o5', description: 'Write incident report', points: 10, category: 'docs' },
-    { id: 'o6', description: 'Close the incident', points: 5, category: 'exec' },
+    { id: 'o1', description: 'Open and triage the incident', points: 13, category: 'exec' },
+    { id: 'o2', description: "Contain Jane's account", points: 23, category: 'exec' },
+    { id: 'o3', description: 'Search for related activity', points: 13, category: 'troubleshoot' },
+    { id: 'o4', description: 'Decide whether to escalate', points: 13, category: 'comms' },
+    { id: 'o5', description: 'Write incident report', points: 25, category: 'docs' },
+    { id: 'o6', description: 'Close the incident', points: 13, category: 'exec' },
   ],
   steps: [
     {
@@ -41,7 +41,7 @@ export const LAB_08: Lab = {
         'What indicators distinguish credential stuffing from a legitimate foreign sign-in?',
       ],
       hintIds: ['lab08.s1.h1'],
-      points: { exec: 5 },
+      points: { exec: 12 },
     },
     {
       id: 's2',
@@ -55,7 +55,7 @@ export const LAB_08: Lab = {
       ],
       tutorPrompts: ['What is the difference between containment and eradication here?'],
       hintIds: ['lab08.s2.h1'],
-      points: { exec: 10, evidence: 3 },
+      points: { exec: 22, evidence: 7 },
     },
     {
       id: 's3',
@@ -68,7 +68,7 @@ export const LAB_08: Lab = {
         "How would you know if the attacker used Jane's account to pivot to other systems?",
       ],
       hintIds: ['lab08.s3.h1'],
-      points: { troubleshoot: 5 },
+      points: { troubleshoot: 12 },
     },
     {
       id: 's4',
@@ -82,7 +82,7 @@ export const LAB_08: Lab = {
         'If you escalate everything, what happens to the signal-to-noise ratio the next time something is actually urgent?',
       ],
       hintIds: ['lab08.s4.h1'],
-      points: { comms: 5 },
+      points: { comms: 12 },
     },
     {
       id: 's5',
@@ -93,7 +93,7 @@ export const LAB_08: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'secOpsDashboard' } }],
       tutorPrompts: ['What would you recommend to prevent this from happening again?'],
       hintIds: ['lab08.s5.h1'],
-      points: { docs: 10 },
+      points: { docs: 23 },
     },
     {
       id: 's6',
@@ -103,7 +103,7 @@ export const LAB_08: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 3 } }],
       tutorPrompts: ["When would you re-enable Jane's account? What conditions must be met?"],
       hintIds: ['lab08.s6.h1'],
-      points: { exec: 5 },
+      points: { exec: 12 },
     },
   ],
   faults: [

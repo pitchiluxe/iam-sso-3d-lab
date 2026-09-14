@@ -31,37 +31,37 @@ export const LAB_13: Lab = {
     {
       id: 'o1',
       description: 'Create two break-glass accounts with strongest available auth',
-      points: 10,
+      points: 23,
       category: 'exec',
     },
     {
       id: 'o2',
       description: 'Exclude break-glass from CA policies and MFA enforcement',
-      points: 5,
+      points: 13,
       category: 'least-privilege',
     },
     {
       id: 'o3',
       description: 'Store credentials in the vault and document handoff',
-      points: 5,
+      points: 13,
       category: 'docs',
     },
     {
       id: 'o4',
       description: 'Configure real-time alert on any break-glass sign-in',
-      points: 5,
+      points: 13,
       category: 'exec',
     },
     {
       id: 'o5',
       description: 'Run a quarterly access review on the break-glass accounts',
-      points: 10,
+      points: 25,
       category: 'troubleshoot',
     },
     {
       id: 'o6',
       description: 'Test the recovery flow with a fault scenario',
-      points: 5,
+      points: 13,
       category: 'troubleshoot',
     },
   ],
@@ -84,7 +84,7 @@ export const LAB_13: Lab = {
         'Who should own the break-glass credentials — IT, SecOps, or the CISO?',
       ],
       hintIds: ['lab13.s1.h1'],
-      points: { docs: 5 },
+      points: { docs: 9 },
     },
     {
       id: 's2',
@@ -104,7 +104,7 @@ export const LAB_13: Lab = {
         'Why is FIDO2 preferred over TOTP for break-glass?',
       ],
       hintIds: ['lab13.s2.h1'],
-      points: { exec: 5, 'least-privilege': 3 },
+      points: { exec: 9, 'least-privilege': 5 },
     },
     {
       id: 's3',
@@ -124,7 +124,7 @@ export const LAB_13: Lab = {
         'How would two staff members each hold a half of a FIDO2 secret?',
       ],
       hintIds: ['lab13.s3.h1'],
-      points: { exec: 5, 'least-privilege': 2 },
+      points: { exec: 9, 'least-privilege': 4 },
     },
     {
       id: 's4',
@@ -145,7 +145,7 @@ export const LAB_13: Lab = {
         'How do you detect that compromise quickly?',
       ],
       hintIds: ['lab13.s4.h1'],
-      points: { exec: 5, docs: 3 },
+      points: { exec: 9, docs: 5 },
     },
     {
       id: 's5',
@@ -165,7 +165,7 @@ export const LAB_13: Lab = {
         'What is the expected MTTR (mean time to respond) on a break-glass alert?',
       ],
       hintIds: ['lab13.s5.h1'],
-      points: { exec: 5, troubleshoot: 3 },
+      points: { exec: 9, troubleshoot: 5 },
     },
     {
       id: 's6',
@@ -185,7 +185,7 @@ export const LAB_13: Lab = {
         'What evidence proves the credentials were actually rotated this quarter?',
       ],
       hintIds: ['lab13.s6.h1'],
-      points: { docs: 5, troubleshoot: 5 },
+      points: { docs: 9, troubleshoot: 9 },
     },
     {
       id: 's7',
@@ -205,7 +205,7 @@ export const LAB_13: Lab = {
         'How quickly must the break-glass credentials be rotated after a recovery?',
       ],
       hintIds: ['lab13.s7.h1'],
-      points: { troubleshoot: 5, comms: 5 },
+      points: { troubleshoot: 9, comms: 9 },
     },
   ],
   faults: [

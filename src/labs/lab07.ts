@@ -40,13 +40,13 @@ export const LAB_07: Lab = {
     {
       id: 'o1',
       description: 'Triage and reproduce the issue',
-      points: 5,
+      points: 17,
       category: 'troubleshoot',
     },
-    { id: 'o2', description: 'Identify the root cause', points: 10, category: 'troubleshoot' },
-    { id: 'o3', description: 'Apply the correct fix', points: 5, category: 'exec' },
-    { id: 'o4', description: 'Retest with both user types', points: 5, category: 'evidence' },
-    { id: 'o5', description: 'Document root cause and fix', points: 5, category: 'docs' },
+    { id: 'o2', description: 'Identify the root cause', points: 32, category: 'troubleshoot' },
+    { id: 'o3', description: 'Apply the correct fix', points: 17, category: 'exec' },
+    { id: 'o4', description: 'Retest with both user types', points: 17, category: 'evidence' },
+    { id: 'o5', description: 'Document root cause and fix', points: 17, category: 'docs' },
   ],
   steps: [
     {
@@ -57,7 +57,7 @@ export const LAB_07: Lab = {
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'ticketConsole' } }],
       tutorPrompts: ['What is the first log you would check when SSO fails?'],
       hintIds: ['lab07.s1.h1'],
-      points: { troubleshoot: 5 },
+      points: { troubleshoot: 13 },
     },
     {
       id: 's2',
@@ -71,7 +71,7 @@ export const LAB_07: Lab = {
       ],
       tutorPrompts: ['Why did you check DNS before certificates?'],
       hintIds: ['lab07.s2.h1'],
-      points: { troubleshoot: 10, evidence: 3 },
+      points: { troubleshoot: 27, evidence: 8 },
     },
     {
       id: 's3',
@@ -89,7 +89,7 @@ export const LAB_07: Lab = {
         'If no configuration mismatch panel appears at all, what does that tell you about where the fault actually lives?',
       ],
       hintIds: ['lab07.s3.h1'],
-      points: { exec: 5 },
+      points: { exec: 13 },
     },
     {
       id: 's4',
@@ -100,7 +100,7 @@ export const LAB_07: Lab = {
       evidence: [{ kind: 'log-excerpt', capture: 'auto', params: { count: 5 } }],
       tutorPrompts: ['What would you add to a runbook to prevent this fault from recurring?'],
       hintIds: ['lab07.s4.h1'],
-      points: { exec: 5, evidence: 5, docs: 5 },
+      points: { exec: 13, evidence: 13, docs: 13 },
     },
   ],
   faults: [

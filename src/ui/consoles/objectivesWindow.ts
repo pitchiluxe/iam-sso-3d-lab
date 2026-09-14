@@ -23,6 +23,8 @@ const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'signin-succeeded': 'Sign in as the user in IAM Console',
   'mfa-challenge-completed': 'Complete an MFA challenge',
   'mfa-policy-enforced': 'Enable MFA enforcement in IAM Console',
+  'ca-policy-created': 'Set the conditional access policy in IAM Console',
+  'signin-blocked': 'Attempt the sign-in in IAM Console and confirm it is blocked',
   'session-revoked': 'Revoke the user session',
   'fault-cleared': 'Clear the injected fault',
   'evidence-collected': 'Capture evidence for this step',
