@@ -22,6 +22,7 @@ import { renderScriptEditorWindow } from './consoles/scriptEditorWindow';
 import { renderSettingsWindow } from './consoles/settingsWindow';
 import { renderControlPanelWindow } from './consoles/controlPanelWindow';
 import { renderRecycleBinWindow } from './consoles/recycleBinWindow';
+import { renderRemoteDesktopWindow } from './consoles/remoteDesktopWindow';
 import {
   getIconOrder,
   saveIconOrder,
@@ -195,6 +196,14 @@ const DESKTOP_APPS: WindowDef[] = [
     height: 440,
     render: (_c, b) => renderRecycleBinWindow(b),
   },
+  {
+    id: 'remote-desktop',
+    title: 'Remote Desktop',
+    icon: '🖥️',
+    width: 480,
+    height: 520,
+    render: (c, b) => renderRemoteDesktopWindow(b, c),
+  },
 ];
 
 const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map((a) => [a.id, a]));
@@ -218,6 +227,7 @@ const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
   'secops-dashboard',
   'ollama-console',
   'objectives',
+  'remote-desktop',
 ]);
 
 /** Apps only an IT workstation has installed — hidden from the desktop
@@ -230,6 +240,7 @@ const IT_ONLY_APP_IDS = new Set([
   'secops-dashboard',
   'ollama-console',
   'objectives',
+  'remote-desktop',
 ]);
 
 // ---------------------------------------------------------------------------
