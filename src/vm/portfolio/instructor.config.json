@@ -5,13 +5,7 @@
     "endpoint": "http://localhost:11434",
     "tagsPath": "/api/tags",
     "chatPath": "/api/chat",
-    "preferredModels": [
-      "llama3",
-      "llama3.1",
-      "mistral",
-      "codellama",
-      "llama3.2"
-    ],
+    "preferredModels": ["llama3", "llama3.1", "mistral", "codellama", "llama3.2"],
     "options": {
       "temperature": 0.2,
       "num_ctx": 8192,
