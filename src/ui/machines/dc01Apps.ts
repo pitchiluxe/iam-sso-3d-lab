@@ -11,6 +11,7 @@ import { labStateAdapter } from '@/ui/directory/directoryAdapter';
 import { dcIsPromoted, type LabState } from '@/vm/adlab/state';
 import { loadWorld } from '@/vm/adlab/world';
 import type { MachineApp, MachineContext } from './machineWindow';
+import { explorerApp, notepadApp } from './fileApps';
 import {
   BTN,
   BTN_PRIMARY,
@@ -676,6 +677,8 @@ export function dc01Apps(): MachineApp[] {
     networkApp(),
     dhcpConsole(),
     dnsManager(),
+    explorerApp(),
+    notepadApp(),
   ];
 }
 

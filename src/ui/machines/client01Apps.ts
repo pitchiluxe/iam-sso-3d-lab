@@ -7,6 +7,7 @@
  */
 import { loadWorld } from '@/vm/adlab/world';
 import type { MachineApp } from './machineWindow';
+import { explorerApp, notepadApp } from './fileApps';
 import {
   BTN,
   BTN_PRIMARY,
@@ -238,7 +239,13 @@ function settingsApp(): MachineApp {
 }
 
 export function client01Apps(): MachineApp[] {
-  return [settingsApp(), terminalApp('powershell'), terminalApp('cmd')];
+  return [
+    settingsApp(),
+    terminalApp('powershell'),
+    terminalApp('cmd'),
+    explorerApp(),
+    notepadApp(),
+  ];
 }
 
 export const CLIENT01_DEFAULT_APPS: string[] = [];

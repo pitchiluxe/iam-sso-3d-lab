@@ -33,11 +33,16 @@ afterEach(() => {
   delete (globalThis as { localStorage?: unknown }).localStorage;
 });
 
+
+/** Lab states built twice differ only in wall-clock stamps (event times, the clock). */
+const timeless = (x: unknown): unknown =>
+  JSON.parse(JSON.stringify(x, (k, v) => (k === 'clock' || k === 'time' ? undefined : v)));
+
 describe('lab world', () => {
   it('starts at AD Lab 01 with both machines signed out', () => {
     const w = loadWorld();
     expect(w.labId).toBe('adl-01');
-    expect(w.state).toEqual(startingState('adl-01'));
+    expect(timeless(w.state)).toEqual(timeless(startingState('adl-01')));
     expect(w.signedIn).toEqual({ DC01: false, CLIENT01: false });
   });
 
@@ -56,7 +61,7 @@ describe('lab world', () => {
     saveWorld(w);
     const fresh = resetWorld('adl-02');
     expect(fresh.labId).toBe('adl-02');
-    expect(fresh.state).toEqual(startingState('adl-02'));
+    expect(timeless(fresh.state)).toEqual(timeless(startingState('adl-02')));
     expect(loadWorld().signedIn.DC01).toBe(false);
   });
 

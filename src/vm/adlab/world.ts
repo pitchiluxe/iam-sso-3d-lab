@@ -96,6 +96,55 @@ export function resetWorld(labId: string): LabWorld {
   return w;
 }
 
+/**
+ * Machines set aside when the learner moves to another lab, by lab id, so
+ * going back resumes where they were — as snapshots do on real VMs.
+ */
+export const STASH_KEY = 'iam3d.labStash.v1';
+
+function readStash(): Record<string, LabState> {
+  try {
+    const raw = storage()?.getItem(STASH_KEY);
+    const v = raw ? (JSON.parse(raw) as unknown) : null;
+    return v && typeof v === 'object' ? (v as Record<string, LabState>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStash(stash: Record<string, LabState>): void {
+  try {
+    storage()?.setItem(STASH_KEY, JSON.stringify(stash));
+  } catch {
+    // Too big or blocked: the other labs simply start over when reopened.
+  }
+}
+
+/**
+ * Put DC01 and CLIENT01 in the state of `labId`: the current machines are set
+ * aside under their lab, and `labId`'s are brought back — or built with
+ * `build` the first time. Both machines sign out, as after a snapshot restore.
+ */
+export function switchWorld(labId: string, build: () => LabState): LabWorld {
+  const current = loadWorld();
+  if (current.labId === labId) return current;
+  const stash = readStash();
+  stash[current.labId] = current.state;
+  const state = stash[labId] ?? build();
+  delete stash[labId];
+  writeStash(stash);
+  const w: LabWorld = { state, labId, signedIn: { DC01: false, CLIENT01: false } };
+  notifyWorldChanged(w);
+  return w;
+}
+
+/** Forget set-aside machines (Start over), so those labs are rebuilt when next opened. */
+export function forgetStashed(labIds: string[]): void {
+  const stash = readStash();
+  for (const id of labIds) delete stash[id];
+  writeStash(stash);
+}
+
 /** Run one command line on a machine, then save and notify. */
 export function runOn(w: LabWorld, host: HostName, line: string): CommandResult {
   const result = runCommand(w.state, host, line);

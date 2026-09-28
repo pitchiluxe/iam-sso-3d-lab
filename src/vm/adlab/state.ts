@@ -82,7 +82,20 @@ export interface Host {
   appliedGpos: string[];
   /** Directories that exist on disk (for shares). Lowercased paths. */
   folders: string[];
+  /** How each folder was first spelt (lowercased path to original), for display. */
+  folderCase?: Record<string, string>;
+  /** Files on disk (Set-Content, Out-File, Notepad…). Optional: older saves have none. */
+  files?: LabFile[];
   restartPending: boolean;
+}
+
+export interface LabFile {
+  /** Full path as it was written, e.g. C:\IAM\JML
+un.log. Matched case-insensitively. */
+  path: string;
+  content: string;
+  /** Epoch ms of the last write (see stamp()). */
+  modified: number;
 }
 
 export interface AdUser {
@@ -106,6 +119,13 @@ export interface AdUser {
    */
   password?: string;
   department: string | null;
+  employeeId?: string;
+  title?: string;
+  description?: string;
+  /** Epoch ms the password was last set (see stamp()); absent/null = never. */
+  pwdLastSet?: number | null;
+  /** Epoch ms of the last successful sign-in; absent/null = never signed in. */
+  lastLogon?: number | null;
 }
 
 export interface AdGroup {
@@ -116,6 +136,11 @@ export interface AdGroup {
   /** sAMAccountNames of members (users or groups). */
   members: string[];
   builtin: boolean;
+  description?: string;
+  /** sAMAccountName of the owner (Set-ADGroup -ManagedBy). */
+  managedBy?: string | null;
+  /** Time-bound (PAM) memberships: lowercased member → expiry, epoch ms. */
+  ttl?: Record<string, number>;
 }
 
 export interface AdComputer {
@@ -150,6 +175,8 @@ export interface AdState {
     /** "Store passwords using reversible encryption" — must stay off. */
     reversibleEncryption: boolean;
   };
+  /** The forest's Privileged Access Management optional feature (time-bound membership). */
+  pamEnabled?: boolean;
 }
 
 export interface DhcpScope {
@@ -234,6 +261,10 @@ export interface EventEntry {
   source: string;
   message: string;
   at: number;
+  /** Epoch ms (see stamp()); absent on events from before this was recorded. */
+  time?: number;
+  /** Structured fields a SIEM query reads, as in the event's XML EventData. */
+  data?: { targetUser?: string; memberName?: string; subjectUser?: string; logonType?: string };
 }
 
 export interface LabState {
@@ -249,6 +280,21 @@ export interface LabState {
   events: EventEntry[];
   /** A logical clock so ordering survives JSON round trips. */
   tick: number;
+  /** Last wall-clock stamp handed out, so stamps never repeat or go backwards. */
+  clock?: number;
+  /** IAM Portfolio scenarios set up on DC01: project id → epoch ms. */
+  scenarios?: Record<string, number>;
+}
+
+/**
+ * A wall-clock time for this lab, strictly later than every earlier stamp.
+ * Grading asks "was this done after the scenario was set up?", which must
+ * hold even when both happen inside the same millisecond.
+ */
+export function stamp(s: LabState): number {
+  const t = Math.max(Date.now(), (s.clock ?? 0) + 1);
+  s.clock = t;
+  return t;
 }
 
 // ---------------------------------------------------------------------------

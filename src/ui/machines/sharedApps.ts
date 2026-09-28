@@ -8,6 +8,7 @@
  */
 import type { HostName, Nic } from '@/vm/adlab/state';
 import type { MachineApp, MachineContext } from './machineWindow';
+import { openInNotepad } from './fileApps';
 
 // ---------------------------------------------------------------------------
 // IPv4 settings → commands (pure, tested)
@@ -218,6 +219,21 @@ export function terminalApp(kind: 'powershell' | 'cmd'): MachineApp {
                 .closest<HTMLElement>('div[style*="position:absolute"]')
                 ?.querySelector<HTMLElement>('div[style*="width:40px"]:last-child')
                 ?.click();
+              return;
+            }
+            // GUI programs started from the prompt open on this machine's desktop.
+            const gui =
+              /^(notepad|explorer|ii|invoke-item)(?:\.exe)?(?:\s+["']?(.+?)["']?)?\s*$/i.exec(
+                cmd.trim(),
+              );
+            if (gui) {
+              const target = gui[2];
+              if (/^notepad/i.test(gui[1]!)) {
+                if (target) openInNotepad(ctx, target);
+                else ctx.open('notepad');
+              } else ctx.open('explorer');
+              write('\n');
+              out.scrollTop = out.scrollHeight;
               return;
             }
             const r = ctx.run(cmd);

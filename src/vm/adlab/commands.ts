@@ -22,6 +22,7 @@ import {
   type EventEntry,
   type Host,
   type HostName,
+  type LabFile,
   type LabState,
   type Nic,
   type NtfsAce,
@@ -35,6 +36,7 @@ import {
   prefixToMask,
   sameSubnet,
   internalNic,
+  stamp,
 } from './state';
 import { dnsServersOf, locateDcProblem, ping, resolve } from './network';
 
@@ -72,6 +74,14 @@ const SWITCHES = new Set([
   'resetserveraddresses',
   'noreboot',
   'properties-all',
+  'accountinactive',
+  'usersonly',
+  'showmembertimetolive',
+  'recurse',
+  'append',
+  'notypeinformation',
+  'nonewline',
+  'raw',
 ]);
 
 function tokenize(line: string): string[] {
@@ -248,8 +258,19 @@ function event(
   level: EventEntry['level'],
   source: string,
   message: string,
+  data?: EventEntry['data'],
 ): void {
-  s.events.push({ host, log, id, level, source, message, at: ++s.tick });
+  s.events.push({
+    host,
+    log,
+    id,
+    level,
+    source,
+    message,
+    at: ++s.tick,
+    time: stamp(s),
+    ...(data ? { data } : {}),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +283,10 @@ interface Ctx {
   p: Parsed;
   /** Objects handed down a pipeline: user sAMAccountNames. */
   input: string[];
+  /** The previous pipeline stage's text output ('' for the first stage). */
+  prev: string;
+  /** Pipeline position: 0 for the first command. */
+  stage: number;
 }
 
 interface HandlerResult extends CommandResult {
@@ -1666,24 +1691,37 @@ function newUser(c: Ctx): HandlerResult {
     changePasswordAtLogon: arg(c, 'ChangePasswordAtLogon') === 'true',
     passwordLastResetByAdmin: null,
     department: arg(c, 'Department') ?? null,
+    ...optionalUserAttrs(c),
+    pwdLastSet: pw ? stamp(s) : null,
+    lastLogon: null,
   });
   const du = findGroup(s, 'Domain Users');
   if (du && !du.members.includes(sam)) du.members.push(sam);
   return ok('');
 }
 
+const when = (ms: number | null | undefined): string =>
+  ms ? new Date(ms).toLocaleString('en-US') : '';
+
 const USER_PROPS: Record<string, (u: AdUser) => string | number | boolean | null> = {
   Department: (u) => u.department,
+  EmployeeID: (u) => u.employeeId ?? '',
+  Title: (u) => u.title ?? '',
+  Description: (u) => u.description ?? '',
+  LastLogonDate: (u) => when(u.lastLogon),
+  LastLogonTimestamp: (u) => when(u.lastLogon),
   LockedOut: (u) => u.lockedOut,
   BadLogonCount: (u) => u.badPwdCount,
   PasswordExpired: (u) => u.changePasswordAtLogon,
   PasswordNeverExpires: () => false,
   PasswordLastSet: (u) =>
-    u.passwordSet
-      ? u.passwordLastResetByAdmin
-        ? 'just now (reset by admin)'
-        : '3/2/2026 8:14:07 AM'
-      : '',
+    u.pwdLastSet
+      ? when(u.pwdLastSet)
+      : u.passwordSet
+        ? u.passwordLastResetByAdmin
+          ? 'just now (reset by admin)'
+          : '3/2/2026 8:14:07 AM'
+        : '',
   LastBadPasswordAttempt: (u) => (u.badPwdCount > 0 ? 'today 7:52:31 AM' : ''),
   MemberOf: () => '',
 };
@@ -1728,6 +1766,8 @@ function getUser(c: Ctx): HandlerResult {
   const filter = arg(c, 'Filter');
   if (!filter) return fail('Get-ADUser : Specify -Identity or -Filter (for example -Filter *).');
   let users = c.s.ad.users;
+  const base = arg(c, 'SearchBase');
+  if (base) users = users.filter((u) => u.parent.toLowerCase().endsWith(base.toLowerCase()));
   const eq = /(\w+)\s+-(?:eq|like)\s+["']?([^"']+)["']?/i.exec(filter);
   if (eq) {
     const [, field, val] = eq;
@@ -1736,14 +1776,21 @@ function getUser(c: Ctx): HandlerResult {
       'i',
     );
     users = users.filter((u) => {
+      const f = field!.toLowerCase();
       const v =
-        field!.toLowerCase() === 'samaccountname'
+        f === 'samaccountname'
           ? u.sam
-          : field!.toLowerCase() === 'department'
+          : f === 'department'
             ? (u.department ?? '')
-            : field!.toLowerCase() === 'enabled'
+            : f === 'enabled'
               ? String(u.enabled)
-              : u.name;
+              : f === 'employeeid'
+                ? (u.employeeId ?? '')
+                : f === 'title'
+                  ? (u.title ?? '')
+                  : f === 'description'
+                    ? (u.description ?? '')
+                    : u.name;
       return re.test(v);
     });
   }
@@ -1815,6 +1862,7 @@ function setAccountPassword(c: Ctx): HandlerResult {
     u.passwordSet = true;
     u.password = pw;
     u.passwordLastResetByAdmin = ++c.s.tick;
+    u.pwdLastSet = stamp(c.s);
     event(
       c.s,
       'DC01',
@@ -1844,8 +1892,21 @@ function setUser(c: Ctx): HandlerResult {
     if (gn !== undefined) u.givenName = gn;
     const sn = arg(c, 'Surname');
     if (sn !== undefined) u.surname = sn;
+    Object.assign(u, optionalUserAttrs(c));
   }
   return ok('');
+}
+
+/** -EmployeeID, -Title and -Description, when given. */
+function optionalUserAttrs(c: Ctx): Partial<AdUser> {
+  const out: Partial<AdUser> = {};
+  const emp = arg(c, 'EmployeeID');
+  if (emp !== undefined) out.employeeId = emp;
+  const title = arg(c, 'Title');
+  if (title !== undefined) out.title = title;
+  const desc = arg(c, 'Description');
+  if (desc !== undefined) out.description = desc;
+  return out;
 }
 
 function searchAccount(c: Ctx): HandlerResult {
@@ -1853,8 +1914,18 @@ function searchAccount(c: Ctx): HandlerResult {
   if (g) return g;
   let users: AdUser[];
   if (arg(c, 'LockedOut') === 'true') users = c.s.ad.users.filter((u) => u.lockedOut);
-  else if (arg(c, 'AccountDisabled') === 'true') users = c.s.ad.users.filter((u) => !u.enabled);
-  else return fail('Search-ADAccount : Specify -LockedOut or -AccountDisabled.');
+  else if (arg(c, 'AccountInactive') === 'true') {
+    // -TimeSpan 90 (days) or -TimeSpan 90.00:00:00; never-used accounts count as inactive.
+    const span = arg(c, 'TimeSpan') ?? '90';
+    const days = /^\d+$/.test(span) ? +span : (timeSpanMs(span) ?? 90 * 86400000) / 86400000;
+    const cutoff = Date.now() - days * 86400000;
+    users = c.s.ad.users.filter(
+      (u) =>
+        !['administrator', 'guest', 'krbtgt'].includes(u.sam.toLowerCase()) &&
+        (!u.lastLogon || u.lastLogon < cutoff),
+    );
+  } else if (arg(c, 'AccountDisabled') === 'true') users = c.s.ad.users.filter((u) => !u.enabled);
+  else return fail('Search-ADAccount : Specify -LockedOut, -AccountDisabled or -AccountInactive.');
   return {
     ...ok(
       table(
@@ -1922,9 +1993,41 @@ function getGroup(c: Ctx): HandlerResult {
   const g = adGuard(c, 'Get-ADGroup');
   if (g) return g;
   const id = identityArg(c);
-  const groups: AdGroup[] = id
+  let groups: AdGroup[] = id
     ? [findGroup(c.s, id)].filter((x): x is AdGroup => !!x)
     : c.s.ad.groups;
+  const gf = /Name\s+-(?:eq|like)\s+["']?([^"']+)["']?/i.exec(arg(c, 'Filter') ?? '');
+  if (!id && gf) {
+    const re = new RegExp(
+      '^' + gf[1]!.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$',
+      'i',
+    );
+    groups = groups.filter((x) => re.test(x.name));
+  }
+  const requested = list(arg(c, 'Properties')).map((x) => x.toLowerCase());
+  const showTtl = arg(c, 'ShowMemberTimeToLive') === 'true';
+  const extra = (x: AdGroup): [string, string][] => {
+    const out: [string, string][] = [];
+    const all = requested.includes('*');
+    if (all || requested.includes('description')) out.push(['Description', x.description ?? '']);
+    if (all || requested.includes('managedby'))
+      out.push(['ManagedBy', x.managedBy ? memberDn(c.s, x.managedBy) : '']);
+    if (all || requested.includes('member') || requested.includes('members')) {
+      const now = Date.now();
+      out.push([
+        'Members',
+        `{${x.members
+          .map((m) => {
+            const exp = x.ttl?.[m.toLowerCase()];
+            const ttl =
+              showTtl && exp ? `<TTL=${Math.max(0, Math.round((exp - now) / 1000))}>,` : '';
+            return ttl + memberDn(c.s, m);
+          })
+          .join('; ')}}`,
+      ]);
+    }
+    return out;
+  };
   if (id && groups.length === 0) return objectNotFound(id);
   if (!id && !arg(c, 'Filter') && !arg(c, 'LDAPFilter')) {
     return fail(
@@ -1942,6 +2045,7 @@ function getGroup(c: Ctx): HandlerResult {
           ['Name', x.name],
           ['ObjectClass', 'group'],
           ['SamAccountName', x.name],
+          ...extra(x),
         ]),
       )
       .join(''),
@@ -1960,15 +2064,81 @@ function groupMember(c: Ctx, add: boolean): HandlerResult {
     return fail(
       `${cmd} : Cannot process command because of one or more missing mandatory parameters: Members.`,
     );
+  const ttlRaw = add ? arg(c, 'MemberTimeToLive') : undefined;
+  let ttlMs: number | null = null;
+  if (ttlRaw !== undefined) {
+    if (!c.s.ad.pamEnabled)
+      return fail(
+        `${cmd} : The requested operation requires the Privileged Access Management optional feature. ` +
+          "Enable it first: Enable-ADOptionalFeature 'Privileged Access Management Feature' -Scope ForestOrConfigurationSet -Target " +
+          (c.s.ad.forest ?? '<forest>'),
+      );
+    ttlMs = timeSpanMs(ttlRaw);
+    if (!ttlMs)
+      return fail(
+        `${cmd} : Cannot convert '${ttlRaw}' to a TimeSpan. Use (New-TimeSpan -Hours 2) or 02:00:00.`,
+      );
+  }
   for (const m of members) {
     const u = findUser(c.s, m);
     const mg = findGroup(c.s, m);
     const sam = u?.sam ?? mg?.name;
     if (!sam) return objectNotFound(m);
-    if (add && !grp.members.includes(sam)) grp.members.push(sam);
+    const had = grp.members.includes(sam);
+    if (add && !had) grp.members.push(sam);
     if (!add) grp.members = grp.members.filter((x) => x !== sam);
+    if (grp.ttl) delete grp.ttl[sam.toLowerCase()];
+    if (add && ttlMs) (grp.ttl ??= {})[sam.toLowerCase()] = stamp(c.s) + ttlMs;
+    if (add !== had) membershipEvent(c.s, grp, sam, add);
   }
   return ok('');
+}
+
+/** 4728/4729 (global), 4732/4733 (domain local), 4756/4757 (universal) — security groups only. */
+export function membershipEvent(s: LabState, grp: AdGroup, member: string, added: boolean): void {
+  if (grp.category !== 'Security') return;
+  const base = grp.scope === 'Global' ? 4728 : grp.scope === 'DomainLocal' ? 4732 : 4756;
+  const kind =
+    grp.scope === 'Global' ? 'global' : grp.scope === 'DomainLocal' ? 'local' : 'universal';
+  event(
+    s,
+    'DC01',
+    'Security',
+    added ? base : base + 1,
+    'Audit Success',
+    'Microsoft-Windows-Security-Auditing',
+    `A member was ${added ? 'added to' : 'removed from'} a security-enabled ${kind} group. Member: ${member}. Group: ${grp.name}. Subject: ${s.ad.netbios ?? ''}\\Administrator.`,
+    { targetUser: grp.name, memberName: member, subjectUser: 'Administrator' },
+  );
+}
+
+/** (New-TimeSpan -Hours 2), New-TimeSpan -Minutes 120, 02:00:00, 1.00:00:00 → milliseconds. */
+export function timeSpanMs(raw: string): number | null {
+  const t = raw.trim();
+  const clock = /^['"]?(?:(\d+)\.)?(\d{1,2}):(\d{2})(?::(\d{2}))?['"]?$/.exec(t);
+  if (clock) {
+    const [, d, h, m, sec] = clock;
+    return ((+(d ?? 0) * 24 + +h!) * 60 + +m!) * 60000 + +(sec ?? 0) * 1000 || null;
+  }
+  let ms = 0;
+  for (const [unit, f] of [
+    ['Days', 86400000],
+    ['Hours', 3600000],
+    ['Minutes', 60000],
+    ['Seconds', 1000],
+  ] as const) {
+    const m = new RegExp(`-${unit}\\s+(\\d+)`, 'i').exec(t);
+    if (m) ms += +m[1]! * f;
+  }
+  return ms || null;
+}
+
+/** The DN a member name stands for (user or group). */
+function memberDn(s: LabState, name: string): string {
+  const u = findUser(s, name);
+  if (u) return `CN=${u.name},${u.parent}`;
+  const g = findGroup(s, name);
+  return g ? dnOf(g) : name;
 }
 
 function getGroupMember(c: Ctx): HandlerResult {
@@ -2249,6 +2419,11 @@ function mkdir(c: Ctx, path: string | undefined): HandlerResult {
     const sub = parts.slice(0, i).join('\\');
     if (!c.host.folders.includes(sub)) {
       c.host.folders.push(sub);
+      (c.host.folderCase ??= {})[sub] = path
+        .replace(/\//g, '\\')
+        .split('\\')
+        .slice(0, i)
+        .join('\\');
       if (c.host.name === 'DC01') c.s.ntfs[sub] = defaultNtfs();
     }
   }
@@ -2259,14 +2434,23 @@ function mkdir(c: Ctx, path: string | undefined): HandlerResult {
 
 function newItem(c: Ctx): HandlerResult {
   const type = (arg(c, 'ItemType') ?? '').toLowerCase();
+  const path = arg(c, 'Path') ?? c.p.positional[0];
+  if (type === 'file') {
+    if (!path) return fail('New-Item : Specify -Path.');
+    if (fileAt(c.host, normPath(path)) && arg(c, 'Force') !== 'true')
+      return fail(`New-Item : The file '${path}' already exists.`);
+    const err = writeFile(c.s, c.host, path, arg(c, 'Value') ?? '', false);
+    return err ? fail(`New-Item : ${err}`) : ok('');
+  }
   if (type !== 'directory')
-    return fail('New-Item : In this lab New-Item creates folders: use -ItemType Directory.');
-  return mkdir(c, arg(c, 'Path') ?? c.p.positional[0]);
+    return fail('New-Item : Use -ItemType Directory (a folder) or -ItemType File.');
+  return mkdir(c, path);
 }
 
 function testPath(c: Ctx): HandlerResult {
   const p = arg(c, 'Path') ?? c.p.positional[0] ?? '';
-  return ok(c.host.folders.includes(normPath(p)) ? 'True' : 'False');
+  const key = normPath(p);
+  return ok(c.host.folders.includes(key) || !!fileAt(c.host, key) ? 'True' : 'False');
 }
 
 function knownIdentity(s: LabState, raw: string): string | null {
@@ -2512,14 +2696,17 @@ function getEvents(c: Ctx): HandlerResult {
   const logRaw = (arg(c, 'LogName') ?? c.p.positional[0] ?? '').toLowerCase();
   const fh = arg(c, 'FilterHashtable') ?? '';
   const fhLog = /LogName\s*=\s*['"]?([\w ]+?)['"]?\s*[;}]/i.exec(fh)?.[1]?.toLowerCase();
-  const fhId = /Id\s*=\s*(\d+)/i.exec(fh)?.[1];
+  const fhIds = (/\bId\s*=\s*([\d,\s]+)/i.exec(fh)?.[1] ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
   const log = fhLog ?? logRaw;
   const max = Number(arg(c, 'MaxEvents', 'Newest') ?? '20') || 20;
   const type = (arg(c, 'EntryType') ?? '').toLowerCase();
   const evs = c.s.events
     .filter((e) => e.host === c.host.name)
     .filter((e) => !log || e.log.toLowerCase() === log)
-    .filter((e) => !fhId || String(e.id) === fhId)
+    .filter((e) => fhIds.length === 0 || fhIds.includes(String(e.id)))
     .filter((e) => !type || e.level.toLowerCase().includes(type))
     .slice(-max)
     .reverse();
@@ -2531,8 +2718,8 @@ function getEvents(c: Ctx): HandlerResult {
     return ok('No events were found that match the specified selection criteria.');
   return ok(
     table(
-      ['Id', 'LevelDisplayName', 'ProviderName', 'Message'],
-      evs.map((e) => [String(e.id), e.level, e.source, e.message]),
+      ['TimeCreated', 'Id', 'LevelDisplayName', 'Message'],
+      evs.map((e) => [when(e.time), String(e.id), e.level, e.message]),
     ),
   );
 }
@@ -2565,6 +2752,411 @@ function whoami(c: Ctx): HandlerResult {
   return ok(`${h.hostname.toLowerCase()}\\administrator`);
 }
 
+// ---------------------------------------------------------------------------
+// Files, scripts, PAM, audit — what the IAM Portfolio projects need
+// ---------------------------------------------------------------------------
+
+function fileAt(h: Host, key: string): LabFile | undefined {
+  return (h.files ?? []).find((f) => f.path.toLowerCase() === key);
+}
+
+function parentOf(key: string): string {
+  return key.replace(/\\[^\\]*$/, '');
+}
+
+/**
+ * Write (or append to) a file on a machine. The folder must exist, as on
+ * Windows. Returns an error message, or null when written.
+ */
+export function writeFile(
+  s: LabState,
+  h: Host,
+  path: string,
+  content: string,
+  append: boolean,
+): string | null {
+  const key = normPath(path);
+  if (!/^[a-z]:\\[^\\]/.test(key)) return `Use a full path, for example C:\\IAM\\notes.txt.`;
+  if (h.folders.includes(key)) return `Access to the path '${path}' is denied (it is a folder).`;
+  const dir = parentOf(key);
+  if (!/^[a-z]:$/.test(dir) && !h.folders.includes(dir))
+    return `Could not find a part of the path '${path}'. Create the folder first (New-Item -ItemType Directory).`;
+  const files = (h.files ??= []);
+  const existing = fileAt(h, key);
+  const text = content.replace(/\r\n/g, '\n');
+  if (existing) {
+    existing.content = append
+      ? existing.content + (existing.content && !existing.content.endsWith('\n') ? '\n' : '') + text
+      : text;
+    existing.modified = stamp(s);
+  } else files.push({ path: path.replace(/\//g, '\\'), content: text, modified: stamp(s) });
+  return null;
+}
+
+/** Read a file's text, or null when there is no such file. */
+export function readFile(h: Host, path: string): string | null {
+  return fileAt(h, normPath(path))?.content ?? null;
+}
+
+/** Text given to Set-Content / Add-Content: -Value, the second positional, or the pipeline. */
+function contentArg(c: Ctx): string {
+  const v = arg(c, 'Value') ?? c.p.positional[1];
+  if (v !== undefined) return v.replace(/`n/g, '\n');
+  return c.stage > 0 ? c.prev.replace(/^\n+|\n+$/g, '') : '';
+}
+
+function setContent(c: Ctx, append: boolean): HandlerResult {
+  const cmd = append ? 'Add-Content' : 'Set-Content';
+  const path = arg(c, 'Path', 'LiteralPath') ?? c.p.positional[0];
+  if (!path) return fail(`${cmd} : Specify -Path.`);
+  const err = writeFile(c.s, c.host, path, contentArg(c), append);
+  return err ? fail(`${cmd} : ${err}`) : ok('');
+}
+
+function outFile(c: Ctx): HandlerResult {
+  const path = arg(c, 'FilePath', 'Path', 'LiteralPath') ?? c.p.positional[0];
+  if (!path) return fail('Out-File : Specify -FilePath.');
+  const err = writeFile(
+    c.s,
+    c.host,
+    path,
+    c.prev.replace(/^\n+|\n+$/g, ''),
+    arg(c, 'Append') === 'true',
+  );
+  return err ? fail(`Out-File : ${err}`) : ok('');
+}
+
+function csvCell(v: string | number | boolean | null | undefined): string {
+  return `"${String(v ?? '').replace(/"/g, '""')}"`;
+}
+
+/** Export-Csv of the AD users handed down the pipeline (Get-ADUser, Search-ADAccount). */
+function exportCsv(c: Ctx): HandlerResult {
+  const path = arg(c, 'Path', 'LiteralPath') ?? c.p.positional[0];
+  if (!path) return fail('Export-Csv : Specify -Path.');
+  const cols = [
+    'SamAccountName',
+    'Name',
+    'Enabled',
+    'Department',
+    'EmployeeID',
+    'LastLogonDate',
+    'DistinguishedName',
+  ];
+  const rows = c.input
+    .map((sam) => findUser(c.s, sam))
+    .filter((u): u is AdUser => !!u)
+    .map((u) =>
+      [
+        u.sam,
+        u.name,
+        u.enabled ? 'True' : 'False',
+        u.department ?? '',
+        u.employeeId ?? '',
+        when(u.lastLogon),
+        `CN=${u.name},${u.parent}`,
+      ]
+        .map(csvCell)
+        .join(','),
+    );
+  const append = arg(c, 'Append') === 'true' && !!readFile(c.host, path);
+  const text = [...(append ? [] : [cols.map(csvCell).join(',')]), ...rows].join('\n');
+  const err = writeFile(c.s, c.host, path, text, append);
+  return err ? fail(`Export-Csv : ${err}`) : ok('');
+}
+
+function getContent(c: Ctx): HandlerResult {
+  const path = arg(c, 'Path', 'LiteralPath') ?? c.p.positional[0];
+  if (!path) return fail('Get-Content : Specify -Path.');
+  const text = readFile(c.host, path);
+  if (text === null)
+    return fail(`Get-Content : Cannot find path '${path}' because it does not exist.`);
+  return ok(text);
+}
+
+function getChildItem(c: Ctx): HandlerResult {
+  const path = arg(c, 'Path', 'LiteralPath') ?? c.p.positional[0] ?? 'C:\\';
+  const key = normPath(path);
+  if (!/^[a-z]:$/.test(key) && !c.host.folders.includes(key))
+    return fail(`Get-ChildItem : Cannot find path '${path}' because it does not exist.`);
+  const recurse = arg(c, 'Recurse') === 'true';
+  const under = (p: string): boolean =>
+    p.startsWith(key + '\\') && (recurse || parentOf(p) === key);
+  const dirs = c.host.folders.filter(under).sort();
+  const files = (c.host.files ?? []).filter((f) => under(f.path.toLowerCase()));
+  if (dirs.length === 0 && files.length === 0) return ok('');
+  const rows: string[][] = [
+    ...dirs.map((d) => {
+      const shown = c.host.folderCase?.[d] ?? d;
+      return ['d-----', '', '', recurse ? shown : shown.slice(key.length + 1)];
+    }),
+    ...files
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .map((f) => [
+        '-a----',
+        when(f.modified),
+        String(f.content.length),
+        recurse ? f.path : f.path.slice(key.length + 1),
+      ]),
+  ];
+  return ok(
+    `\n    Directory: ${path}\n` + table(['Mode', 'LastWriteTime', 'Length', 'Name'], rows),
+  );
+}
+
+function removeItem(c: Ctx): HandlerResult {
+  const path = arg(c, 'Path', 'LiteralPath') ?? c.p.positional[0];
+  if (!path) return fail('Remove-Item : Specify -Path.');
+  const key = normPath(path);
+  if (fileAt(c.host, key)) {
+    c.host.files = (c.host.files ?? []).filter((f) => f.path.toLowerCase() !== key);
+    return ok('');
+  }
+  if (!c.host.folders.includes(key))
+    return fail(`Remove-Item : Cannot find path '${path}' because it does not exist.`);
+  const inside = (p: string): boolean => p.startsWith(key + '\\');
+  const hasChildren =
+    c.host.folders.some(inside) || (c.host.files ?? []).some((f) => inside(f.path.toLowerCase()));
+  if (hasChildren && arg(c, 'Recurse') !== 'true')
+    return fail(
+      `Remove-Item : The item at ${path} has children and the Recurse parameter was not specified.`,
+    );
+  c.host.folders = c.host.folders.filter((p) => p !== key && !inside(p));
+  c.host.files = (c.host.files ?? []).filter((f) => !inside(f.path.toLowerCase()));
+  for (const k of Object.keys(c.s.ntfs)) if (k === key || inside(k)) delete c.s.ntfs[k];
+  c.s.shares = c.s.shares.filter((sh) => {
+    const sp = normPath(sh.path);
+    return sp !== key && !inside(sp);
+  });
+  return ok('');
+}
+
+function writeHost(c: Ctx): HandlerResult {
+  const text = arg(c, 'Object', 'InputObject') ?? c.p.positional.join(' ') ?? '';
+  return ok(text.replace(/`n/g, '\n'));
+}
+
+function setGroup(c: Ctx): HandlerResult {
+  const g = adGuard(c, 'Set-ADGroup');
+  if (g) return g;
+  const id = identityArg(c) ?? '';
+  const grp = findGroup(c.s, id);
+  if (!grp) return objectNotFound(id);
+  const mb = arg(c, 'ManagedBy');
+  if (mb !== undefined) {
+    const owner = findUser(c.s, mb) ?? findGroup(c.s, mb);
+    if (!owner) return objectNotFound(mb);
+    grp.managedBy = 'sam' in owner ? owner.sam : owner.name;
+  }
+  const desc = arg(c, 'Description');
+  if (desc !== undefined) grp.description = desc;
+  return ok('');
+}
+
+function removePrincipalGroups(c: Ctx): HandlerResult {
+  const g = adGuard(c, 'Remove-ADPrincipalGroupMembership');
+  if (g) return g;
+  const users = targetUsers(c, 'Remove-ADPrincipalGroupMembership');
+  if (!Array.isArray(users)) return users;
+  const groups = list(arg(c, 'MemberOf'));
+  if (groups.length === 0)
+    return fail(
+      'Remove-ADPrincipalGroupMembership : Cannot process command because of one or more missing mandatory parameters: MemberOf.',
+    );
+  for (const name of groups) {
+    const grp = findGroup(c.s, name);
+    if (!grp) return objectNotFound(name);
+    if (grp.name.toLowerCase() === 'domain users')
+      return fail(
+        "Remove-ADPrincipalGroupMembership : The user cannot be removed from a group because the group is currently the user's primary group.",
+      );
+    for (const u of users) {
+      if (!grp.members.includes(u.sam)) continue;
+      grp.members = grp.members.filter((m) => m !== u.sam);
+      if (grp.ttl) delete grp.ttl[u.sam.toLowerCase()];
+      membershipEvent(c.s, grp, u.sam, false);
+    }
+  }
+  return ok('');
+}
+
+const PAM_FEATURE = 'Privileged Access Management Feature';
+
+function enableOptionalFeature(c: Ctx): HandlerResult {
+  const g = adGuard(c, 'Enable-ADOptionalFeature');
+  if (g) return g;
+  const id = arg(c, 'Identity') ?? c.p.positional[0] ?? '';
+  if (!/privileged access management/i.test(id))
+    return fail(
+      `Enable-ADOptionalFeature : Cannot find an optional feature with identity '${id}'.`,
+    );
+  if (!arg(c, 'Scope') || !arg(c, 'Target'))
+    return fail(
+      'Enable-ADOptionalFeature : Specify -Scope ForestOrConfigurationSet -Target <forest name>.',
+    );
+  c.s.ad.pamEnabled = true;
+  return ok(
+    "WARNING: Enabling 'Privileged Access Management Feature' on the forest is irreversible.",
+  );
+}
+
+function getOptionalFeature(c: Ctx): HandlerResult {
+  const g = adGuard(c, 'Get-ADOptionalFeature');
+  if (g) return g;
+  const forest = c.s.ad.forest ?? '';
+  const row = (name: string, on: boolean): [string, string | boolean | null][] => [
+    ['Name', name],
+    ['EnabledScopes', on ? `{CN=Partitions,CN=Configuration,${DOMAIN_DN_FOR(c.s)}}` : '{}'],
+    ['FeatureScope', '{ForestOrConfigurationSet}'],
+    ['RequiredForestMode', name === PAM_FEATURE ? 'Windows2016Forest' : 'Windows2008R2Forest'],
+  ];
+  void forest;
+  return ok(
+    props(row('Recycle Bin Feature', false)) + props(row(PAM_FEATURE, !!c.s.ad.pamEnabled)),
+  );
+}
+
+/** wevtutil cl Security / Clear-EventLog -LogName Security: leaves exactly one event, 1102. */
+function clearLog(c: Ctx, logName: string | undefined): HandlerResult {
+  const log = (logName ?? '').toLowerCase();
+  const names: Record<string, EventEntry['log']> = {
+    security: 'Security',
+    system: 'System',
+    application: 'Application',
+  };
+  const which = names[log];
+  if (!which) return fail('Specify the log to clear: Security, System or Application.');
+  c.s.events = c.s.events.filter((e) => !(e.host === c.host.name && e.log === which));
+  if (which === 'Security')
+    event(
+      c.s,
+      c.host.name,
+      'Security',
+      1102,
+      'Audit Success',
+      'Microsoft-Windows-Eventlog',
+      `The audit log was cleared. Subject: ${c.s.ad.netbios ?? c.host.hostname}\\Administrator.`,
+      { subjectUser: 'Administrator' },
+    );
+  return ok('');
+}
+
+function wevtutil(c: Ctx): HandlerResult {
+  const [verb, log] = c.p.positional;
+  if ((verb ?? '').toLowerCase() === 'cl' || (verb ?? '').toLowerCase() === 'clear-log')
+    return clearLog(c, log);
+  return fail('This lab supports wevtutil cl <LogName>.');
+}
+
+/**
+ * A sign-in to the domain: 4624 (success) or 4625 (failure) on DC01, with the
+ * target account and logon type a SIEM correlates on. Success stamps lastLogon.
+ */
+export function recordLogon(
+  s: LabState,
+  sam: string,
+  success: boolean,
+  logonType: '2' | '3' | '10' = '2',
+): void {
+  const u = findUser(s, sam);
+  if (success && u) u.lastLogon = stamp(s);
+  event(
+    s,
+    'DC01',
+    'Security',
+    success ? 4624 : 4625,
+    success ? 'Audit Success' : 'Audit Failure',
+    'Microsoft-Windows-Security-Auditing',
+    success
+      ? `An account was successfully logged on. Account Name: ${u?.sam ?? sam}. Logon Type: ${logonType}.`
+      : `An account failed to log on. Account Name: ${u?.sam ?? sam}. Logon Type: ${logonType}. Failure Reason: Unknown user name or bad password.`,
+    { targetUser: u?.sam ?? sam, logonType },
+  );
+}
+
+/** Time-bound memberships whose time is up are gone, as the KDC and DC enforce. */
+export function expireMemberships(s: LabState, now = Date.now()): void {
+  for (const g of s.ad.groups) {
+    if (!g.ttl) continue;
+    for (const [m, exp] of Object.entries(g.ttl)) {
+      if (exp > now) continue;
+      delete g.ttl[m];
+      const had = g.members.find((x) => x.toLowerCase() === m);
+      if (had) {
+        g.members = g.members.filter((x) => x !== had);
+        membershipEvent(s, g, had, false);
+      }
+    }
+  }
+}
+
+/** Lines PowerShell scripts often start with that change nothing here. */
+const SCRIPT_NOOPS =
+  /^(\$ErrorActionPreference\s*=|Set-StrictMode\b|Import-Module\b|#Requires\b|param\s*\(.*\)\s*$|\[CmdletBinding\([^)]*\)\])/i;
+
+/**
+ * Run a .ps1 saved on this machine: one cmdlet per line, as the lab's
+ * PowerShell understands them. Stops at the first failing line, as with
+ * $ErrorActionPreference = 'Stop'.
+ */
+function runScript(s: LabState, host: HostName, path: string, depth: number): CommandResult {
+  const text = readFile(s.hosts[host], path);
+  if (text === null)
+    return fail(
+      `${path} : The term '${path}' is not recognized as the name of a cmdlet, function, script file, or operable program.`,
+    );
+  if (depth > 3) return fail('Scripts can call scripts only a few levels deep in this lab.');
+  const lines: string[] = [];
+  let inBlock = false;
+  let carry = '';
+  for (const raw of text.split('\n')) {
+    let line = raw.trim();
+    if (inBlock) {
+      if (line.includes('#>')) inBlock = false;
+      continue;
+    }
+    if (line.startsWith('<#')) {
+      if (!line.includes('#>')) inBlock = true;
+      continue;
+    }
+    if (!line || line.startsWith('#')) continue;
+    if (line.endsWith('`')) {
+      carry += line.slice(0, -1) + ' ';
+      continue;
+    }
+    line = carry + line;
+    carry = '';
+    lines.push(line);
+  }
+  const out: string[] = [];
+  for (const [i, line] of lines.entries()) {
+    if (SCRIPT_NOOPS.test(line)) continue;
+    if (/^\$\w+\s*=|^(foreach|for|if|while|function|try|switch)\b|^[{}]/i.test(line))
+      return fail(
+        [
+          ...out,
+          `${path}:${i + 1} ${line}`,
+          'This lab runs scripts one cmdlet per line with literal values; variables, loops and functions are for your real DC01. ' +
+            'The script is still saved, and the IAM Portfolio reviews its content.',
+        ].join('\n'),
+      );
+    const r = runCommand(s, host, line, depth + 1);
+    if (r.output) out.push(r.output);
+    if (!r.ok) return fail(out.join('\n'));
+  }
+  return ok(out.join('\n'));
+}
+
+/** `& 'C:\x.ps1'`, `C:\x.ps1`, `powershell -File C:\x.ps1` → the script path. */
+function scriptPath(line: string): string | null {
+  const m =
+    /^(?:&\s*)?["']?([a-z]:\\[^"']+?\.ps1)["']?$/i.exec(line) ??
+    /^(?:powershell|pwsh)(?:\.exe)?\s+(?:-ExecutionPolicy\s+\w+\s+)?-File\s+["']?([a-z]:\\[^"']+?\.ps1)["']?$/i.exec(
+      line,
+    );
+  return m ? m[1]! : null;
+}
+
 export const HELP_TEXT = `Commands available in this lab (PowerShell and cmd both work here):
 
  Network     ipconfig [/all|/renew|/release|/flushdns|/registerdns]   ping   nslookup   Test-NetConnection
@@ -2584,7 +3176,12 @@ export const HELP_TEXT = `Commands available in this lab (PowerShell and cmd bot
  RAS / NAT   Install-RemoteAccess -VpnType RoutingOnly   Get-RemoteAccess
              netsh routing ip nat install | add interface "Name" full|private | show interface
  GPO         New-GPO   New-GPLink   Remove-GPLink   Get-GPO   gpupdate /force   gpresult /r
- Files       New-Item -ItemType Directory   mkdir   Test-Path   icacls
+ Files       New-Item -ItemType Directory|File   mkdir   Test-Path   Get-ChildItem   Remove-Item
+             Set-Content   Add-Content   Get-Content   Out-File   Export-Csv   icacls
+             & C:\\path\\script.ps1 (one cmdlet per line)   Write-Host
+ IAM         Set-ADGroup -ManagedBy   Remove-ADPrincipalGroupMembership   Search-ADAccount -AccountInactive
+             Enable/Get-ADOptionalFeature   Add-ADGroupMember -MemberTimeToLive (New-TimeSpan -Hours 2)
+             Get-ADGroup -Properties member -ShowMemberTimeToLive   wevtutil cl Security
              New-SmbShare   Get-SmbShare   Get-SmbShareAccess   Grant/Revoke-SmbShareAccess
  Shell       cls   help`;
 
@@ -2685,6 +3282,30 @@ const HANDLERS: Record<string, Handler> = {
   'stop-service': (c) => setService(c, 'Stopped'),
   'restart-service': (c) => setService(c, 'restart'),
   'get-winevent': getEvents,
+  'set-content': (c) => setContent(c, false),
+  'add-content': (c) => setContent(c, true),
+  'get-content': getContent,
+  gc: getContent,
+  type: getContent,
+  cat: getContent,
+  'out-file': outFile,
+  'export-csv': exportCsv,
+  'get-childitem': getChildItem,
+  gci: getChildItem,
+  dir: getChildItem,
+  ls: getChildItem,
+  'remove-item': removeItem,
+  del: removeItem,
+  rm: removeItem,
+  'write-host': writeHost,
+  'write-output': writeHost,
+  echo: writeHost,
+  'set-adgroup': setGroup,
+  'remove-adprincipalgroupmembership': removePrincipalGroups,
+  'enable-adoptionalfeature': enableOptionalFeature,
+  'get-adoptionalfeature': getOptionalFeature,
+  wevtutil,
+  'clear-eventlog': (c) => clearLog(c, arg(c, 'LogName') ?? c.p.positional[0]),
   'get-eventlog': getEvents,
   'get-history': history,
   history,
@@ -2716,12 +3337,20 @@ export const COMMAND_NAMES: readonly string[] = Object.keys(HANDLERS);
  * Run one command line typed by the student on `host`. Mutates `s` and
  * records the attempt in `s.history` — the instructor's lab memory.
  */
-export function runCommand(s: LabState, host: HostName, line: string): CommandResult {
+export function runCommand(s: LabState, host: HostName, line: string, depth = 0): CommandResult {
   const trimmed = line.trim();
   if (!trimmed) return ok('');
   const lower = trimmed.toLowerCase();
   if (lower === 'cls' || lower === 'clear' || lower === 'clear-host')
     return { output: '', ok: true, clear: true };
+  expireMemberships(s);
+
+  const script = scriptPath(trimmed);
+  if (script) {
+    const r = runScript(s, host, script, depth);
+    if (depth === 0) recordHistory(s, host, trimmed, r);
+    return r;
+  }
 
   const stages = splitPipeline(trimmed);
   let objects: string[] = [];
@@ -2733,12 +3362,16 @@ export function runCommand(s: LabState, host: HostName, line: string): CommandRe
     if (i > 0 && (key === 'where-object' || key === '?' || key === 'findstr')) continue;
     const handler = HANDLERS[key];
     result = handler
-      ? handler({ s, host: s.hosts[host], p, input: objects })
+      ? handler({ s, host: s.hosts[host], p, input: objects, prev: result.output, stage: i })
       : notRecognized(p.name);
     if (!result.ok) break;
     objects = result.objects ?? [];
   }
+  recordHistory(s, host, trimmed, result);
+  return { output: result.output, ok: result.ok, ...(result.clear ? { clear: true } : {}) };
+}
 
+function recordHistory(s: LabState, host: HostName, trimmed: string, result: CommandResult): void {
   s.history.push({
     host,
     shell: 'powershell',
@@ -2749,5 +3382,4 @@ export function runCommand(s: LabState, host: HostName, line: string): CommandRe
   });
   // Keep lab memory bounded.
   if (s.history.length > 300) s.history.splice(0, s.history.length - 300);
-  return { output: result.output, ok: result.ok, ...(result.clear ? { clear: true } : {}) };
 }

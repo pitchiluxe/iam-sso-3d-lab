@@ -3,7 +3,7 @@
  * without the DOM: signing in, running a command, and knowing when a command
  * restarts the machine. Kept apart from the UI so it can be tested.
  */
-import type { CommandResult } from '@/vm/adlab/commands';
+import { recordLogon, type CommandResult } from '@/vm/adlab/commands';
 import { dcIsPromoted, type HostName, type LabState } from '@/vm/adlab/state';
 import { runOn, type LabWorld } from '@/vm/adlab/world';
 
@@ -86,8 +86,17 @@ export function signIn(
   }
   // No known password (a seeded account nobody has reset) signs in to nothing.
   if (!u || !u.password || u.password !== password) {
+    // The DC audits the failure (4625) and counts it towards lockout.
+    recordLogon(s, u?.sam ?? name, false);
+    if (u) {
+      u.badPwdCount++;
+      const limit = s.ad.passwordPolicy.lockoutThreshold;
+      if (limit > 0 && u.badPwdCount >= limit) u.lockedOut = true;
+    }
     return { ok: false, reason: 'The user name or password is incorrect.' };
   }
+  u.badPwdCount = 0;
+  recordLogon(s, u.sam, true);
   return { ok: true, account: `CORP\\${u.sam}` };
 }
 

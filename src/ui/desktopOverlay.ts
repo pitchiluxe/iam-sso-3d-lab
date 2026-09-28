@@ -5,6 +5,9 @@
  * corporate OS shell (dark theme, taskbar, Start menu, system tray, live clock)
  * with multiple draggable/minimizable/maximizable/closable windows.
  */
+import { renderAdLabWindow } from './consoles/adLabWindow';
+import { renderPortfolioWindow } from './consoles/portfolioWindow';
+import { OPEN_APP_EVENT } from './desktopBus';
 import type { Conductor } from '@/conductor/conductor';
 import { renderActiveDirectoryView } from './directory/activeDirectoryView';
 import { conductorAdapter } from './directory/directoryAdapter';
@@ -90,6 +93,24 @@ const DESKTOP_APPS: WindowDef[] = [
     width: 1000,
     height: 660,
     render: (_c, b) => renderMachineWindow(b, 'CLIENT01', client01Apps(), CLIENT01_DEFAULT_APPS),
+  },
+  {
+    // IAM Range's AD Enterprise Lab Series, done on the in-app DC01 and CLIENT01.
+    id: 'ad-lab',
+    title: 'AD Enterprise Lab Series',
+    icon: '🏢',
+    width: 1180,
+    height: 720,
+    render: (_c, b) => renderAdLabWindow(b),
+  },
+  {
+    // IAM Range's 10-project IAM Portfolio; its on-premises projects run on DC01.
+    id: 'iam-portfolio',
+    title: 'IAM Portfolio',
+    icon: '🎓',
+    width: 1180,
+    height: 720,
+    render: (_c, b) => renderPortfolioWindow(b),
   },
   {
     id: 'ticket-console',
@@ -260,6 +281,8 @@ const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
 const IT_ONLY_APP_IDS = new Set([
   'dc01',
   'client01',
+  'ad-lab',
+  'iam-portfolio',
   'active-directory',
   'terminal',
   'script-editor',
@@ -1247,5 +1270,12 @@ export function createDesktopOverlay(): DesktopOverlay {
     },
     onExit: null,
   };
+  // Windows inside the VM (the AD Lab, the Portfolio) open DC01 and CLIENT01
+  // through this, without holding a reference to the desktop.
+  window.addEventListener(OPEN_APP_EVENT, (e) => {
+    const id = (e as CustomEvent<string>).detail;
+    if (!visible || (!currentIsIT && IT_ONLY_APP_IDS.has(id))) return;
+    wmCtx.current?.openById(id);
+  });
   return api;
 }

@@ -13,7 +13,13 @@
  * sessions are never confused with each other or with the main VM.
  */
 import type { HostName } from '@/vm/adlab/state';
-import { loadWorld, onWorldChanged, saveWorld, type LabWorld } from '@/vm/adlab/world';
+import {
+  loadWorld,
+  notifyWorldChanged,
+  onWorldChanged,
+  saveWorld,
+  type LabWorld,
+} from '@/vm/adlab/world';
 import type { CommandResult } from '@/vm/adlab/commands';
 import { LAB_ADMIN_PASSWORD, MACHINE_INFO, runOnMachine, signIn } from './machineCore';
 
@@ -310,7 +316,10 @@ export function renderMachineWindow(
       'Sign in',
     );
     const attempt = (): void => {
-      const r = signIn(loadWorld().state, host, user.value, pw.value);
+      // Sign-ins are audited on DC01 (4624/4625) and count towards lockout: keep that.
+      const w = loadWorld();
+      const r = signIn(w.state, host, user.value, pw.value);
+      notifyWorldChanged(w);
       if (!r.ok) {
         error = r.reason;
         err.textContent = error;
