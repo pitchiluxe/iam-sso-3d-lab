@@ -5,6 +5,13 @@
  * corporate OS shell (dark theme, taskbar, Start menu, system tray, live clock)
  * with multiple draggable/minimizable/maximizable/closable windows.
  */
+import {
+  ICON_METRICS,
+  loadDesktopView,
+  openDesktopMenu,
+  saveDesktopView,
+  type DesktopView,
+} from './desktopView';
 import { renderAdLabWindow } from './consoles/adLabWindow';
 import { renderPortfolioWindow } from './consoles/portfolioWindow';
 import { OPEN_APP_EVENT } from './desktopBus';
@@ -647,6 +654,44 @@ export function createDesktopOverlay(): DesktopOverlay {
     iconColEl = iconCol;
     renderDesktopIcons(iconCol);
     onDesktopIconsChanged(() => renderDesktopIcons(iconCol));
+
+    // Right-click the empty desktop: View (icon size, show/hide) and Refresh,
+    // as Windows does. An icon's own right-click is left to the icon.
+    bg.addEventListener('contextmenu', (e) => {
+      if ((e.target as HTMLElement).closest('[data-icon-id]')) return;
+      e.preventDefault();
+      const view = loadDesktopView();
+      const set = (next: Partial<DesktopView>): void => {
+        saveDesktopView({ ...view, ...next });
+        renderDesktopIcons(iconCol);
+      };
+      openDesktopMenu(e.clientX, e.clientY, [
+        { label: 'View', header: true },
+        {
+          label: 'Large icons',
+          checked: view.size === 'large',
+          onClick: () => set({ size: 'large' }),
+        },
+        {
+          label: 'Medium icons',
+          checked: view.size === 'medium',
+          onClick: () => set({ size: 'medium' }),
+        },
+        {
+          label: 'Small icons',
+          checked: view.size === 'small',
+          onClick: () => set({ size: 'small' }),
+        },
+        { label: '', separator: true },
+        {
+          label: 'Show desktop icons',
+          checked: view.showIcons,
+          onClick: () => set({ showIcons: !view.showIcons }),
+        },
+        { label: '', separator: true },
+        { label: 'Refresh', onClick: () => renderDesktopIcons(iconCol) },
+      ]);
+    });
   }
 
   interface DesktopIconEntry {
@@ -680,6 +725,11 @@ export function createDesktopOverlay(): DesktopOverlay {
 
   function renderDesktopIcons(iconCol: HTMLElement): void {
     iconCol.innerHTML = '';
+    const view = loadDesktopView();
+    const m = ICON_METRICS[view.size];
+    iconCol.style.display = view.showIcons ? 'grid' : 'none';
+    iconCol.style.gridTemplateRows = `repeat(${m.rows}, auto)`;
+    iconCol.style.gap = view.size === 'small' ? '2px 6px' : '8px';
     const icons = resolveIconOrder();
     let draggedId: string | null = null;
 
@@ -690,11 +740,11 @@ export function createDesktopOverlay(): DesktopOverlay {
       iconBtn.style.cssText = `
         background: transparent; border: none; cursor: pointer;
         display: flex; flex-direction: column; align-items: center; gap: 4px;
-        padding: 8px; border-radius: 6px; width: 80px;
+        padding: ${m.pad}px; border-radius: 6px; width: ${m.tile}px;
       `;
       iconBtn.innerHTML = `
-        <span style="font-size:32px;line-height:1;">${entry.icon}</span>
-        <span style="font-size:11px;color:#c8cdd3;text-align:center;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${entry.title}</span>
+        <span style="font-size:${m.glyph}px;line-height:1;">${entry.icon}</span>
+        <span style="font-size:${m.label}px;color:#c8cdd3;text-align:center;max-width:${m.tile - 8}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${entry.title}</span>
       `;
       const activate = () => {
         const def = APP_BY_ID[entry.id];
