@@ -14,7 +14,7 @@
  *                    │
  *               NIC "Ethernet" (DHCP from DC01)
  *                    │
- *                CLIENT01 (Windows 10)
+ *                CLIENT01 (Windows 11)
  *
  * This file only describes the shape and the starting point. The one thing
  * that changes it is vm/adlab/commands.ts — the commands the *student* types.
@@ -99,6 +99,12 @@ export interface AdUser {
   changePasswordAtLogon: boolean;
   /** Epoch ms of the last password reset by an admin, if any. */
   passwordLastResetByAdmin: number | null;
+  /**
+   * The password the account was given, so a person can sign in to CLIENT01
+   * with it. These are fictional accounts on simulated machines; absent means
+   * nobody here knows it (reset it first).
+   */
+  password?: string;
   department: string | null;
 }
 
@@ -318,7 +324,7 @@ export function freshState(): LabState {
         name: 'CLIENT01',
         hostname: 'CLIENT01',
         pendingHostname: null,
-        os: 'Windows 10 Pro',
+        os: 'Windows 11 Enterprise',
         nics: [
           {
             alias: 'Ethernet',

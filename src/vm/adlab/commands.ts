@@ -8,7 +8,7 @@
  *
  * The commands behave like their Windows counterparts where it teaches
  * something: static DNS beats DHCP-provided DNS, Add-Computer fails when the
- * client cannot find a DC in DNS, AD cmdlets do not exist on a Windows 10 box
+ * client cannot find a DC in DNS, AD cmdlets do not exist on a Windows 11 box
  * without RSAT, resetting a password does not unlock an account, an inherited
  * ACE cannot be removed until inheritance is broken. Where Windows would only
  * be tedious, they are simpler.
@@ -1662,6 +1662,7 @@ function newUser(c: Ctx): HandlerResult {
     lockedOut: false,
     badPwdCount: 0,
     passwordSet: !!pw,
+    ...(pw ? { password: pw } : {}),
     changePasswordAtLogon: arg(c, 'ChangePasswordAtLogon') === 'true',
     passwordLastResetByAdmin: null,
     department: arg(c, 'Department') ?? null,
@@ -1812,6 +1813,7 @@ function setAccountPassword(c: Ctx): HandlerResult {
     return fail(`Set-ADAccountPassword : ${PASSWORD_POLICY_ERROR}`);
   for (const u of users) {
     u.passwordSet = true;
+    u.password = pw;
     u.passwordLastResetByAdmin = ++c.s.tick;
     event(
       c.s,

@@ -8,6 +8,9 @@
 import type { Conductor } from '@/conductor/conductor';
 import { renderActiveDirectoryView } from './directory/activeDirectoryView';
 import { conductorAdapter } from './directory/directoryAdapter';
+import { renderMachineWindow } from './machines/machineWindow';
+import { dc01Apps, DC01_DEFAULT_APPS } from './machines/dc01Apps';
+import { client01Apps, CLIENT01_DEFAULT_APPS } from './machines/client01Apps';
 import { renderTicketConsole } from './consoles/ticketConsole';
 import { renderSecOpsDashboard } from './consoles/secOpsDashboard';
 import { renderOllamaConsole } from './consoles/ollamaConsole';
@@ -69,6 +72,24 @@ const DESKTOP_APPS: WindowDef[] = [
     render: (c, b) => {
       renderActiveDirectoryView(b, conductorAdapter(c));
     },
+  },
+  {
+    // The AD Enterprise Lab's domain controller, opened inside this VM like a
+    // Remote Desktop session (connect, sign in, then its own desktop).
+    id: 'dc01',
+    title: 'DC01 — Windows Server 2022',
+    icon: '🖥️',
+    width: 1060,
+    height: 700,
+    render: (_c, b) => renderMachineWindow(b, 'DC01', dc01Apps(), DC01_DEFAULT_APPS),
+  },
+  {
+    id: 'client01',
+    title: 'CLIENT01 — Windows 11',
+    icon: '💻',
+    width: 1000,
+    height: 660,
+    render: (_c, b) => renderMachineWindow(b, 'CLIENT01', client01Apps(), CLIENT01_DEFAULT_APPS),
   },
   {
     id: 'ticket-console',
@@ -237,6 +258,8 @@ const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
 /** Apps only an IT workstation has installed — hidden from the desktop
  * icons, Start menu, and default layout on a non-IT zone's "computer". */
 const IT_ONLY_APP_IDS = new Set([
+  'dc01',
+  'client01',
   'active-directory',
   'terminal',
   'script-editor',
