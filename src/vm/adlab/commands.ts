@@ -1604,6 +1604,34 @@ function removeOU(c: Ctx): HandlerResult {
   return ok('');
 }
 
+/** Remove-ADUser: the account goes, and with it every group membership. */
+function removeUser(c: Ctx): HandlerResult {
+  const g = adGuard(c, 'Remove-ADUser');
+  if (g) return g;
+  const id = identityArg(c) ?? '';
+  const u = findUser(c.s, id);
+  if (!u) return objectNotFound(id);
+  c.s.ad.users = c.s.ad.users.filter((x) => x !== u);
+  for (const grp of c.s.ad.groups)
+    grp.members = grp.members.filter((m) => m.toLowerCase() !== u.sam.toLowerCase());
+  return ok('');
+}
+
+/** Remove-ADGroup: built-in groups are part of the domain and cannot be deleted. */
+function removeGroup(c: Ctx): HandlerResult {
+  const g = adGuard(c, 'Remove-ADGroup');
+  if (g) return g;
+  const id = identityArg(c) ?? '';
+  const grp = findGroup(c.s, id);
+  if (!grp) return objectNotFound(id);
+  if (grp.builtin)
+    return fail(`Remove-ADGroup : Access is denied. '${grp.name}' is a built-in group.`);
+  c.s.ad.groups = c.s.ad.groups.filter((x) => x !== grp);
+  for (const other of c.s.ad.groups)
+    other.members = other.members.filter((m) => m.toLowerCase() !== grp.name.toLowerCase());
+  return ok('');
+}
+
 function newUser(c: Ctx): HandlerResult {
   const g = adGuard(c, 'New-ADUser');
   if (g) return g;
@@ -2545,9 +2573,9 @@ export const HELP_TEXT = `Commands available in this lab (PowerShell and cmd bot
              Get-WindowsFeature   Install-WindowsFeature   Get-Service   Start/Stop/Restart-Service
              Get-WinEvent / Get-EventLog   Get-History
  AD DS       Install-ADDSForest   Get-ADDomain   Add-Computer   Test-ComputerSecureChannel
-             New/Get/Remove-ADOrganizationalUnit   New/Get/Set-ADUser   Search-ADAccount
+             New/Get/Remove-ADOrganizationalUnit   New/Get/Set/Remove-ADUser   Search-ADAccount
              Unlock-ADAccount   Enable/Disable-ADAccount   Set-ADAccountPassword   Move-ADObject
-             New/Get-ADGroup   Add/Remove/Get-ADGroupMember   Get-ADPrincipalGroupMembership   Get-ADComputer
+             New/Get/Remove-ADGroup   Add/Remove/Get-ADGroupMember   Get-ADPrincipalGroupMembership   Get-ADComputer
              Get/Set-ADDefaultDomainPasswordPolicy
  DHCP        Add-DhcpServerInDC   Get-DhcpServerInDC   Add/Get/Set/Remove-DhcpServerv4Scope
              Set/Get-DhcpServerv4OptionValue   Get-DhcpServerv4Lease
@@ -2610,6 +2638,8 @@ const HANDLERS: Record<string, Handler> = {
   'get-adorganizationalunit': getOU,
   'remove-adorganizationalunit': removeOU,
   'new-aduser': newUser,
+  'remove-aduser': removeUser,
+  'remove-adgroup': removeGroup,
   'get-aduser': getUser,
   'set-aduser': setUser,
   'unlock-adaccount': unlockAccount,

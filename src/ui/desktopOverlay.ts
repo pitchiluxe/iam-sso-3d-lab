@@ -7,6 +7,8 @@
  */
 import type { Conductor } from '@/conductor/conductor';
 import { renderIAMConsole } from './consoles/iamConsole';
+import { renderActiveDirectoryView } from './directory/activeDirectoryView';
+import { conductorAdapter } from './directory/directoryAdapter';
 import { renderTicketConsole } from './consoles/ticketConsole';
 import { renderSecOpsDashboard } from './consoles/secOpsDashboard';
 import { renderOllamaConsole } from './consoles/ollamaConsole';
@@ -65,6 +67,17 @@ const DESKTOP_APPS: WindowDef[] = [
     width: 720,
     height: 580,
     render: (c, b) => renderIAMConsole(b, c),
+  },
+  {
+    // IAM Range's Active Directory Users and Computers, over this lab's directory.
+    id: 'active-directory',
+    title: 'Active Directory Users and Computers',
+    icon: '🗃️',
+    width: 900,
+    height: 600,
+    render: (c, b) => {
+      renderActiveDirectoryView(b, conductorAdapter(c));
+    },
   },
   {
     id: 'ticket-console',
@@ -217,6 +230,7 @@ const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map
  * benefit. */
 const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
   'iam-console',
+  'active-directory',
   'app-portal',
   'script-editor',
   // Rebuilt on VM re-entry so the shell binds to the current lab's services.
@@ -234,6 +248,7 @@ const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
  * icons, Start menu, and default layout on a non-IT zone's "computer". */
 const IT_ONLY_APP_IDS = new Set([
   'iam-console',
+  'active-directory',
   'terminal',
   'script-editor',
   'ticket-console',
