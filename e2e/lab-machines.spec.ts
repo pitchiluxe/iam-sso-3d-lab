@@ -52,9 +52,9 @@ test('the AD Enterprise Lab grades the in-app machines', async ({ page }) => {
   await expect(page.locator('.adl-title')).toHaveText('AD Enterprise Lab Series');
   await expect(page.locator('.adl-card')).toHaveCount(2);
   const check = page.getByRole('button', { name: 'CHECK MY WORK' });
-  await expect(check).toBeEnabled({ timeout: 20000 });
+  // Never disabled: the validation engine does not wait for the instructor.
   await check.click();
-  await expect(page.locator('.adl-check').first()).toBeVisible();
+  await expect(page.locator('.adl-check').first()).toBeVisible({ timeout: 15000 });
   await page.evaluate(() => (window as unknown as Partial<Lab>).__lab?.stopRenderLoop?.());
 });
 

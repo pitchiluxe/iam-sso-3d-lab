@@ -60,3 +60,19 @@ describe('pickTemplateBatch', () => {
     expect(batch.map((t) => t.id)).toEqual(allUsed.slice(0, 10));
   });
 });
+
+describe('generateBatch (Ollama offline)', () => {
+  it('never gives two labs, or two batches, the same new starter', async () => {
+    const { generatedLabsStore } = await import('@/stores/generatedLabsStore');
+    generatedLabsStore.getState().reset();
+    const first = await generatedLabsStore.getState().generateBatch(LAB_TEMPLATES.length);
+    const second = await generatedLabsStore.getState().generateBatch(LAB_TEMPLATES.length);
+    const created = [...first, ...second].flatMap((lab) =>
+      lab.steps
+        .filter((s) => s.validator.kind === 'user-created')
+        .map((s) => (s.validator.params as { userId: string }).userId),
+    );
+    expect(created.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(created).size).toBe(created.length);
+  });
+});

@@ -11,7 +11,7 @@
  * Objectives are auto-derived from the steps.
  */
 import { mkLabId, mkTicketId, SYSTEM_ACTOR } from '@/domain';
-import type { Lab, LabStep, LabObjective } from '@/domain';
+import type { Lab, LabStep, LabObjective, TicketKind } from '@/domain';
 // Imported from the registry, not the conductor: templates register at module
 // scope, and going through conductor.ts closed an evaluation-order cycle.
 import { registerLabSeed } from '@/conductor/seedRegistry';
@@ -26,6 +26,66 @@ export interface GeneratedFlavor {
 
 export type GeneratedZoneId = 'iam-ops' | 'sec-ops' | 'help-desk' | 'engineering';
 
+/**
+ * Where a ticket sits in the identity lifecycle. The generator is expected to
+ * cover every stage — tests/dailyTickets.test.ts holds it to that — because a
+ * help desk that only ever sees password resets teaches half the job.
+ */
+export type IamLifecycleStage =
+  | 'joiner'
+  | 'mover'
+  | 'leaver'
+  | 'access-request'
+  | 'authentication'
+  | 'privileged-access'
+  | 'access-review'
+  | 'incident'
+  | 'service-account'
+  | 'policy'
+  | 'hygiene';
+
+export const IAM_LIFECYCLE_STAGES: readonly IamLifecycleStage[] = [
+  'joiner',
+  'mover',
+  'leaver',
+  'access-request',
+  'authentication',
+  'privileged-access',
+  'access-review',
+  'incident',
+  'service-account',
+  'policy',
+  'hygiene',
+];
+
+/**
+ * The ticket a daily lab puts in the Ticket Queue. The lab's steps are what
+ * score; the ticket is what the learner sees arrive, reads, works and closes —
+ * and its review passes exactly when that work is done.
+ */
+export interface DailyTicket {
+  kind: TicketKind;
+  /** Username of whoever raised it. */
+  requester: string;
+  /** Username of the account it is about, when that account exists already. */
+  about?: string;
+  subject: string;
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+}
+
+/** A daily ticket as filed: id and body fixed when the lab was generated. */
+export interface FiledTicket extends DailyTicket {
+  id: string;
+  body: string;
+}
+
+type LabWithTicket = Lab & { _dailyTicket?: FiledTicket };
+
+/** The ticket a generated lab files in the queue, if it files one. */
+export function dailyTicketOf(lab: Lab | undefined): FiledTicket | undefined {
+  return (lab as LabWithTicket | undefined)?._dailyTicket;
+}
+
 export interface LabTemplate {
   id: string;
   zoneId: GeneratedZoneId;
@@ -33,6 +93,15 @@ export interface LabTemplate {
   targetDisplayName: string;
   targetTitle: string;
   targetDept: string;
+  lifecycle: IamLifecycleStage;
+  /** Who raised it, as the narrative should name them, e.g. "Cara Patel (HR)". */
+  requester?: string;
+  /**
+   * Why there is no Ticket Queue entry, for the few labs that are not a
+   * service-desk ticket (a policy change, a bulk intake, a duplicate cleanup
+   * whose subject is deleted by the work itself).
+   */
+  noQueueTicket?: string;
   buildLab(flavor: GeneratedFlavor, usedNames: string[]): Lab;
   /** Runs after applyBaseline() for this generated lab's own conductor
    * session — a small, deterministic extra setup step, if any. */
@@ -72,13 +141,24 @@ function buildObjectives(steps: LabStep[], extraObjectives: LabObjective[] = [])
   return [...extraObjectives, ...stepObjectives];
 }
 
+/** The ticket body: the reporter's words, then exactly what is being asked for. */
+function ticketBody(flavor: GeneratedFlavor, steps: LabStep[]): string {
+  const asks = steps.map((s) => `• ${s.brief.replace(flavor.narrative, '').trim()}`);
+  return [flavor.narrative, '', 'Requested:', ...asks].join('\n').trim();
+}
+
 function baseLab(
   template: Pick<LabTemplate, 'id' | 'zoneId' | 'targetDisplayName'>,
   flavor: GeneratedFlavor,
   steps: LabStep[],
-  options: { title?: string; durationMinutes?: number; extraObjectives?: LabObjective[] } = {},
+  options: {
+    title?: string;
+    durationMinutes?: number;
+    extraObjectives?: LabObjective[];
+    ticket?: DailyTicket;
+  } = {},
 ): Lab {
-  return {
+  const lab: LabWithTicket = {
     id: mkLabId(`${template.id}-${Math.random().toString(36).slice(2, 8)}`),
     number: 0,
     title: options.title ?? `Daily Ticket: ${template.targetDisplayName}`,
@@ -94,6 +174,46 @@ function baseLab(
     faults: [],
     debriefQuestions: [flavor.coachingQuestion],
   };
+  if (options.ticket) {
+    lab._dailyTicket = {
+      ...options.ticket,
+      id: `daily-${template.id}`,
+      body: ticketBody(flavor, steps),
+    };
+  }
+  return lab;
+}
+
+/** Everything a seed did happened before the ticket was raised: back-date it. */
+function backdateSeed(ctx: SeedContext): void {
+  const past = Date.now() - 60 * 60 * 1000;
+  for (const e of ctx.audit.events) if (e.at > past) e.at = past;
+}
+
+/**
+ * Put a daily lab's ticket in the queue, after its seed has set the scene.
+ * The seed's own changes are back-dated first: the ticket's review counts
+ * work done since it was raised, and a scene set in the same millisecond
+ * would otherwise count as the learner's work.
+ */
+export function fileDailyTicket(ctx: SeedContext, ticket: FiledTicket | undefined): void {
+  if (!ticket || ctx.tickets.get(mkTicketId(ticket.id))) return;
+  backdateSeed(ctx);
+  const requester =
+    ctx.dir.getUserByUsername(ticket.requester) ?? ctx.dir.getUserByUsername('admin');
+  const about = ticket.about ? ctx.dir.getUserByUsername(ticket.about) : undefined;
+  if (!requester) return;
+  ctx.tickets.create({
+    id: mkTicketId(ticket.id),
+    kind: ticket.kind,
+    requesterId: requester.id,
+    subject: ticket.subject,
+    body: ticket.body,
+    priority: ticket.priority ?? 'normal',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    payload: { ...(about ? { userId: about.id } : {}), method: 'helpdesk' } as any,
+    relatedUserIds: about ? [about.id] : [],
+  });
 }
 
 export const LAB_TEMPLATES: LabTemplate[] = [
@@ -104,6 +224,8 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Jane Doe',
     targetTitle: 'Junior Financial Analyst',
     targetDept: 'Finance',
+    lifecycle: 'authentication',
+    requester: 'Jane Doe (by phone)',
     seed(ctx) {
       applyBaseline(ctx.dir, ctx.idp, ctx.apps);
       const user = ctx.dir.getUserByUsername('jane.doe');
@@ -125,16 +247,29 @@ export const LAB_TEMPLATES: LabTemplate[] = [
       }
     },
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Unlock the locked-out account',
-          `${flavor.narrative} Jane Doe is locked out after repeated failed sign-ins — ` +
-            `check the audit log, then unlock her account in Active Directory Users and Computers.`,
-          { kind: 'account-unlocked', params: { userId: 'jane.doe' } },
-          { exec: 15, troubleshoot: 5 },
-        ),
-      ]);
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Unlock the locked-out account',
+            `${flavor.narrative} Jane Doe (jane.doe) is locked out after 5 failed sign-ins from 10.20.4.77 — ` +
+              `check the audit log, then unlock her account in Active Directory Users and Computers.`,
+            { kind: 'account-unlocked', params: { userId: 'jane.doe' } },
+            { exec: 15, troubleshoot: 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'password-reset',
+            requester: 'jane.doe',
+            about: 'jane.doe',
+            subject: 'Locked out after failed sign-ins: Jane Doe (jane.doe)',
+            priority: 'high',
+          },
+        },
+      );
     },
   },
   {
@@ -144,27 +279,40 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'a new hire',
     targetTitle: 'New Employee',
     targetDept: 'Engineering',
+    lifecycle: 'joiner',
+    requester: 'Cara Patel (HR Business Partner)',
     buildLab(flavor, usedNames) {
       const name = pickUnusedName(usedNames);
-      return baseLab({ ...this, targetDisplayName: name.displayName }, flavor, [
-        step(
-          's1',
-          'Create the new hire’s account',
-          `${flavor.narrative} Create an account for ${name.displayName} in Active Directory Users and Computers.`,
-          { kind: 'user-created', params: { userId: name.username } },
-          { exec: 10 },
-        ),
-        step(
-          's2',
-          'Add them to their department group',
-          `Add ${name.displayName} to grp-engineering-dev so they can access team resources.`,
-          {
-            kind: 'group-added',
-            params: { userId: name.username, groupId: 'grp-engineering-dev' },
+      return baseLab(
+        { ...this, targetDisplayName: name.displayName },
+        flavor,
+        [
+          step(
+            's1',
+            'Create the new hire’s account',
+            `${flavor.narrative} Create an account for ${name.displayName} (logon ${name.username}) in Active Directory Users and Computers.`,
+            { kind: 'user-created', params: { userId: name.username } },
+            { exec: 10 },
+          ),
+          step(
+            's2',
+            'Add them to their department group',
+            `Add ${name.displayName} to grp-engineering-dev so they can access team resources.`,
+            {
+              kind: 'group-added',
+              params: { userId: name.username, groupId: 'grp-engineering-dev' },
+            },
+            { exec: 10, 'least-privilege': 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'onboarding',
+            requester: 'cara.patel',
+            subject: `New starter Monday: ${name.displayName} (${name.username}), Engineering`,
           },
-          { exec: 10, 'least-privilege': 5 },
-        ),
-      ]);
+        },
+      );
     },
   },
   {
@@ -174,27 +322,52 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Dan Rivera',
     targetTitle: 'Help Desk Tier 1',
     targetDept: 'IT',
+    lifecycle: 'leaver',
+    requester: 'Cara Patel (HR Business Partner)',
     seed(ctx) {
       applyBaseline(ctx.dir, ctx.idp, ctx.apps);
       ctx.idp.signIn('dan.rivera', 'dan.rivera123');
     },
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Disable the departing employee’s account',
-          `${flavor.narrative} Disable Dan Rivera's account.`,
-          { kind: 'user-disabled', params: { userId: 'dan.rivera' } },
-          { exec: 10 },
-        ),
-        step(
-          's2',
-          'Revoke any active sessions',
-          'Revoke Dan Rivera’s active sessions so the disabled account can’t still be used.',
-          { kind: 'session-revoked', params: { userId: 'dan.rivera' } },
-          { exec: 10, troubleshoot: 5 },
-        ),
-      ]);
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Disable the departing employee’s account',
+            `${flavor.narrative} Disable Dan Rivera's account.`,
+            { kind: 'user-disabled', params: { userId: 'dan.rivera' } },
+            { exec: 10 },
+          ),
+          step(
+            's2',
+            'Revoke any active sessions',
+            'Revoke Dan Rivera’s active sessions so the disabled account can’t still be used.',
+            { kind: 'session-revoked', params: { userId: 'dan.rivera' } },
+            { exec: 10, troubleshoot: 5 },
+          ),
+          step(
+            's3',
+            'Remove his access',
+            'Remove Dan Rivera from grp-helpdesk-tier1, his only group — a disabled account that keeps its groups is one "Enable" away from full access.',
+            {
+              kind: 'group-removed',
+              params: { userId: 'dan.rivera', groupId: 'grp-helpdesk-tier1' },
+            },
+            { exec: 10, 'least-privilege': 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'leaver',
+            requester: 'cara.patel',
+            about: 'dan.rivera',
+            subject: 'Leaver effective today: Dan Rivera (dan.rivera), Help Desk',
+            priority: 'high',
+          },
+        },
+      );
     },
   },
   {
@@ -202,25 +375,52 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     zoneId: 'help-desk',
     ticketTypeLabel: 'Promotion / Role Change',
     targetDisplayName: 'Ivy Park',
-    targetTitle: 'Help Desk Manager',
+    targetTitle: 'Help Desk Tier 1 → IAM Administrator',
     targetDept: 'IT',
+    lifecycle: 'mover',
+    requester: 'Erin Cho (IAM lead)',
+    seed(ctx) {
+      applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+      // Before the promotion she is Tier 1 only. The baseline also has her in
+      // grp-iam-admins, which made "add her to grp-iam-admins" a request for
+      // access she already had — Active Directory refuses that as "already a
+      // member", so the step could not be done.
+      const ivy = ctx.dir.getUserByUsername('ivy.park');
+      const admins = ctx.dir.getGroupByName('grp-iam-admins');
+      if (ivy && admins) ctx.dir.removeFromGroup(ivy.id, admins.id, SYSTEM_ACTOR);
+    },
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Remove the old team membership',
-          `${flavor.narrative} Remove Ivy Park from grp-helpdesk-tier1.`,
-          { kind: 'group-removed', params: { userId: 'ivy.park', groupId: 'grp-helpdesk-tier1' } },
-          { exec: 10, 'least-privilege': 5 },
-        ),
-        step(
-          's2',
-          'Add the new team membership',
-          'Add Ivy Park to grp-iam-admins to match her new role.',
-          { kind: 'group-added', params: { userId: 'ivy.park', groupId: 'grp-iam-admins' } },
-          { exec: 10 },
-        ),
-      ]);
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Remove the old team membership',
+            `${flavor.narrative} Ivy Park moves from Help Desk Tier 1 to IAM Administrator — remove her from grp-helpdesk-tier1.`,
+            {
+              kind: 'group-removed',
+              params: { userId: 'ivy.park', groupId: 'grp-helpdesk-tier1' },
+            },
+            { exec: 10, 'least-privilege': 5 },
+          ),
+          step(
+            's2',
+            'Add the new team membership',
+            'Add Ivy Park to grp-iam-admins to match her new role.',
+            { kind: 'group-added', params: { userId: 'ivy.park', groupId: 'grp-iam-admins' } },
+            { exec: 10 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'mover',
+            requester: 'erin.cho',
+            about: 'ivy.park',
+            subject: 'Promotion: Ivy Park (ivy.park) to IAM Administrator',
+          },
+        },
+      );
     },
   },
   {
@@ -230,16 +430,38 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Finn Müller',
     targetTitle: 'Security Operations Analyst',
     targetDept: 'Security',
+    lifecycle: 'authentication',
+    requester: 'Finn Müller (from a colleague’s desk phone)',
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Reset and re-verify MFA',
-          `${flavor.narrative} Reset Finn Müller's MFA, then verify sign-in to confirm re-enrollment.`,
-          { kind: 'mfa-challenge-completed', params: { userId: 'finn.muller' } },
-          { exec: 15, troubleshoot: 5 },
-        ),
-      ]);
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Clear the lost device',
+            `${flavor.narrative} Verify it is really Finn Müller (call back on the number HR holds), then reset his MFA so the lost phone stops working — Active Directory Users and Computers → Identity Services → Credentials & Recovery.`,
+            { kind: 'mfa-reset', params: { userId: 'finn.muller' } },
+            { exec: 10, troubleshoot: 5 },
+          ),
+          step(
+            's2',
+            'Enrol the new device',
+            'Enrol Finn Müller’s new authenticator (TOTP) so the account is never left without a second factor.',
+            { kind: 'mfa-challenge-completed', params: { userId: 'finn.muller' } },
+            { exec: 10 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'mfa-issue',
+            requester: 'finn.muller',
+            about: 'finn.muller',
+            subject: 'Lost phone — MFA device for Finn Müller (finn.muller)',
+            priority: 'high',
+          },
+        },
+      );
     },
   },
   {
@@ -249,27 +471,54 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: "Hank O'Neill",
     targetTitle: 'Server Administrator',
     targetDept: 'IT',
+    lifecycle: 'incident',
+    requester: 'Finn Müller (SecOps, impossible-travel alert)',
     seed(ctx) {
       applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+      const hank = ctx.dir.getUserByUsername('hank.oneill');
+      // The alert's story: failures from an unfamiliar address, then a success.
+      if (hank) {
+        for (let i = 0; i < 3; i++) {
+          ctx.audit.record({
+            actorId: hank.id,
+            action: 'signin.failure',
+            targetId: hank.id,
+            ip: '185.220.101.4',
+          });
+        }
+      }
       ctx.idp.signIn('hank.oneill', 'hank.oneill123');
     },
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Revoke the suspicious session',
-          `${flavor.narrative} Revoke Hank O'Neill's active session in SecOps Dashboard.`,
-          { kind: 'session-revoked', params: { userId: 'hank.oneill' } },
-          { exec: 15, troubleshoot: 10 },
-        ),
-        step(
-          's2',
-          'Capture evidence for the incident record',
-          'Capture a snapshot of the audit log for this investigation.',
-          { kind: 'evidence-collected', params: { stepId: 's2' } },
-          { evidence: 10, docs: 5 },
-        ),
-      ]);
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Revoke the suspicious session',
+            `${flavor.narrative} Revoke Hank O'Neill's active session in SecOps Dashboard.`,
+            { kind: 'session-revoked', params: { userId: 'hank.oneill' } },
+            { exec: 15, troubleshoot: 10 },
+          ),
+          step(
+            's2',
+            'Capture evidence for the incident record',
+            'Capture a snapshot of the audit log for this investigation.',
+            { kind: 'evidence-collected', params: { stepId: 's2' } },
+            { evidence: 10, docs: 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'incident',
+            requester: 'finn.muller',
+            about: 'hank.oneill',
+            subject: 'Impossible travel: hank.oneill signed in from 185.220.101.4',
+            priority: 'urgent',
+          },
+        },
+      );
     },
   },
   {
@@ -279,19 +528,36 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Alex Morgan',
     targetTitle: 'Payroll Analyst',
     targetDept: 'Finance',
+    lifecycle: 'access-request',
+    requester: 'Alex Morgan, approved by Greta Olsen (CFO)',
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Grant access to the Finance Portal',
-          `${flavor.narrative} Add Alex Morgan to grp-finance-payroll so they can access the Finance Portal.`,
-          {
-            kind: 'group-added',
-            params: { userId: 'alex.morgan', groupId: 'grp-finance-payroll' },
+      // Alex is already in grp-finance-payroll (the Finance Portal). The
+      // request used to be for that, which Active Directory refuses as
+      // "already a member" — a ticket nobody could complete.
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Grant VPN Portal access',
+            `${flavor.narrative} Alex Morgan works remotely during quarter close and her manager Greta Olsen approved it — add her to grp-vpn-users for the VPN Portal, and nothing else.`,
+            {
+              kind: 'group-added',
+              params: { userId: 'alex.morgan', groupId: 'grp-vpn-users' },
+            },
+            { exec: 10, 'least-privilege': 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'access-request',
+            requester: 'alex.morgan',
+            about: 'alex.morgan',
+            subject: 'VPN Portal access for Alex Morgan (alex.morgan) — manager approved',
           },
-          { exec: 10, 'least-privilege': 5 },
-        ),
-      ]);
+        },
+      );
     },
   },
   {
@@ -301,6 +567,8 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Cara Patel',
     targetTitle: 'HR Business Partner',
     targetDept: 'HR',
+    lifecycle: 'authentication',
+    requester: 'Cara Patel',
     seed(ctx) {
       const seedResult = applyBaseline(ctx.dir, ctx.idp, ctx.apps);
       const caraId = seedResult.userIds['cara.patel'];
@@ -337,19 +605,33 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: "Hank O'Neill",
     targetTitle: 'Server Administrator',
     targetDept: 'IT',
+    lifecycle: 'access-review',
+    requester: 'Erin Cho (IAM, quarterly access review)',
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Remove the unneeded domain-admin membership',
-          `${flavor.narrative} An access review found Hank O'Neill no longer needs grp-domain-admins — remove it (he keeps grp-server-admins).`,
-          {
-            kind: 'group-removed',
-            params: { userId: 'hank.oneill', groupId: 'grp-domain-admins' },
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Remove the unneeded domain-admin membership',
+            `${flavor.narrative} An access review found Hank O'Neill no longer needs grp-domain-admins — remove it (he keeps grp-server-admins).`,
+            {
+              kind: 'group-removed',
+              params: { userId: 'hank.oneill', groupId: 'grp-domain-admins' },
+            },
+            { exec: 10, 'least-privilege': 10 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'access-request',
+            requester: 'erin.cho',
+            about: 'hank.oneill',
+            subject: 'Access review finding: remove grp-domain-admins from hank.oneill',
           },
-          { exec: 10, 'least-privilege': 10 },
-        ),
-      ]);
+        },
+      );
     },
   },
   {
@@ -359,6 +641,10 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'the Finance department',
     targetTitle: 'Department-wide request',
     targetDept: 'Finance',
+    lifecycle: 'policy',
+    requester: 'Greta Olsen (CFO), after a phishing attempt',
+    noQueueTicket:
+      'A tenant-wide policy change goes through change management, not the service-desk queue.',
     buildLab(flavor) {
       return baseLab(this, flavor, [
         step(
@@ -378,27 +664,40 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'a new contractor',
     targetTitle: 'Contractor',
     targetDept: 'Engineering',
+    lifecycle: 'joiner',
+    requester: 'Bob Sato (Engineering, project lead)',
     buildLab(flavor, usedNames) {
       const name = pickUnusedName(usedNames);
-      return baseLab({ ...this, targetDisplayName: name.displayName }, flavor, [
-        step(
-          's1',
-          'Create the contractor’s account',
-          `${flavor.narrative} Create a time-limited account for ${name.displayName}.`,
-          { kind: 'user-created', params: { userId: name.username } },
-          { exec: 10 },
-        ),
-        step(
-          's2',
-          'Grant minimum required access',
-          `Add ${name.displayName} to grp-engineering-dev only — nothing more.`,
-          {
-            kind: 'group-added',
-            params: { userId: name.username, groupId: 'grp-engineering-dev' },
+      return baseLab(
+        { ...this, targetDisplayName: name.displayName },
+        flavor,
+        [
+          step(
+            's1',
+            'Create the contractor’s account',
+            `${flavor.narrative} Create a time-limited account for ${name.displayName} (logon ${name.username}).`,
+            { kind: 'user-created', params: { userId: name.username } },
+            { exec: 10 },
+          ),
+          step(
+            's2',
+            'Grant minimum required access',
+            `Add ${name.displayName} to grp-engineering-dev only — nothing more.`,
+            {
+              kind: 'group-added',
+              params: { userId: name.username, groupId: 'grp-engineering-dev' },
+            },
+            { exec: 10, 'least-privilege': 10 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'onboarding',
+            requester: 'bob.sato',
+            subject: `Contractor starting: ${name.displayName} (${name.username}), Engineering`,
           },
-          { exec: 10, 'least-privilege': 10 },
-        ),
-      ]);
+        },
+      );
     },
   },
   {
@@ -408,16 +707,30 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'svc-backup',
     targetTitle: 'Service Account',
     targetDept: 'IT',
+    lifecycle: 'service-account',
+    requester: "Hank O'Neill (owner of the backup job)",
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Grant the requested access',
-          `${flavor.narrative} Add svc-backup to grp-server-admins so the backup job can run.`,
-          { kind: 'group-added', params: { userId: 'svc-backup', groupId: 'grp-server-admins' } },
-          { exec: 10, 'least-privilege': 10 },
-        ),
-      ]);
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Grant the requested access',
+            `${flavor.narrative} Add svc-backup to grp-server-admins so the backup job can run.`,
+            { kind: 'group-added', params: { userId: 'svc-backup', groupId: 'grp-server-admins' } },
+            { exec: 10, 'least-privilege': 10 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'access-request',
+            requester: 'hank.oneill',
+            about: 'svc-backup',
+            subject: 'Nightly backup failing: svc-backup needs grp-server-admins',
+          },
+        },
+      );
     },
   },
   {
@@ -427,6 +740,10 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Greta Olsen',
     targetTitle: 'Chief Financial Officer',
     targetDept: 'Finance',
+    lifecycle: 'authentication',
+    requester: 'Greta Olsen (CFO)',
+    noQueueTicket:
+      'A verification follow-up on work already done: nothing in the directory changes, so there is no ticket for the queue to review.',
     buildLab(flavor) {
       return baseLab(this, flavor, [
         step(
@@ -453,6 +770,10 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Jane Doe (duplicate)',
     targetTitle: 'Junior Financial Analyst',
     targetDept: 'Finance',
+    lifecycle: 'hygiene',
+    requester: 'Erin Cho (IAM, directory hygiene report)',
+    noQueueTicket:
+      'The account the ticket is about is deleted by the work itself, so it is tracked on the hygiene report rather than the queue.',
     seed(ctx) {
       applyBaseline(ctx.dir, ctx.idp, ctx.apps);
       ctx.dir.createUser(
@@ -485,23 +806,290 @@ export const LAB_TEMPLATES: LabTemplate[] = [
     targetDisplayName: 'Bob Sato',
     targetTitle: 'Software Developer',
     targetDept: 'Engineering',
+    lifecycle: 'mover',
+    requester: 'Ivy Park (Help Desk manager)',
     buildLab(flavor) {
-      return baseLab(this, flavor, [
-        step(
-          's1',
-          'Remove access from the old department',
-          `${flavor.narrative} Bob Sato is transferring out of Engineering — remove grp-engineering-dev.`,
-          { kind: 'group-removed', params: { userId: 'bob.sato', groupId: 'grp-engineering-dev' } },
-          { exec: 10 },
-        ),
-        step(
-          's2',
-          'Grant access to the new department',
-          'Add Bob Sato to grp-helpdesk-tier1 for his new IT Help Desk role.',
-          { kind: 'group-added', params: { userId: 'bob.sato', groupId: 'grp-helpdesk-tier1' } },
-          { exec: 10, 'least-privilege': 5 },
-        ),
-      ]);
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Remove access from the old department',
+            `${flavor.narrative} Bob Sato is transferring out of Engineering — remove grp-engineering-dev.`,
+            {
+              kind: 'group-removed',
+              params: { userId: 'bob.sato', groupId: 'grp-engineering-dev' },
+            },
+            { exec: 10 },
+          ),
+          step(
+            's2',
+            'Grant access to the new department',
+            'Add Bob Sato to grp-helpdesk-tier1 for his new IT Help Desk role.',
+            { kind: 'group-added', params: { userId: 'bob.sato', groupId: 'grp-helpdesk-tier1' } },
+            { exec: 10, 'least-privilege': 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'transfer',
+            requester: 'ivy.park',
+            about: 'bob.sato',
+            subject: 'Transfer: Bob Sato (bob.sato) from Engineering to IT Help Desk',
+          },
+        },
+      );
+    },
+  },
+  // ── Lifecycle stages the queue was missing ──────────────────────────────────
+  {
+    id: 'rehire',
+    zoneId: 'help-desk',
+    ticketTypeLabel: 'Rehire: Returning Employee',
+    targetDisplayName: 'Nora Quinn',
+    targetTitle: 'Accounts Payable Specialist',
+    targetDept: 'Finance',
+    lifecycle: 'joiner',
+    requester: 'Cara Patel (HR Business Partner)',
+    seed(ctx) {
+      applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+      // She left eight months ago: the account was disabled and stripped, as a
+      // leaver should be, and HR is bringing her back.
+      const nora = ctx.dir.ensureUser({
+        username: 'nora.quinn',
+        displayName: 'Nora Quinn',
+        email: 'nora.quinn@northwind.example',
+        department: 'Finance',
+        title: 'Accounts Payable Specialist',
+        mfa: 'none',
+      });
+      ctx.dir.disableUser(nora.id, SYSTEM_ACTOR, 'leaver');
+    },
+    buildLab(flavor) {
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Re-enable the original account',
+            `${flavor.narrative} Nora Quinn (nora.quinn) is rejoining Finance — re-enable her existing account instead of creating a second one.`,
+            { kind: 'user-enabled', params: { userId: 'nora.quinn' } },
+            { exec: 10 },
+          ),
+          step(
+            's2',
+            'Issue a fresh temporary password',
+            'Reset nora.quinn’s password (must change at next sign-in): the one from her last employment must not work.',
+            { kind: 'password-reset', params: { userId: 'nora.quinn' } },
+            { exec: 10 },
+          ),
+          step(
+            's3',
+            'Grant her role’s access — and only that',
+            'Add Nora Quinn to grp-finance-analysts. Do not restore what she had before she left; access is granted for the job she has now.',
+            {
+              kind: 'group-added',
+              params: { userId: 'nora.quinn', groupId: 'grp-finance-analysts' },
+            },
+            { exec: 10, 'least-privilege': 10 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'onboarding',
+            requester: 'cara.patel',
+            about: 'nora.quinn',
+            subject: 'Rehire starting Monday: Nora Quinn (nora.quinn), Finance',
+          },
+        },
+      );
+    },
+  },
+  {
+    id: 'leave-of-absence',
+    zoneId: 'help-desk',
+    ticketTypeLabel: 'Leave of Absence',
+    targetDisplayName: 'Cara Patel',
+    targetTitle: 'HR Business Partner',
+    targetDept: 'HR',
+    lifecycle: 'mover',
+    requester: 'Greta Olsen, on behalf of HR',
+    seed(ctx) {
+      applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+      const cara = ctx.dir.getUserByUsername('cara.patel');
+      const vpn = ctx.dir.getGroupByName('grp-vpn-users');
+      if (cara && vpn) ctx.dir.addToGroup(cara.id, vpn.id, SYSTEM_ACTOR);
+      ctx.idp.signIn('cara.patel', 'cara.patel123');
+    },
+    buildLab(flavor) {
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Suspend the account for the leave',
+            `${flavor.narrative} Cara Patel (cara.patel) starts three months of leave today — disable her account (it is re-enabled when she returns, so keep her groups).`,
+            { kind: 'user-disabled', params: { userId: 'cara.patel' } },
+            { exec: 10 },
+          ),
+          step(
+            's2',
+            'End her active sessions',
+            'Revoke Cara Patel’s active sessions so nothing stays signed in while she is away.',
+            { kind: 'session-revoked', params: { userId: 'cara.patel' } },
+            { exec: 10 },
+          ),
+          step(
+            's3',
+            'Remove remote access',
+            'Remove Cara Patel from grp-vpn-users — remote access during leave is exactly what an attacker with her password would want.',
+            { kind: 'group-removed', params: { userId: 'cara.patel', groupId: 'grp-vpn-users' } },
+            { exec: 10, 'least-privilege': 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'access-request',
+            requester: 'greta.olsen',
+            about: 'cara.patel',
+            subject: 'Leave of absence from today: suspend Cara Patel (cara.patel)',
+          },
+        },
+      );
+    },
+  },
+  {
+    id: 'contractor-expiry',
+    zoneId: 'engineering',
+    ticketTypeLabel: 'Contractor End Date Reached',
+    targetDisplayName: 'Omar Haddad',
+    targetTitle: 'Contractor',
+    targetDept: 'Engineering',
+    lifecycle: 'leaver',
+    requester: 'Bob Sato (Engineering, project lead)',
+    seed(ctx) {
+      applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+      const omar = ctx.dir.ensureUser({
+        username: 'omar.haddad',
+        displayName: 'Omar Haddad',
+        email: 'omar.haddad@northwind.example',
+        department: 'Engineering',
+        title: 'Contractor',
+        mfa: 'none',
+      });
+      const dev = ctx.dir.getGroupByName('grp-engineering-dev');
+      if (dev) ctx.dir.addToGroup(omar.id, dev.id, SYSTEM_ACTOR);
+    },
+    buildLab(flavor) {
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Disable the expired contractor',
+            `${flavor.narrative} Omar Haddad’s (omar.haddad) contract ended yesterday and nobody told IT — disable the account.`,
+            { kind: 'user-disabled', params: { userId: 'omar.haddad' } },
+            { exec: 10 },
+          ),
+          step(
+            's2',
+            'Remove his access',
+            'Remove Omar Haddad from grp-engineering-dev.',
+            {
+              kind: 'group-removed',
+              params: { userId: 'omar.haddad', groupId: 'grp-engineering-dev' },
+            },
+            { exec: 10, 'least-privilege': 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'leaver',
+            requester: 'bob.sato',
+            about: 'omar.haddad',
+            subject: 'Contract ended: remove Omar Haddad (omar.haddad)',
+            priority: 'high',
+          },
+        },
+      );
+    },
+  },
+  {
+    id: 'standing-admin-removal',
+    zoneId: 'iam-ops',
+    ticketTypeLabel: 'Privileged Access: Standing Admin Role',
+    targetDisplayName: 'Erin Cho',
+    targetTitle: 'IAM Engineer',
+    targetDept: 'IT',
+    lifecycle: 'privileged-access',
+    requester: 'Finn Müller (Security, privileged-access review)',
+    seed(ctx) {
+      applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+      // Granted directly for a migration last year and never taken away.
+      const erin = ctx.dir.getUserByUsername('erin.cho');
+      const da = ctx.dir.getRoleByName('role-domain-admins');
+      if (erin && da) ctx.dir.grantRoleDirect(erin.id, da.id, SYSTEM_ACTOR);
+    },
+    buildLab(flavor) {
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Revoke the standing admin role',
+            `${flavor.narrative} Erin Cho (erin.cho) holds role-domain-admins as a direct, permanent grant left over from a migration. Revoke it — Active Directory Users and Computers → Identity Services → Access & Sessions → Revoke Role (or Revoke-IamRole). She keeps grp-iam-admins for her daily work.`,
+            { kind: 'role-revoked', params: { userId: 'erin.cho' } },
+            { exec: 15, 'least-privilege': 10 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'access-request',
+            requester: 'finn.muller',
+            about: 'erin.cho',
+            subject: 'PAM finding: standing role-domain-admins on erin.cho',
+            priority: 'high',
+          },
+        },
+      );
+    },
+  },
+  {
+    id: 'password-reset-request',
+    zoneId: 'help-desk',
+    ticketTypeLabel: 'Forgotten Password',
+    targetDisplayName: 'Bob Sato',
+    targetTitle: 'Software Developer',
+    targetDept: 'Engineering',
+    lifecycle: 'authentication',
+    requester: 'Bob Sato (back from two weeks’ holiday)',
+    buildLab(flavor) {
+      return baseLab(
+        this,
+        flavor,
+        [
+          step(
+            's1',
+            'Verify, then reset',
+            `${flavor.narrative} Confirm it is Bob Sato (bob.sato) — call him back on the number in the directory, never the one he called from — then reset his password with "must change at next sign-in".`,
+            { kind: 'password-reset', params: { userId: 'bob.sato' } },
+            { exec: 10, troubleshoot: 5 },
+          ),
+        ],
+        {
+          ticket: {
+            kind: 'password-reset',
+            requester: 'bob.sato',
+            about: 'bob.sato',
+            subject: 'Forgot my password after holiday — Bob Sato (bob.sato)',
+          },
+        },
+      );
     },
   },
 ];
@@ -529,6 +1117,10 @@ function bulkProvisionTemplate(count: number): LabTemplate {
     targetDisplayName: `${count} new starters`,
     targetTitle: 'New Employee',
     targetDept: 'Finance',
+    lifecycle: 'joiner',
+    requester: 'HR (Q3 intake list)',
+    noQueueTicket:
+      'A bulk intake arrives as one HR list and is worked as automation, not as individual queue tickets.',
     seed(ctx: SeedContext): void {
       applyBaseline(ctx.dir, ctx.idp, ctx.apps);
       if (!ctx.dir.getGroupByName(BULK_INTAKE_GROUP)) {
@@ -1407,6 +1999,7 @@ for (const t of LAB_TEMPLATES) {
   registerLabSeed(t.id, (ctx) => {
     if (t.seed) t.seed(ctx);
     else applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+    fileDailyTicket(ctx, dailyTicketOf(ctx._currentLab));
   });
 }
 
