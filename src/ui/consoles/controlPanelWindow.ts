@@ -20,7 +20,7 @@ const APPLETS: Applet[] = [
     label: 'Programs and Features',
     render: () => `
       <h3 style="margin:0 0 12px 0;color:#e6e6e6;font-size:14px;">Uninstall or change a program</h3>
-      ${row('IAM Console', 'Apex Identity Solutions', '54.1 MB', '8/12/2026')}
+      ${row('Active Directory Users and Computers (RSAT)', 'Microsoft Corporation', '12.4 MB', '8/12/2026')}
       ${row('Ticket Queue', 'Apex Identity Solutions', '38.7 MB', '8/12/2026')}
       ${row('SecOps Dashboard', 'Apex Identity Solutions', '61.3 MB', '8/12/2026')}
     `,
@@ -56,7 +56,7 @@ const APPLETS: Applet[] = [
     render: () => `
       <h3 style="margin:0 0 12px 0;color:#e6e6e6;font-size:14px;">Manage accounts</h3>
       ${row('admin', 'Administrator', '', '')}
-      <p style="color:#8b95a1;font-size:11px;margin-top:12px;">Account changes are managed through the IAM Console, not locally.</p>
+      <p style="color:#8b95a1;font-size:11px;margin-top:12px;">Account changes are managed in Active Directory Users and Computers, not locally.</p>
     `,
   },
   {

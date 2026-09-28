@@ -42,7 +42,7 @@ export const LAB_04: Lab = {
       id: 's1',
       title: 'Configure Finance Portal as SAML client',
       brief:
-        'In the IAM Console, use "Update App Configuration" to set app-finance: entity ID urn:finance.northwind.example, redirect URI https://finance.northwind.example/callback.',
+        'In Active Directory Users and Computers, open Identity Services → Applications (SSO) and use "Update App Configuration" to set app-finance: entity ID urn:finance.northwind.example, redirect URI https://finance.northwind.example/callback.',
       validator: { kind: 'app-config-fixed', params: { appId: 'app-finance' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: ['What is the trust boundary in SAML — the browser, the IdP, or the SP?'],

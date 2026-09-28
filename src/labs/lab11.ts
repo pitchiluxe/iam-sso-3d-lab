@@ -66,7 +66,7 @@ export const LAB_11: Lab = {
       id: 's1',
       title: 'Review current authentication methods',
       brief:
-        'Open the IAM Console. Inspect the current authentication methods. Note which legacy protocols (POP, IMAP, SMTP, LDAP basic) are still enabled. List the apps that rely on each.',
+        'Open Active Directory Users and Computers → Identity Services. Inspect the current authentication methods. Note which legacy protocols (POP, IMAP, SMTP, LDAP basic) are still enabled. List the apps that rely on each.',
       validator: { kind: 'evidence-collected', params: { stepId: 's1' } },
       evidence: [
         {
@@ -86,7 +86,7 @@ export const LAB_11: Lab = {
       id: 's2',
       title: 'Create CA-001: Block Legacy Auth',
       brief:
-        'In the IAM Console CA policy editor, create policy CA-001:\n' +
+        'In Active Directory Users and Computers CA policy editor, create policy CA-001:\n' +
         '  - Name: "Block Legacy Authentication"\n' +
         '  - Users: All (exclude break-glass accounts)\n' +
         '  - Client apps: Exchange ActiveSync, POP, IMAP, SMTP, Authenticated SMTP\n' +

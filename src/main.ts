@@ -17,7 +17,8 @@ import { findLab } from './labs/registry';
 import { mkLabId } from './domain';
 import { labStore, errorStore } from './stores';
 import type { Lab } from './domain';
-import { renderIAMConsole } from './ui/consoles/iamConsole';
+import { renderActiveDirectoryView } from './ui/directory/activeDirectoryView';
+import { conductorAdapter } from './ui/directory/directoryAdapter';
 import { renderTicketConsole } from './ui/consoles/ticketConsole';
 import { renderSecOpsDashboard } from './ui/consoles/secOpsDashboard';
 import { renderOllamaConsole } from './ui/consoles/ollamaConsole';
@@ -301,8 +302,11 @@ async function bootstrap() {
     overlayMgr.setActive('console');
     const body = consoleUI.overlayEl.querySelector('#console-overlay-body') as HTMLElement;
     switch (c.id) {
+      // The IAM Console was replaced by Active Directory Users and Computers;
+      // the old id still opens it.
+      case 'active-directory':
       case 'iam-console':
-        renderIAMConsole(body, conductor);
+        renderActiveDirectoryView(body, conductorAdapter(conductor));
         break;
       case 'ticket-console':
         renderTicketConsole(body, conductor);
@@ -316,7 +320,7 @@ async function bootstrap() {
       default:
         body.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:20px;">
           <p>Console "${c.title}" is not yet implemented.</p>
-          <p>Available consoles: IAM Console, Ticket Console, SecOps Dashboard, AI Supervisor</p>
+          <p>Available consoles: Active Directory Users and Computers, Ticket Console, SecOps Dashboard, AI Supervisor</p>
         </div>`;
     }
   };

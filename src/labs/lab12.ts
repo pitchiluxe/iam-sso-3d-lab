@@ -90,7 +90,7 @@ export const LAB_12: Lab = {
       id: 's2',
       title: 'Install the cloud sync agent',
       brief:
-        'In the IAM Console, navigate to Cloud Sync. Install the cloud sync agent on the simulated on-prem connector. Configure it to use the staged service account. Verify the agent registers as healthy.',
+        'In Active Directory Users and Computers, navigate to Cloud Sync. Install the cloud sync agent on the simulated on-prem connector. Configure it to use the staged service account. Verify the agent registers as healthy.',
       validator: { kind: 'evidence-collected', params: { stepId: 's2' } },
       evidence: [
         {
@@ -157,7 +157,7 @@ export const LAB_12: Lab = {
         '  3. Leaver: disable bob.sato\n' +
         'Trigger a delta sync. Verify each change appears in the cloud directory, ' +
         'then prove the joiner actually works: sign in as nina.patel using ' +
-        'Verify Authentication in the IAM Console.',
+        'Test Sign-In in Active Directory Users and Computers (right-click the user).',
       // The sign-in is what completes this step, so the brief above has to ask
       // for it — otherwise the learner does all three deltas correctly and the
       // step stays red with nothing telling them why.

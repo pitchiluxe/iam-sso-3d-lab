@@ -39,7 +39,7 @@ const FAILURE_PAGES: Record<
   'mfa-required': {
     title: 'Additional verification required',
     detail: 'This application requires multi-factor authentication.',
-    hint: 'The account has no MFA method registered — enrol one in the IAM Console.',
+    hint: 'The account has no MFA method registered — enrol one in Active Directory (Identity Services → Credentials & Recovery).',
     tone: 'mfa',
   },
   'invalid-redirect-uri': {
@@ -75,7 +75,7 @@ const FAILURE_PAGES: Record<
   'app-misconfigured': {
     title: 'Error: application misconfigured',
     detail: 'This application is not correctly configured for single sign-on.',
-    hint: 'Check the SSO configuration in the IAM Console.',
+    hint: 'Check the SSO configuration in Active Directory (Identity Services → Applications (SSO)).',
     tone: 'error',
   },
   'app-offline': {

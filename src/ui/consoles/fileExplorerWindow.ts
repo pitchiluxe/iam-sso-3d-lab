@@ -339,10 +339,10 @@ export function renderFileExplorerWindow(body: HTMLElement): void {
     ],
     'C:\\Program Files\\Apex Identity': [
       {
-        icon: '🔐',
-        name: 'IAM Console.exe',
+        icon: '🗃️',
+        name: 'Active Directory Users and Computers (dsa.msc)',
         type: 'app',
-        launch: 'iam-console',
+        launch: 'active-directory',
         kind: 'Application',
         size: '54.1 MB',
         modified: '8/12/2026 9:16 AM',

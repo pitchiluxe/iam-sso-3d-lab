@@ -64,7 +64,7 @@ export const LAB_14: Lab = {
       id: 's1',
       title: 'Identify the suspicious grant',
       brief:
-        'Open OAuth Consent Grants in the IAM Console. Several apps are listed. One requests broad, unrelated scopes (Mail.Read, Files.ReadWrite.All, Contacts.Read) from an unverified publisher, granted only 20 minutes ago — find it.',
+        'Open Active Directory Users and Computers → Identity Services → OAuth App Governance. Several apps are listed. One requests broad, unrelated scopes (Mail.Read, Files.ReadWrite.All, Contacts.Read) from an unverified publisher, granted only 20 minutes ago — find it.',
       validator: { kind: 'evidence-collected', params: { stepId: 's1' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: [

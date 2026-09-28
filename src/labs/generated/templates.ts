@@ -130,7 +130,7 @@ export const LAB_TEMPLATES: LabTemplate[] = [
           's1',
           'Unlock the locked-out account',
           `${flavor.narrative} Jane Doe is locked out after repeated failed sign-ins — ` +
-            `check the audit log, then unlock her account in IAM Console.`,
+            `check the audit log, then unlock her account in Active Directory Users and Computers.`,
           { kind: 'account-unlocked', params: { userId: 'jane.doe' } },
           { exec: 15, troubleshoot: 5 },
         ),
@@ -150,7 +150,7 @@ export const LAB_TEMPLATES: LabTemplate[] = [
         step(
           's1',
           'Create the new hire’s account',
-          `${flavor.narrative} Create an account for ${name.displayName} in IAM Console.`,
+          `${flavor.narrative} Create an account for ${name.displayName} in Active Directory Users and Computers.`,
           { kind: 'user-created', params: { userId: name.username } },
           { exec: 10 },
         ),
@@ -364,7 +364,7 @@ export const LAB_TEMPLATES: LabTemplate[] = [
         step(
           's1',
           'Enable MFA enforcement',
-          `${flavor.narrative} Enable MFA enforcement in IAM Console after a phishing attempt targeted Finance.`,
+          `${flavor.narrative} Enable MFA enforcement in Active Directory Users and Computers (Identity Services → Authentication Policy) after a phishing attempt targeted Finance.`,
           { kind: 'mfa-policy-enforced', params: {} },
           { exec: 10, 'least-privilege': 10 },
         ),
@@ -432,7 +432,7 @@ export const LAB_TEMPLATES: LabTemplate[] = [
         step(
           's1',
           'Verify sign-in works',
-          `${flavor.narrative} Sign in as Greta Olsen in IAM Console to confirm the issue is resolved.`,
+          `${flavor.narrative} Test Sign-In for Greta Olsen in Active Directory Users and Computers to confirm the issue is resolved.`,
           { kind: 'signin-succeeded', params: { userId: 'greta.olsen' } },
           { exec: 10, troubleshoot: 10 },
         ),

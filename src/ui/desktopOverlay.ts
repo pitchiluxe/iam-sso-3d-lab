@@ -6,7 +6,6 @@
  * with multiple draggable/minimizable/maximizable/closable windows.
  */
 import type { Conductor } from '@/conductor/conductor';
-import { renderIAMConsole } from './consoles/iamConsole';
 import { renderActiveDirectoryView } from './directory/activeDirectoryView';
 import { conductorAdapter } from './directory/directoryAdapter';
 import { renderTicketConsole } from './consoles/ticketConsole';
@@ -60,14 +59,6 @@ export interface DesktopOverlay {
 }
 
 const DESKTOP_APPS: WindowDef[] = [
-  {
-    id: 'iam-console',
-    title: 'IAM Console',
-    icon: '🔐',
-    width: 720,
-    height: 580,
-    render: (c, b) => renderIAMConsole(b, c),
-  },
   {
     // IAM Range's Active Directory Users and Computers, over this lab's directory.
     id: 'active-directory',
@@ -229,7 +220,6 @@ const APP_BY_ID: Record<string, WindowDef> = Object.fromEntries(DESKTOP_APPS.map
  * clobbering in-progress local state (e.g. an unsaved Notepad draft) for no
  * benefit. */
 const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
-  'iam-console',
   'active-directory',
   'app-portal',
   'script-editor',
@@ -247,7 +237,6 @@ const CONDUCTOR_BACKED_WINDOW_IDS = new Set([
 /** Apps only an IT workstation has installed — hidden from the desktop
  * icons, Start menu, and default layout on a non-IT zone's "computer". */
 const IT_ONLY_APP_IDS = new Set([
-  'iam-console',
   'active-directory',
   'terminal',
   'script-editor',
@@ -1125,7 +1114,8 @@ export function createDesktopOverlay(): DesktopOverlay {
    * Open the default VM windows in a consistent 2-pane layout,
    * centered in the viewport with a small gap between them.
    *
-   *   Left:  IAM Console  — the primary admin tool (wide)
+   *   Left:  Active Directory Users and Computers — the admin tool (wide);
+   *          it replaced the IAM Console, and tickets are worked here
    *   Right: Objectives — lab checklist and coaching focus (narrow)
    *
    * Positions are pinned so every VM entry looks the same. The AI
@@ -1159,7 +1149,7 @@ export function createDesktopOverlay(): DesktopOverlay {
     const h = Math.min(620, window.innerHeight - 80);
     const y0 = Math.round((window.innerHeight - 48 - h) / 2); // centered vertically, above taskbar
 
-    openPinned('iam-console', x0, y0, iamW, h); // left pane
+    openPinned('active-directory', x0, y0, iamW, h); // left pane
     openPinned('objectives', x0 + iamW + GAP, y0, objW, h); // right pane, GAP px gap
   }
 
@@ -1171,7 +1161,7 @@ export function createDesktopOverlay(): DesktopOverlay {
         container = buildContainer();
         buildDesktop(container);
         buildTaskbar(container, conductor);
-        // Auto-open IAM Console + Objectives inside the VM (2-pane default
+        // Auto-open Active Directory + Objectives inside the VM (2-pane default
         // layout) — but only on an IT workstation; a consumer PC (Finance,
         // HR, Reception, App Center) starts with a plain empty desktop.
         if (isIT) layoutDefaultWindows(wmCtx.current);
@@ -1179,7 +1169,7 @@ export function createDesktopOverlay(): DesktopOverlay {
         // Re-entering the VM: reuse the existing WindowManager and its DOM
         // instead of building a new one. Recreating the WindowManager here
         // (as this used to do) left the old windows orphaned in the DOM —
-        // layoutDefaultWindows would then open a second IAM Console +
+        // layoutDefaultWindows would then open a second Active Directory +
         // Objectives on top of them every single time the learner exited
         // and re-entered, duplicating windows without bound.
         const wm = wmCtx.current;

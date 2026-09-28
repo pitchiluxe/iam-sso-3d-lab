@@ -344,7 +344,12 @@ export function renderSettingsWindow(body: HTMLElement): void {
     if (active === 'apps') {
       content.appendChild(sectionTitle('Installed apps'));
       const list = [
-        { icon: '🔐', name: 'IAM Console', size: '54.1 MB', version: '1.45.1' },
+        {
+          icon: '🗃️',
+          name: 'Active Directory Users and Computers (RSAT)',
+          size: '12.4 MB',
+          version: '10.0.20348',
+        },
         { icon: '🎫', name: 'Ticket Queue', size: '38.7 MB', version: '1.45.1' },
         { icon: '🛡️', name: 'SecOps Dashboard', size: '61.3 MB', version: '1.45.1' },
         { icon: '📝', name: 'Notepad', size: '2.1 MB', version: '11.2409' },

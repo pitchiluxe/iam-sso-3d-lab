@@ -10,36 +10,40 @@ import type { ValidatorKind } from '@/domain';
 
 const VALIDATOR_LABELS: Record<ValidatorKind, string> = {
   'ticket-resolved': 'Resolve the ticket in the Ticket Console',
-  'user-disabled': 'Disable the user account in IAM Console',
-  'user-enabled': 'Re-enable the disabled user in IAM Console',
-  'user-created': 'Create the user in IAM Console',
+  'user-disabled': 'Disable the user account in Active Directory Users and Computers',
+  'user-enabled': 'Re-enable the disabled user in Active Directory Users and Computers',
+  'user-created': 'Create the user in Active Directory Users and Computers',
   'user-moved': 'Transfer the user to the new department',
-  'group-created': 'Create the security group in IAM Console',
-  'group-added': 'Add the user to the group in IAM Console',
+  'group-created': 'Create the security group in Active Directory Users and Computers',
+  'group-added': 'Add the user to the group in Active Directory Users and Computers',
   'group-removed': 'Remove the user from the group',
   'role-granted': 'Grant the role to the user',
   'role-revoked': 'Revoke the role from the user',
   'app-config-fixed': 'Fix the application configuration',
-  'signin-succeeded': 'Sign in as the user in IAM Console',
+  'signin-succeeded': 'Sign in as the user in Active Directory Users and Computers',
   'mfa-challenge-completed': 'Complete an MFA challenge',
-  'mfa-policy-enforced': 'Enable MFA enforcement in IAM Console',
+  'mfa-policy-enforced': 'Enable MFA enforcement in Active Directory Users and Computers',
   'session-revoked': 'Revoke the user session',
   'fault-cleared': 'Clear the injected fault',
   'evidence-collected': 'Capture evidence for this step',
   'audit-note-written': 'Write a note in the audit log',
   'review-decisions-recorded': 'Record access review decisions',
-  'user-deleted': 'Delete the duplicate account in IAM Console',
-  'password-reset': 'Reset the user password in IAM Console',
-  'mfa-reset': "Reset the user's MFA registration in IAM Console",
-  'account-unlocked': 'Unlock the locked account in IAM Console',
+  'user-deleted': 'Delete the duplicate account in Active Directory Users and Computers',
+  'password-reset': 'Reset the user password in Active Directory Users and Computers',
+  'mfa-reset': "Reset the user's MFA registration in Active Directory Users and Computers",
+  'account-unlocked': 'Unlock the locked account in Active Directory Users and Computers',
   'users-provisioned': 'Provision the accounts into the target group (PowerShell ISE)',
-  'oauth-grant-revoked': 'Revoke the OAuth app consent grant in IAM Console',
-  'oauth-app-blocked': 'Block the app tenant-wide in IAM Console',
-  'cloud-role-least-privilege': "Scope the cloud role's permissions in IAM Console",
-  'cloud-role-trust-scoped': "Scope the cloud role's trust policy in IAM Console",
-  'cloud-role-assumed': 'Assume the cloud role as the trusted user in IAM Console',
+  'oauth-grant-revoked':
+    'Revoke the OAuth app consent grant in Active Directory Users and Computers',
+  'oauth-app-blocked': 'Block the app tenant-wide in Active Directory Users and Computers',
+  'cloud-role-least-privilege':
+    "Scope the cloud role's permissions in Active Directory Users and Computers",
+  'cloud-role-trust-scoped':
+    "Scope the cloud role's trust policy in Active Directory Users and Computers",
+  'cloud-role-assumed':
+    'Assume the cloud role as the trusted user in Active Directory Users and Computers',
   'cloud-role-assume-denied':
-    'Attempt to assume the cloud role as an untrusted user in IAM Console',
+    'Attempt to assume the cloud role as an untrusted user in Active Directory Users and Computers',
 };
 
 // WindowManager.refresh() calls renderObjectivesWindow(body) again on the

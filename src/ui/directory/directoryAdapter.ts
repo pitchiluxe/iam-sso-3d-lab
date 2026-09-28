@@ -6,18 +6,29 @@
  * DC01, over the AD Enterprise Lab's corp.technobiz.local. The two directories
  * are different models, so the view talks to this interface instead of either.
  *
- * Each adapter changes its directory the way that directory's own tools do:
- * the main VM through the capability registry (the same calls the IAM Console
- * and the terminal make), DC01 by running the equivalent PowerShell through the
- * lab engine. On DC01 that means clicking New User in the window leaves the
- * same trail, and is graded the same way, as typing New-ADUser.
+ * Each adapter changes its directory the way that directory's own tools do.
+ * The main VM's adapter replaces the old IAM Console: it makes the same
+ * directory and IdP calls and files the same lab evidence, and the console's
+ * other tools (credentials, sessions, applications, OAuth, cloud roles, MFA
+ * policy, audit log, sign-in check) appear as snap-in nodes in the tree. DC01's
+ * adapter runs the equivalent PowerShell through the lab engine, so clicking
+ * New User leaves the same trail, and is graded the same way, as typing New-ADUser.
  */
 import type { Conductor } from '@/conductor/conductor';
-import type { Group, User, UserId } from '@/domain';
-import { CAPABILITY_BY_ID, type CapabilityContext } from '@/services';
+import type { Group, MfaMethod, User, UserId } from '@/domain';
+import {
+  CAPABILITY_BY_ID,
+  capabilitiesForSection,
+  type CapabilityContext,
+  type ConsoleSection,
+} from '@/services';
 import { COMPANY, DEPARTMENTS } from '@/config';
 import { DOMAIN_DN, dcIsPromoted, type AdUser, type AdGroup } from '@/vm/adlab/state';
 import { runOn, onWorldChanged, type LabWorld } from '@/vm/adlab/world';
+import { recordLabEvidence } from '@/ui/labEvidence';
+import { renderCapabilityForm } from '@/ui/consoles/iam/capabilitySection';
+import { describeAuditId } from '@/util/auditLabels';
+import { auditStore, labStore } from '@/stores';
 
 export type Result = { ok: true; message: string } | { ok: false; error: string };
 
@@ -41,6 +52,8 @@ export interface AdUserInfo {
   lastSignIn: number | null;
   upn: string;
   memberOf: string[];
+  /** MFA method, where the directory has one (the main VM). */
+  mfa?: string;
 }
 
 export interface AdGroupInfo {
@@ -74,11 +87,23 @@ export interface NewUserInput {
   password: string;
   mustChange: boolean;
   containerId: string;
+  email?: string;
+}
+
+/** A tool shown as its own node in the console tree, the way MMC hosts snap-ins. */
+export interface SnapIn {
+  id: string;
+  name: string;
+  /** Short note shown at the top of the pane. */
+  description: string;
+  render(pane: HTMLElement, refresh: () => void): void;
 }
 
 export interface DirectoryAdapter {
   /** Shown as the tree's root, e.g. corp.technobiz.local. */
   domain: string;
+  /** The domain controller the console is connected to, shown on the root node. */
+  server: string;
   /** Why the directory cannot be changed right now (DC01 before promotion), or null. */
   unavailable(): string | null;
   /** Organizational units exist in this directory (false: users and groups only). */
@@ -109,6 +134,17 @@ export interface DirectoryAdapter {
   removeMember(sam: string, group: string): Result;
   /** Move a user or group to another container (or department, see `departments`). */
   move(kind: 'user' | 'group', id: string, target: string): Result;
+  /** Edit an account in place (Properties → Apply), where the directory allows it. */
+  updateUser?(
+    sam: string,
+    patch: { displayName: string; email: string; department: string; title: string },
+  ): Result;
+  /** Edit a group's description, where the directory allows it. */
+  updateGroup?(name: string, description: string): Result;
+  /** Sign in as the user to prove the account works (the old "Verify Authentication"). */
+  testSignIn?(sam: string): Result;
+  /** Extra tools, shown as their own nodes under the console root. */
+  readonly snapIns?: readonly SnapIn[];
   subscribe(fn: () => void): () => void;
 }
 
@@ -116,8 +152,11 @@ const done = (message: string): Result => ({ ok: true, message });
 const failed = (error: string): Result => ({ ok: false, error });
 
 // ---------------------------------------------------------------------------
-// Main VM: the lab's directory, through the capability registry
+// Main VM: the lab's directory (what the IAM Console used to be)
 // ---------------------------------------------------------------------------
+
+/** MFA enforcement is a toggle on the IdP; remembered per lab session. */
+const mfaEnforced = new WeakMap<object, boolean>();
 
 export function conductorAdapter(conductor: Conductor): DirectoryAdapter {
   const ctx = (): CapabilityContext => ({
@@ -130,16 +169,34 @@ export function conductorAdapter(conductor: Conductor): DirectoryAdapter {
     cloudRoles: conductor.cloudRoles,
     actor: 'system' as UserId,
   });
+  const listeners = new Set<() => void>();
+  const notify = (): void => {
+    for (const fn of [...listeners]) fn();
+  };
+  /** A capability, with the evidence the console filed for it. */
   const cap = (id: string, args: Record<string, string>): Result => {
     const c = CAPABILITY_BY_ID[id];
     if (!c) return failed(`This directory cannot do that (${id}).`);
     const r = c.run(ctx(), args);
-    return r.ok ? done(r.message) : failed(r.error);
+    if (!r.ok) return failed(r.error);
+    recordLabEvidence('audit-event', `${c.label}: ${r.message}`);
+    notify();
+    return done(r.message);
   };
-  const listeners = new Set<() => void>();
-  const changed = (r: Result): Result => {
-    if (r.ok) for (const fn of [...listeners]) fn();
-    return r;
+  /** Run a direct directory change, file its evidence, report errors as text. */
+  const act = (
+    fn: () => void,
+    evidence: [stepId: string, kind: 'snapshot' | 'log-excerpt', label: string],
+    message: string,
+  ): Result => {
+    try {
+      fn();
+    } catch (e) {
+      return failed(e instanceof Error ? e.message.replace(/^\[directory\]\s*/, '') : String(e));
+    }
+    recordLabEvidence(evidence[1], evidence[2], evidence[0]);
+    notify();
+    return done(message);
   };
 
   const userInfo = (u: User): AdUserInfo => ({
@@ -158,6 +215,7 @@ export function conductorAdapter(conductor: Conductor): DirectoryAdapter {
       .listGroups()
       .filter((g) => g.memberIds.includes(u.id))
       .map((g) => g.name),
+    mfa: u.mfa,
   });
   const groupInfo = (g: Group): AdGroupInfo => ({
     id: g.id,
@@ -184,13 +242,157 @@ export function conductorAdapter(conductor: Conductor): DirectoryAdapter {
   const user = (sam: string): User | undefined => conductor.dir.getUserByUsername(sam);
   const group = (name: string): Group | undefined => conductor.dir.getGroupByName(name);
 
+  // ── Snap-ins: the IAM Console's other tools ──────────────────────────────
+  const capabilitySnapIn = (
+    id: string,
+    name: string,
+    description: string,
+    section: ConsoleSection,
+    extra?: (pane: HTMLElement) => void,
+  ): SnapIn => ({
+    id,
+    name,
+    description,
+    render(pane, refresh) {
+      extra?.(pane);
+      const caps = capabilitiesForSection(section).filter((c) => !c.legacyConsoleForm);
+      for (const c of caps) {
+        renderCapabilityForm(pane, c, {
+          ctx: ctx(),
+          dir: conductor.dir,
+          onSuccess: (capDef, message) => {
+            recordLabEvidence('audit-event', `${capDef.label}: ${message}`);
+            notify();
+          },
+          refresh,
+        });
+      }
+    },
+  });
+
+  const table = (rows: string[][], header: string[]): HTMLElement => {
+    const t = document.createElement('div');
+    t.style.cssText = 'display:table;width:100%;margin:6px 0 12px;';
+    const mk = (cells: string[], head: boolean): void => {
+      const tr = document.createElement('div');
+      tr.style.cssText = 'display:table-row;';
+      for (const c of cells) {
+        const td = document.createElement('div');
+        td.textContent = c;
+        td.style.cssText =
+          'display:table-cell;padding:4px 10px;border-bottom:1px solid var(--border);font-size:12px;' +
+          (head ? 'font-weight:600;color:var(--fg);' : 'color:var(--muted);');
+        tr.appendChild(td);
+      }
+      t.appendChild(tr);
+    };
+    mk(header, true);
+    for (const r of rows) mk(r, false);
+    return t;
+  };
+
+  const snapIns: SnapIn[] = [
+    capabilitySnapIn(
+      'credentials',
+      'Credentials & Recovery',
+      'Password resets, MFA registration and enrolment, account unlock.',
+      'credentials',
+    ),
+    capabilitySnapIn(
+      'access',
+      'Access & Sessions',
+      'Role grants and revocations, and live sign-in sessions.',
+      'access',
+    ),
+    capabilitySnapIn(
+      'lifecycle',
+      'Lifecycle — Move / Transfer',
+      'Movers: change a person’s department and the access that comes with it.',
+      'users',
+    ),
+    capabilitySnapIn(
+      'applications',
+      'Applications (SSO)',
+      'Registered applications and their SSO configuration.',
+      'apps',
+      (pane) => {
+        pane.appendChild(
+          table(
+            conductor.apps
+              .apps()
+              .map((a) => [a.name, a.protocol, a.status, a.mfaRequired ? 'MFA required' : '']),
+            ['Application', 'Protocol', 'Status', 'MFA'],
+          ),
+        );
+      },
+    ),
+    capabilitySnapIn(
+      'oauth',
+      'OAuth App Governance',
+      'Consent grants given to third-party apps, and blocking an app tenant-wide.',
+      'oauth',
+    ),
+    capabilitySnapIn(
+      'cloud',
+      'Cloud IAM Roles',
+      'Cross-account roles, their permissions and their trust policies.',
+      'cloud',
+    ),
+    {
+      id: 'mfa-policy',
+      name: 'Authentication Policy (MFA)',
+      description: 'Require MFA on privileged sign-in across the tenant.',
+      render(pane, refresh) {
+        const on = mfaEnforced.get(conductor.idp) ?? false;
+        const p = document.createElement('div');
+        p.style.cssText = 'font-size:12px;margin:8px 0;color:var(--fg);';
+        p.textContent = `Require MFA on privileged sign-in: ${on ? 'YES' : 'no'}`;
+        const b = document.createElement('button');
+        b.textContent = on ? 'Disable MFA enforcement' : 'Enable MFA enforcement';
+        b.style.cssText =
+          'background:var(--accent);color:var(--on-accent, #06231d);border:none;border-radius:3px;' +
+          'padding:6px 14px;font-size:12px;cursor:pointer;';
+        b.addEventListener('click', () => {
+          const next = !(mfaEnforced.get(conductor.idp) ?? false);
+          mfaEnforced.set(conductor.idp, next);
+          conductor.idp.setConditionalPolicy({ requireMfa: next });
+          recordLabEvidence('snapshot', `MFA enforcement: ${next ? 'enabled' : 'disabled'}`, 's4');
+          notify();
+          refresh();
+        });
+        pane.append(p, b);
+      },
+    },
+    {
+      id: 'audit',
+      name: 'Audit Log',
+      description: 'The most recent directory and identity events, newest first.',
+      render(pane) {
+        const events = conductor.audit.events.slice(-60).reverse();
+        pane.appendChild(
+          table(
+            events.map((ev) => [
+              new Date(ev.at).toLocaleTimeString(),
+              ev.action,
+              describeAuditId(ev.targetId, conductor.dir),
+              ev.subjectId ? describeAuditId(ev.subjectId, conductor.dir) : '',
+            ]),
+            ['Time', 'Action', 'Target', 'Subject'],
+          ),
+        );
+      },
+    },
+  ];
+
   return {
     domain: COMPANY.domain,
+    server: `NW-DC01.${COMPANY.domain}`,
     unavailable: () => (conductor.dir ? null : 'No lab is running.'),
     supportsOus: false,
     departments: DEPARTMENTS,
     tree,
     allContainers: () => tree().children,
+    snapIns,
     rows(containerId) {
       if (containerId === 'users') {
         return [
@@ -203,20 +405,20 @@ export function conductorAdapter(conductor: Conductor): DirectoryAdapter {
           {
             kind: 'other',
             name: 'Administrators',
-            type: 'Security Group',
+            type: 'Security Group - Domain Local',
             description: 'Built-in administrators',
           },
           {
             kind: 'other',
-            name: 'Domain Users',
-            type: 'Security Group',
-            description: 'All domain users',
+            name: 'Remote Desktop Users',
+            type: 'Security Group - Domain Local',
+            description: 'Members can sign in remotely',
           },
           {
             kind: 'other',
-            name: 'Remote Desktop Users',
-            type: 'Security Group',
-            description: 'RDP access',
+            name: 'Users',
+            type: 'Security Group - Domain Local',
+            description: 'Ordinary users',
           },
         ];
       }
@@ -241,70 +443,177 @@ export function conductorAdapter(conductor: Conductor): DirectoryAdapter {
     allGroups: () => conductor.dir.listGroups().map(groupInfo),
 
     createUser(i) {
-      const name = `${i.first} ${i.last}`.trim();
-      const r = cap('user.create', {
-        SamAccountName: i.logon,
-        Name: name,
-        Department: i.department,
-        Title: i.title,
-      });
-      if (!r.ok) return r;
-      if (i.password) {
-        const p = cap('password.reset', {
-          Identity: i.logon,
+      const username = i.logon.trim();
+      if (!username) return failed('A user logon name is required.');
+      const displayName = `${i.first} ${i.last}`.trim() || username;
+      const r = act(
+        () => {
+          conductor.dir.createUser({
+            username,
+            displayName,
+            email: i.email?.trim() || `${username}@${COMPANY.domain}`,
+            department: i.department.trim() || 'General',
+            title: i.title.trim() || 'Employee',
+          });
+          // seedPasswords() adds to the credential map; the lab's convention is
+          // username123 unless a password was typed.
+          conductor.idp.seedPasswords({ [username]: i.password || `${username}123` });
+        },
+        ['s1', 'snapshot', `Created user: ${username}`],
+        `Created ${displayName} (${username}).`,
+      );
+      if (r.ok && i.password && i.mustChange) {
+        cap('password.reset', {
+          Identity: username,
           NewPassword: i.password,
-          ChangePasswordAtLogon: i.mustChange ? 'true' : 'false',
+          ChangePasswordAtLogon: 'true',
         });
-        if (!p.ok) return changed(failed(`${r.message} But the password was not set: ${p.error}`));
       }
-      return changed(r);
+      return r;
     },
-    createGroup: (i) => changed(cap('group.create', { Name: i.name, Description: i.description })),
+    updateUser(sam, patch) {
+      const u = user(sam);
+      if (!u) return failed(`Cannot find user '${sam}'.`);
+      return act(
+        () =>
+          conductor.dir.updateUser(u.id, {
+            displayName: patch.displayName || u.displayName,
+            email: patch.email || u.email,
+            department: patch.department || u.department,
+            title: patch.title || u.title,
+          }),
+        ['s-edit', 'snapshot', `Updated user: ${sam}`],
+        `Updated ${sam}.`,
+      );
+    },
+    createGroup(i) {
+      const name = i.name.trim();
+      if (!name) return failed('A group name is required.');
+      return act(
+        () => conductor.dir.createGroup(name, i.description),
+        ['s2', 'snapshot', `Created group: ${name}`],
+        `Created group ${name}.`,
+      );
+    },
+    updateGroup(name, description) {
+      const g = group(name);
+      if (!g) return failed(`Cannot find group '${name}'.`);
+      return act(
+        () => conductor.dir.updateGroup(g.id, { description }),
+        ['s-gedit', 'snapshot', `Updated group: ${name}`],
+        `Updated ${name}.`,
+      );
+    },
     createOu: () =>
       failed(
         `${COMPANY.domain} has no organizational units. Build OUs on DC01 (corp.technobiz.local) in the AD Enterprise Lab.`,
       ),
     deleteOu: () => failed('This directory has no organizational units.'),
-    deleteUser: (sam) => changed(cap('user.delete', { Identity: sam })),
+    deleteUser(sam) {
+      const u = user(sam);
+      if (!u) return failed(`Cannot find user '${sam}'.`);
+      return act(
+        () => conductor.dir.deleteUser(u.id, 'system' as UserId),
+        ['s-del', 'snapshot', `Deleted user: ${sam}`],
+        `Deleted ${sam}.`,
+      );
+    },
     deleteGroup(name) {
       const g = group(name);
       if (!g) return failed(`Cannot find a group named '${name}'.`);
-      conductor.dir.deleteGroup(g.id, 'system' as UserId);
-      return changed(done(`Deleted group ${name}.`));
+      return act(
+        () => conductor.dir.deleteGroup(g.id, 'system' as UserId),
+        ['s-gdel', 'snapshot', `Deleted group: ${name}`],
+        `Deleted group ${name}.`,
+      );
     },
-    setEnabled: (sam, enabled) =>
-      changed(cap(enabled ? 'user.enable' : 'user.disable', { Identity: sam })),
-    unlock: (sam) => changed(cap('account.unlock', { Identity: sam })),
+    setEnabled(sam, enabled) {
+      const u = user(sam);
+      if (!u) return failed(`Cannot find user '${sam}'.`);
+      if (enabled && u.status !== 'disabled') return failed(`${sam} is already enabled.`);
+      if (!enabled && u.status === 'disabled') return failed(`${sam} is already disabled.`);
+      return act(
+        () =>
+          enabled
+            ? conductor.dir.enableUser(u.id, 'system' as UserId)
+            : conductor.dir.disableUser(u.id, 'system' as UserId),
+        ['s-edit', 'snapshot', `${enabled ? 'Enabled' : 'Disabled'} user: ${sam}`],
+        `${enabled ? 'Enabled' : 'Disabled'} ${sam}.`,
+      );
+    },
+    unlock: (sam) => cap('account.unlock', { Identity: sam }),
     resetPassword: (sam, password, mustChange) =>
-      changed(
-        cap('password.reset', {
-          Identity: sam,
-          NewPassword: password,
-          ChangePasswordAtLogon: mustChange ? 'true' : 'false',
-        }),
-      ),
+      cap('password.reset', {
+        Identity: sam,
+        NewPassword: password,
+        ChangePasswordAtLogon: mustChange ? 'true' : 'false',
+      }),
     addMember(sam, name) {
       const u = user(sam);
       const g = group(name);
       if (!u || !g) return failed(`Cannot find ${!u ? `user '${sam}'` : `group '${name}'`}.`);
       if (g.memberIds.includes(u.id)) return failed(`${sam} is already a member of ${name}.`);
-      conductor.dir.addToGroup(u.id, g.id, 'system' as UserId);
-      return changed(done(`Added ${sam} to ${name}.`));
+      return act(
+        () => conductor.dir.addToGroup(u.id, g.id, 'system' as UserId),
+        ['s3', 'snapshot', `Added ${sam} to ${name}`],
+        `Added ${sam} to ${name}.`,
+      );
     },
     removeMember(sam, name) {
       const u = user(sam);
       const g = group(name);
       if (!u || !g) return failed(`Cannot find ${!u ? `user '${sam}'` : `group '${name}'`}.`);
-      conductor.dir.removeFromGroup(u.id, g.id, 'system' as UserId);
-      return changed(done(`Removed ${sam} from ${name}.`));
+      return act(
+        () => conductor.dir.removeFromGroup(u.id, g.id, 'system' as UserId),
+        ['s3', 'snapshot', `Removed ${sam} from ${name}`],
+        `Removed ${sam} from ${name}.`,
+      );
     },
     move(kind, id, target) {
       if (kind !== 'user') return failed('Groups in this directory are not placed in containers.');
-      return changed(cap('user.move', { Identity: id, TargetDepartment: target }));
+      return cap('user.move', { Identity: id, TargetDepartment: target });
+    },
+    testSignIn(sam) {
+      const result = conductor.idp.signIn(sam, `${sam}123`);
+      if (!result.ok) {
+        notify();
+        return failed(`Sign-in failed for ${sam}: ${result.reason}`);
+      }
+      if (result.user.mfa !== 'none') {
+        const mfa = conductor.idp.completeMfa(result.session.id, result.user.mfa as MfaMethod);
+        if (!mfa.ok) {
+          notify();
+          return failed(`MFA failed for ${sam}: ${mfa.reason}`);
+        }
+        recordLabEvidence('log-excerpt', `${sam} signed in + MFA completed`, 's5');
+        notify();
+        return done(`${sam} signed in and completed MFA.`);
+      }
+      recordLabEvidence('log-excerpt', `${sam} signed in successfully`, 's5');
+      notify();
+      return done(`${sam} signed in successfully.`);
     },
     subscribe(fn) {
       listeners.add(fn);
-      return () => listeners.delete(fn);
+      // Changes made anywhere else -- the terminal, a ticket, a script, a lab
+      // reset -- reach the directory through the audit log and the lab store,
+      // so the window redraws for those too (once per burst of events).
+      let queued = false;
+      const soon = (): void => {
+        if (queued) return;
+        queued = true;
+        queueMicrotask(() => {
+          queued = false;
+          fn();
+        });
+      };
+      const offAudit = auditStore.subscribe(soon);
+      const offLab = labStore.subscribe(soon);
+      return () => {
+        listeners.delete(fn);
+        offAudit();
+        offLab();
+      };
     },
   };
 }
@@ -420,6 +729,7 @@ export function labStateAdapter(getWorld: () => LabWorld): DirectoryAdapter {
 
   return {
     domain: 'corp.technobiz.local',
+    server: 'DC01.corp.technobiz.local',
     unavailable: () =>
       dcIsPromoted(st())
         ? null

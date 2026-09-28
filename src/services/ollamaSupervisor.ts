@@ -108,7 +108,7 @@ WHEN TO USE EACH HINT LEVEL:
 - The learner explicitly switches to "explanation mode" or asks for the answer three times: only then reveal the approach-level answer from the hint ladder.
 
 CONSOLE LAYOUT THE LEARNER CAN ACTUALLY SEE:
-- IAM Console: provision/edit/disable/delete users, create/edit/delete groups, manage group membership, MFA policy, register apps, verify sign-in.
+- Active Directory Users and Computers: create/edit/disable/delete users and groups and manage membership from right-click menus; Test Sign-In; Identity Services nodes for credentials, sessions, applications (SSO), OAuth, cloud roles, MFA policy and the audit log.
 - Ticket Console: read incoming tickets, triage, resolve, escalate.
 - SecOps Dashboard: alerts, audit log, session revocation, fault indicators, role assignments.
 - AI Supervisor (this console): ask questions, score your step, request hints.

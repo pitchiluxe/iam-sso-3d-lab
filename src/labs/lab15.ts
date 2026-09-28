@@ -60,7 +60,7 @@ export const LAB_15: Lab = {
       id: 's1',
       title: 'Inventory application certificates',
       brief:
-        'Review Registered Applications in the IAM Console. Note which apps have certificate-backed trust and which are closest to expiry.',
+        'Review Applications (SSO) under Identity Services in Active Directory Users and Computers. Note which apps have certificate-backed trust and which are closest to expiry.',
       validator: { kind: 'evidence-collected', params: { stepId: 's1' } },
       evidence: [{ kind: 'snapshot', capture: 'manual', params: { console: 'iamConsole' } }],
       tutorPrompts: [

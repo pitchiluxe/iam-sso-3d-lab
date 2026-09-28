@@ -3,7 +3,8 @@
  * directories: the main VM's (through the capability registry) and DC01's
  * (through the lab engine's own PowerShell, so GUI work is graded like typed work).
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { evidenceStore } from '@/stores';
 import { Conductor } from '@/conductor/conductor';
 import { mkLabId } from '@/domain';
 import { conductorAdapter, labStateAdapter } from '@/ui/directory/directoryAdapter';
@@ -103,5 +104,77 @@ describe('DC01 directory', () => {
     applySolution(solved, 'adl-12');
     const report = validate('adl-12', ['org-ou-tree'], { state: solved } as never);
     expect(report.results.every((r) => r.pass)).toBe(true);
+  });
+});
+
+describe('Active Directory replaces the IAM Console', () => {
+  let c: Conductor;
+  beforeEach(() => {
+    c = new Conductor();
+    c.start(mkLabId('lab04'));
+    (globalThis as { window?: unknown }).window = {
+      __lab: { get: () => ({ id: 'lab04', steps: [{ id: 'step-a' }] }) },
+      __labState: { stepIndex: 0 },
+    };
+    evidenceStore.getState().reset();
+  });
+  afterEach(() => {
+    delete (globalThis as { window?: unknown }).window;
+  });
+
+  it('files the same evidence the IAM Console filed, against the current step', () => {
+    const a = conductorAdapter(c);
+    expect(a.createUser({ first: 'Ada', last: 'Test', logon: 'ada.test', department: 'IT', title: '', password: '', mustChange: false, containerId: 'users' }).ok).toBe(true);
+    expect(a.createGroup({ name: 'grp-demo', description: 'x', scope: 'Global', category: 'Security', containerId: 'users' }).ok).toBe(true);
+    expect(a.addMember('ada.test', 'grp-demo').ok).toBe(true);
+    expect(a.setEnabled('ada.test', false).ok).toBe(true);
+    const labels = evidenceStore.getState().items.map((e) => `${e.stepId}|${e.label}`);
+    expect(labels).toEqual([
+      'step-a|Created user: ada.test',
+      'step-a|Created group: grp-demo',
+      'step-a|Added ada.test to grp-demo',
+      'step-a|Disabled user: ada.test',
+    ]);
+  });
+
+  it('a created account signs in with the lab default password (Test Sign-In)', () => {
+    const a = conductorAdapter(c);
+    a.createUser({ first: 'Ada', last: 'Test', logon: 'ada.test', department: 'IT', title: '', password: '', mustChange: false, containerId: 'users' });
+    const r = a.testSignIn!('ada.test');
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    a.setEnabled('ada.test', false);
+    expect(a.testSignIn!('ada.test').ok).toBe(false);
+  });
+
+  it('edits accounts and groups in place (Properties)', () => {
+    const a = conductorAdapter(c);
+    const sam = c.dir.listUsers()[0]!.username;
+    expect(a.updateUser!(sam, { displayName: 'Renamed Person', email: '', department: '', title: 'Lead' }).ok).toBe(true);
+    expect(c.dir.getUserByUsername(sam)!.displayName).toBe('Renamed Person');
+    const g = c.dir.listGroups()[0]!.name;
+    expect(a.updateGroup!(g, 'New description').ok).toBe(true);
+    expect(c.dir.getGroupByName(g)!.description).toBe('New description');
+  });
+
+  it('every IAM Console tool is reachable as a snap-in node', () => {
+    const names = (conductorAdapter(c).snapIns ?? []).map((s) => s.name);
+    expect(names).toEqual([
+      'Credentials & Recovery',
+      'Access & Sessions',
+      'Lifecycle — Move / Transfer',
+      'Applications (SSO)',
+      'OAuth App Governance',
+      'Cloud IAM Roles',
+      'Authentication Policy (MFA)',
+      'Audit Log',
+    ]);
+  });
+
+  it('there is no IAM Console left on the desktop or in the source', async () => {
+    const { readFileSync, existsSync } = await import('node:fs');
+    expect(existsSync('src/ui/consoles/iamConsole.ts')).toBe(false);
+    const overlay = readFileSync('src/ui/desktopOverlay.ts', 'utf8');
+    expect(overlay).not.toMatch(/id: 'iam-console'/);
+    expect(overlay).toMatch(/openPinned\('active-directory'/);
   });
 });

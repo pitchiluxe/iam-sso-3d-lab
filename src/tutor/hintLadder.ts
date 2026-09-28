@@ -26,14 +26,15 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'If you had to introduce a new employee to the system, what fields would you fill in?',
       approach:
-        'Use the IAM Console "Provision User" form. Username, display name, and email are the minimum.',
+        'In Active Directory Users and Computers, select Users and click New User. A name and a logon name are the minimum.',
       solution:
-        'Open the IAM Console, fill in username/display/email/dept/title, click "Create User".',
+        'Open Active Directory Users and Computers, select Users, click New User, fill in the name, logon name, e-mail, department and title, then OK.',
     },
     s2: {
       nudge: 'Groups are how the directory organizes people. What attributes do they have?',
       question: 'Why might a directory use groups rather than just listing permissions per user?',
-      approach: 'Use the IAM Console "Create Group" form. Give it a name and description.',
+      approach:
+        'In Active Directory Users and Computers, click New Group and give it a name and description.',
       solution:
         'Type a name like "grp-finance-payroll" in the Create Group form and click the button.',
     },
@@ -42,7 +43,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'Once you have a user and a group, they are not yet related. Where would you connect them?',
       question: 'If a user is in the Finance department, which group should they belong to?',
       approach:
-        'Use the "Group Membership" form in the IAM Console. Select a user, select a group, click "Add to group".',
+        'In Active Directory Users and Computers, right-click the user → Add to Group…, pick the group, OK.',
       solution:
         'In the form below the Groups list, pick a user and a group, then click "Add to group".',
     },
@@ -50,14 +51,14 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       nudge:
         'A policy is a rule the IdP applies before issuing a session. What rule would you want for sensitive accounts?',
       question: 'Should every user be required to use MFA, or only certain roles? Why?',
-      approach: 'In the IAM Console "MFA Policy" section, click "Enable MFA enforcement".',
+      approach:
+        'In Active Directory Users and Computers, open Identity Services → Authentication Policy (MFA) and click "Enable MFA enforcement".',
       solution: 'Click the "Enable MFA enforcement" button in the MFA Policy section.',
     },
     s5: {
       nudge: 'How do you know a user can actually sign in?',
       question: 'If you created a user but never signed them in, what would you not know?',
-      approach:
-        'Use the "Verify Authentication" form at the bottom of the IAM Console. Pick a user and click "Sign in (verify)".',
+      approach: 'In Active Directory Users and Computers, right-click the user → Test Sign-In.',
       solution:
         'Pick a user from the "Verify Authentication" dropdown and click the Sign in button.',
     },
@@ -67,15 +68,15 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       nudge: 'The HR system has asked for a new employee. Where would the ticket be waiting?',
       question: 'Who is the requester on the onboarding ticket, and what access do they need?',
       approach:
-        'Open the Ticket Console. Resolve the "Onboard Alex Morgan" ticket, then create the user in the IAM Console.',
+        'Open the Ticket Console. Resolve the "Onboard Alex Morgan" ticket, then create the user in Active Directory Users and Computers.',
       solution:
-        'Ticket Console → resolve the onboarding ticket → IAM Console → create user "alex.morgan" → add to grp-finance-payroll → verify sign-in.',
+        'Ticket Console → resolve the onboarding ticket → Active Directory → create user "alex.morgan" → add to grp-finance-payroll → verify sign-in.',
     },
     s2: {
       nudge: 'A move is two things: add new access, remove old access.',
       question: 'If you only added Jane to Engineering, what would still be wrong?',
       approach:
-        'Open the IAM Console, use Group Membership: remove Jane from grp-finance-payroll, add her to grp-engineering-dev.',
+        'Open Active Directory Users and Computers: right-click Jane → Remove from Group… grp-finance-payroll, then Add to Group… grp-engineering-dev.',
       solution:
         'Remove Jane from grp-finance-payroll (and grp-finance-analysts), add her to grp-engineering-dev.',
     },
@@ -84,21 +85,23 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'Doing the transfer emits its own audit events. What would you check that is not already covered by those events?',
       approach:
-        "Check Jane's group list in the IAM Console (no finance groups left) and capture that as the evidence for this step.",
+        "Check Jane's group list in Active Directory Users and Computers (no finance groups left) and capture that as the evidence for this step.",
       solution:
-        'Open the IAM Console, confirm jane.doe has zero finance groups and holds grp-engineering-dev, then capture a snapshot tagged to this step.',
+        'Open Active Directory Users and Computers, confirm jane.doe has zero finance groups and holds grp-engineering-dev, then capture a snapshot tagged to this step.',
     },
     s4: {
       nudge: 'Termination starts with the account itself. What state should it be in?',
       question: 'What does "disabled" actually block, and what does it not block?',
-      approach: 'IAM Console → disable bob.sato, then verify sign-in fails for him.',
-      solution: 'Disable bob.sato in the IAM Console. The validator fires on user.disabled.',
+      approach: 'Active Directory → disable bob.sato, then verify sign-in fails for him.',
+      solution:
+        'Disable bob.sato in Active Directory Users and Computers. The validator fires on user.disabled.',
     },
     s5: {
       nudge: 'A disabled account can still hold a session it opened before it was disabled.',
       question:
         'If Bob was signed in five minutes before termination, what is still valid right now?',
-      approach: 'IAM Console → Active Sessions → revoke every session for bob.sato.',
+      approach:
+        'Active Directory → Identity Services → Access & Sessions → revoke every session for bob.sato.',
       solution:
         'Use Revoke-UserSession (or the Active Sessions form) against bob.sato. The validator fires on session.revoked.',
     },
@@ -119,7 +122,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'If a role is assigned directly to a user instead of a group, what happens to the audit trail when that person changes teams?',
       approach:
-        'Open the IAM Console → Roles section → Create Role. Name it role-finance-payroll-writer, add permissions payroll:read and payroll:write.',
+        'Open Active Directory Users and Computers → Roles section → Create Role. Name it role-finance-payroll-writer, add permissions payroll:read and payroll:write.',
       solution:
         'Create role-finance-payroll-writer with permissions [payroll:read, payroll:write]. Do not assign to users — assign via group membership.',
     },
@@ -181,7 +184,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'The app started unconfigured, not missing — what does that tell you about where to look?',
       approach:
-        'IAM Console → Application Configuration → Update App Configuration. App: app-finance, Field: entityId, then Field: redirectUri. Use the values from the brief.',
+        'Active Directory → Identity Services → Applications (SSO) → Update App Configuration. App: app-finance, Field: entityId, then Field: redirectUri. Use the values from the brief.',
       solution:
         'Run Update App Configuration twice against app-finance: Field=entityId Value=urn:finance.northwind.example, then Field=redirectUri Value=https://finance.northwind.example/callback.',
     },
@@ -191,7 +194,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'If the OIDC issuer is wrong, does the login fail at the app, the IdP, or somewhere in between?',
       approach:
-        'IAM Console → Application Configuration → Update App Configuration. App: app-helpdesk-portal, Field: redirectUri, then Field: issuer.',
+        'Active Directory → Identity Services → Applications (SSO) → Update App Configuration. App: app-helpdesk-portal, Field: redirectUri, then Field: issuer.',
       solution:
         'Run Update App Configuration twice against app-helpdesk-portal: Field=redirectUri Value=https://helpdesk.northwind.example/callback, then Field=issuer Value=https://idp.northwind.example/realms/northwind.',
     },
@@ -201,7 +204,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'If role is sent as a free-text string, can the SP trust it without a mapping document?',
       approach:
-        "IAM Console → Applications → Finance Portal → Claims → map the role claim to the user's effective roles array. Save and publish.",
+        "Active Directory → Applications → Finance Portal → Claims → map the role claim to the user's effective roles array. Save and publish.",
       solution:
         'Open Finance Portal config → Claims → set role claim to user.effectiveRoles. Save. Repeat for Help Desk Portal.',
     },
@@ -242,15 +245,15 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'If you enable MFA for everyone at once, what happens to your help desk ticket queue?',
       approach:
-        'IAM Console → MFA Policy → set requireMfa = true. Start with a group-based rollout: enable for the iam-admins group first.',
+        'Active Directory → Identity Services → Authentication Policy (MFA) → set requireMfa = true. Start with a group-based rollout: enable for the iam-admins group first.',
       solution:
-        'IAM Console → MFA Policy → Enable MFA enforcement → apply only to grp-iam-admins for now (phased rollout).',
+        'Active Directory → Identity Services → Authentication Policy (MFA) → Enable MFA enforcement → apply only to grp-iam-admins for now (phased rollout).',
     },
     s2: {
       nudge: 'TOTP is a 6-digit code that changes every 30 seconds. How does the user enroll?',
       question: 'If the user loses their phone, what is the recovery path?',
       approach:
-        'IAM Console → Users → Erin Cho → MFA → enroll TOTP. Erin scans the QR code with her authenticator app and confirms with a 6-digit code.',
+        'Active Directory → Users → Erin Cho → MFA → enroll TOTP. Erin scans the QR code with her authenticator app and confirms with a 6-digit code.',
       solution:
         "Open Erin's user record → Enroll TOTP → scan QR → enter 6-digit code → confirm. Test by signing in as Erin.",
     },
@@ -395,7 +398,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         "If Jane's account is compromised but you only reset her password, what is still open?",
       approach:
-        'IAM Console → Jane → Disable. SecOps → Sessions → Revoke all sessions for Jane. Note the time of containment in the incident.',
+        'Active Directory → right-click Jane → Disable Account. SecOps → Sessions → Revoke all sessions for Jane. Note the time of containment in the incident.',
       solution:
         'Disable Jane, revoke all her active sessions, rotate her password. Capture the audit log entries as evidence.',
     },
@@ -451,7 +454,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       nudge: 'Removing standing privilege is a deliberate act. What do you replace it with?',
       question: 'If you only revoke, what does Hank do when he actually needs admin?',
       approach:
-        'IAM Console → Hank → Roles → revoke role-domain-admin. Replace with a workflow-based elevation request (PIM).',
+        'Active Directory → Identity Services → Access & Sessions → Revoke Role: hank.oneill, role-domain-admin. Replace with a workflow-based elevation request (PIM).',
       solution:
         'Revoke role-domain-admin for Hank. Add him to grp-iam-admins-eligible (not the active group) so he can request elevation.',
     },
@@ -469,7 +472,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'If Hank never signed in during the elevation window, what would revoking his sessions actually accomplish?',
       approach:
-        'IAM Console → Verify Authentication → sign in as hank.oneill (this is the session the elevation created). Then use Revoke-UserSession / Active Sessions to end it, simulating the 15-minute auto-expiry.',
+        'Active Directory → right-click the user → Test Sign-In → sign in as hank.oneill (this is the session the elevation created). Then use Revoke-UserSession / Active Sessions to end it, simulating the 15-minute auto-expiry.',
       solution:
         'Sign in as hank.oneill via Verify Authentication, then revoke his active session(s). The validator fires on session.revoked — with zero sessions open, revoking accomplishes nothing.',
     },
@@ -507,7 +510,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       approach:
         'Disable Bob, revoke all his sessions, remove him from all groups, and verify sign-in fails. Capture every audit entry.',
       solution:
-        'IAM Console → Bob → Disable → SecOps → Revoke all sessions → IAM Console → Group Membership → remove from every group → Verify sign-in fails.',
+        'Active Directory → right-click Bob → Disable Account → SecOps → Revoke all sessions → Active Directory → Remove from Group… for every group → Verify sign-in fails.',
     },
     s4: {
       nudge:
@@ -524,7 +527,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       approach:
         'Enable MFA enforcement for grp-iam-admins first. Watch the audit log. Then expand to grp-finance-payroll, grp-engineering-dev, etc.',
       solution:
-        'IAM Console → MFA Policy → enable for grp-iam-admins only → monitor 24h → expand to grp-finance-payroll and grp-engineering-dev.',
+        'Active Directory → Identity Services → Authentication Policy (MFA) → enable for grp-iam-admins only → monitor 24h → expand to grp-finance-payroll and grp-engineering-dev.',
     },
     s6: {
       nudge:
@@ -578,7 +581,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'A policy that blocks legacy auth has to know what legacy looks like. Where is the list?',
       question: 'If you block basic auth and your printer relies on it, what breaks?',
       approach:
-        'IAM Console → Conditional Access → New Policy → name CA-001 → condition: auth method = basic auth → effect: block. Save.',
+        'Active Directory → Conditional Access → New Policy → name CA-001 → condition: auth method = basic auth → effect: block. Save.',
       solution:
         'Create CA-001: condition=basic auth, effect=block. Test with a basic-auth client. Confirm the audit log shows block.',
     },
@@ -587,7 +590,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'MFA for privileged roles is the same rule we set in lab05, but now it is a CA policy, not an IdP setting. Why?',
       question: 'If MFA is enforced in two places, which one wins?',
       approach:
-        'IAM Console → CA → New Policy CA-002: condition=role in [domain-admin, security-admin], effect=require MFA. Save. Test as Hank.',
+        'Active Directory → CA → New Policy CA-002: condition=role in [domain-admin, security-admin], effect=require MFA. Save. Test as Hank.',
       solution:
         'Create CA-002: condition=role ∈ {domain-admin, security-admin}, effect=require MFA. Sign in as Hank, confirm MFA prompt.',
     },
@@ -603,7 +606,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       nudge: 'A named location exception is a hole in a rule. How do you make it auditable?',
       question: 'If a corporate VPN is whitelisted, who watches the watchers?',
       approach:
-        'IAM Console → Named Locations → add "HQ office IP range". CA-001 → add exception: if location = HQ, allow legacy.',
+        'Active Directory → Named Locations → add "HQ office IP range". CA-001 → add exception: if location = HQ, allow legacy.',
       solution:
         'Named Locations → add HQ CIDR. CA-001 → add exception: location=HQ, effect=allow. Document the exception in the CA policy doc.',
     },
@@ -691,7 +694,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       nudge: 'Creating break-glass account 1 is just a special user. What is special?',
       question: 'If the account is subject to MFA, what happens if your IdP is down?',
       approach:
-        'IAM Console → Create User bg-admin-1 → assign grp-iam-admins → set a 32-char random password → store in sealed envelope.',
+        'Active Directory → Create User bg-admin-1 → assign grp-iam-admins → set a 32-char random password → store in sealed envelope.',
       solution:
         'Create bg-admin-1 with grp-iam-admins, very long password, store in sealed envelope in safe A. No MFA on this account.',
     },
@@ -707,7 +710,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       nudge: 'Break-glass accounts must bypass CA policies. Why?',
       question: 'If break-glass is blocked by a CA policy, what did you just remove?',
       approach:
-        'IAM Console → Conditional Access → each policy → add bg-admin-1 and bg-admin-2 to the exclude list. Save. Test.',
+        'Active Directory → Conditional Access → each policy → add bg-admin-1 and bg-admin-2 to the exclude list. Save. Test.',
       solution:
         'For each CA policy, add bg-admin-1 and bg-admin-2 to the exclude list. Sign in as bg-admin-1, confirm no CA prompt.',
     },
@@ -747,7 +750,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'TeamSync Meetings only asks to read calendars. What does the suspicious app ask for, and does that match what it claims to do?',
       approach:
-        "Open IAM Console → OAuth App Governance → OAuth Consent Grants. Compare each grant's scopes, publisher, and grant time. One app requests mailbox and file-write access it has no obvious reason to need, from a publisher nobody recognizes, granted minutes ago.",
+        "Open Active Directory → Identity Services → OAuth App Governance → OAuth Consent Grants. Compare each grant's scopes, publisher, and grant time. One app requests mailbox and file-write access it has no obvious reason to need, from a publisher nobody recognizes, granted minutes ago.",
       solution:
         'QuickSign Docs — publisher "Bright Path Solutions (unverified)" — requests Mail.Read, Files.ReadWrite.All, and Contacts.Read, granted by dan.rivera 20 minutes ago. That is the grant to act on.',
     },
@@ -755,7 +758,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       nudge: 'Detecting the grant and ending it are two different actions. Where do you end it?',
       question: 'What does revoking a grant stop, and what has it already not undone?',
       approach:
-        'IAM Console → OAuth App Governance → Revoke OAuth Grant. Identity: dan.rivera. App client ID: oauth-quicksign-docs.',
+        'Active Directory → Identity Services → OAuth App Governance → Revoke OAuth Grant. Identity: dan.rivera. App client ID: oauth-quicksign-docs.',
       solution:
         'Run Revoke OAuth Grant with Identity=dan.rivera, ClientId=oauth-quicksign-docs. This stops future access; anything already read or exfiltrated is a separate, already-done fact.',
     },
@@ -801,7 +804,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
       question:
         'If two apps were issued certificates on the same day, would you expect them to expire close together?',
       approach:
-        'IAM Console → Registered Applications. Note protocol and any visible config detail per app; identify which apps rely on certificate-backed trust.',
+        'Active Directory → Identity Services → Applications (SSO). Note protocol and any visible config detail per app; identify which apps rely on certificate-backed trust.',
       solution:
         'Review the Registered Applications panel for Finance Portal (SAML) and Help Desk Portal (OIDC) — both are certificate-backed SSO integrations and candidates for expiry risk. Capture it as evidence for this step.',
     },
@@ -858,7 +861,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'Kerberos issues time-stamped tickets and rejects ones that look impossibly old or from the future. What would make every ticket look wrong at once?',
       question:
         'Why would password authentication survive a clock drift that breaks Kerberos completely?',
-      approach: 'IAM Console → Application Configuration → Sync IdP Clock.',
+      approach: 'Active Directory → Identity Services → Applications (SSO) → Sync IdP Clock.',
       solution:
         "Run Sync IdP Clock. Kerberos tickets carry a timestamp and are rejected outside a narrow tolerance (~5 minutes by default) — resyncing the clock is the actual fix, not resetting any one user's credentials.",
     },
@@ -867,7 +870,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'A lockout during an outage and a lockout from an attack look the same in the account status field. What tells them apart?',
       question:
         "If Greta's lockout coincides exactly with the clock-skew window, what does that timing tell you about the cause?",
-      approach: 'IAM Console → Unlock Account → Identity: greta.olsen.',
+      approach: 'Active Directory → right-click the user → Unlock Account → Identity: greta.olsen.',
       solution:
         'Run Unlock Account for greta.olsen. The lockout timing matching the outage window is what supports "side effect," not "compromise" — document that reasoning in step 5.',
     },
@@ -897,7 +900,7 @@ const LADDERS: Record<string, Record<string, HintLadder>> = {
         'A role has two independent halves: what it can do, and who can become it. A problem in one says nothing about the other.',
       question: 'The role is named "readonly" — does its permission list actually match that name?',
       approach:
-        'Open IAM Console → Cloud IAM Roles. List prod-data-readonly and compare its permissions (s3:*, ec2:*, iam:PassRole) and trust policy (nearly every employee) against what a two-person data team actually needs.',
+        'Open Active Directory → Identity Services → Cloud IAM Roles. List prod-data-readonly and compare its permissions (s3:*, ec2:*, iam:PassRole) and trust policy (nearly every employee) against what a two-person data team actually needs.',
       solution:
         'prod-data-readonly grants far more than read access (ec2:*, iam:PassRole have nothing to do with reading data) and trusts far more people than the data team. Capture both findings as evidence for this step.',
     },

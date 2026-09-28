@@ -2,7 +2,7 @@
  * e2e/vm-workstation.spec.ts — Workstation → VM Desktop E2E test.
  *
  * Pressing E near a desk monitor in the 3D scene opens the VM desktop.
- * The VM auto-shows IAM Console + Objectives windows.
+ * The VM auto-shows Active Directory Users and Computers + Objectives windows.
  * The 3D consoles (IAM, Ticket, SecOps) are NOT accessible from the 3D scene
  * directly — only through the VM.
  *
@@ -48,7 +48,7 @@ async function dismissTutorialIfPresent(page: import('@playwright/test').Page): 
   }
 }
 
-test('pressing E near a desk monitor opens VM desktop with IAM Console + Objectives', async ({ page }) => {
+test('pressing E near a desk monitor opens VM desktop with Active Directory + Objectives', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -78,8 +78,8 @@ test('pressing E near a desk monitor opens VM desktop with IAM Console + Objecti
   // Desktop overlay must be visible
   expect(await page.locator('#desktop-overlay').isVisible()).toBe(true);
 
-  // IAM Console + Objectives windows auto-open inside the VM
-  await expect(page.locator('.apex-window-titlebar:has-text("IAM Console")')).toBeVisible({ timeout: 5000 });
+  // Active Directory + Objectives windows auto-open inside the VM
+  await expect(page.locator('.apex-window-titlebar:has-text("Active Directory Users and Computers")')).toBeVisible({ timeout: 5000 });
   await expect(page.locator('.apex-window-titlebar:has-text("Objectives")')).toBeVisible({ timeout: 5000 });
 
   // No console errors (excluding favicon)
