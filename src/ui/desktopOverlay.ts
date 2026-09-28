@@ -416,7 +416,11 @@ class WindowManager {
 
   updateTaskbar(): void {
     const strip = document.getElementById('taskbar-apps');
-    if (strip) strip.innerHTML = this.buildTaskbarHTML();
+    if (!strip) return;
+    strip.innerHTML = this.buildTaskbarHTML();
+    // Labels go before buttons do, which is what Windows does when the strip
+    // fills up.
+    strip.classList.toggle('crowded', this.getOpenIds().length > 6);
   }
 
   buildTaskbarHTML(): string {
@@ -719,6 +723,44 @@ export function createDesktopOverlay(): DesktopOverlay {
     }
   }
 
+  /**
+   * Taskbar buttons, as IAM Range draws them. Without these rules they were
+   * bare <button> elements — the browser default, on a bar that is trying to
+   * look like Windows. The shape is Windows 11's: a rounded tile, and an
+   * accent bar underneath that is wide for the window you are in and short
+   * for one that is only open.
+   */
+  function injectTaskbarStyles(): void {
+    if (document.getElementById('apex-taskbar-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'apex-taskbar-styles';
+    style.textContent = `
+      .taskbar-app {
+        display: flex; align-items: center; gap: 8px;
+        height: 38px; padding: 0 12px; border: none; border-radius: 6px;
+        background: transparent; color: #e6edf3; cursor: pointer;
+        font-family: inherit; font-size: 12px;
+        width: 176px; flex: 0 0 176px;
+        position: relative; transition: background 120ms ease;
+      }
+      .taskbar-app:hover { background: rgba(255, 255, 255, 0.09); }
+      .taskbar-app::after {
+        content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+        bottom: 3px; height: 3px; width: 16px; border-radius: 2px;
+        background: var(--accent, #4ec9b0); opacity: 0.45;
+        transition: width 140ms ease, opacity 140ms ease;
+      }
+      .taskbar-app--active { background: rgba(255, 255, 255, 0.09); }
+      .taskbar-app--active::after { width: 60%; opacity: 1; }
+      .taskbar-app-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .taskbar-app > span:first-child { font-size: 15px; line-height: 1; flex-shrink: 0; }
+      #taskbar-apps { display: flex; align-items: center; gap: 4px; overflow: hidden; }
+      #taskbar-apps.crowded .taskbar-app { width: 46px; flex: 0 0 46px; padding: 0; justify-content: center; }
+      #taskbar-apps.crowded .taskbar-app-label { display: none; }
+    `;
+    document.head.appendChild(style);
+  }
+
   function buildTaskbar(c: HTMLElement, conductor: Conductor): void {
     const wm = new WindowManager(conductor, c);
     wmCtx.current = wm;
@@ -727,12 +769,15 @@ export function createDesktopOverlay(): DesktopOverlay {
     tb.id = 'apex-taskbar';
     tb.style.cssText = `
       position: absolute; bottom: 0; left: 0; right: 0; height: 48px;
-      background: rgba(27, 31, 36, 0.85);
-      border-top: 1px solid #2d343d;
-      backdrop-filter: blur(12px);
+      background: linear-gradient(180deg, rgba(40, 46, 56, 0.86), rgba(20, 23, 28, 0.94));
+      border-top: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 -8px 24px rgba(0,0,0,0.35);
+      backdrop-filter: blur(26px) saturate(150%);
+      -webkit-backdrop-filter: blur(26px) saturate(150%);
       display: flex; align-items: center; gap: 4px;
       padding: 0 8px; z-index: 50;
     `;
+    injectTaskbarStyles();
 
     const startBtn = document.createElement('button');
     startBtn.id = 'taskbar-start';
