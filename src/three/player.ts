@@ -223,6 +223,22 @@ export class PlayerController {
     }
   }
 
+  /**
+   * Capture the mouse for looking around. Chromium can refuse — the window is
+   * not focused, the click came within about a second of leaving with Esc, or
+   * the page is embedded — and newer versions reject a promise when it does.
+   * A refusal is not an error: the next click simply tries again.
+   */
+  private lockPointer(): void {
+    if (this.pointerLocked || !this.dom.isConnected) return;
+    try {
+      const pending = this.dom.requestPointerLock() as unknown as Promise<void> | undefined;
+      pending?.catch?.(() => {});
+    } catch {
+      // Older engines throw instead of rejecting; same meaning.
+    }
+  }
+
   private bindEvents(): void {
     // Keyboard
     window.addEventListener('keydown', (e) => {
@@ -244,9 +260,7 @@ export class PlayerController {
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
 
     // Pointer lock
-    this.dom.addEventListener('click', () => {
-      if (!this.pointerLocked) this.dom.requestPointerLock();
-    });
+    this.dom.addEventListener('click', () => this.lockPointer());
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === this.dom;
     });
