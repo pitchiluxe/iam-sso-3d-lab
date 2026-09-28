@@ -16,8 +16,12 @@ describe('MockAppServer', () => {
     apps = new MockAppServer(dir, idp, audit);
 
     const u = dir.createUser({
-      username: 'alice', displayName: 'A', email: 'a@e.com',
-      department: 'Finance', title: 'T', mfa: 'none',
+      username: 'alice',
+      displayName: 'A',
+      email: 'a@e.com',
+      department: 'Finance',
+      title: 'T',
+      mfa: 'none',
     });
     userId = u.id;
     const r = dir.createRole('role-finance', 'Finance role', ['payroll:read']);
@@ -27,9 +31,15 @@ describe('MockAppServer', () => {
 
     appId = mkAppId('app-test');
     apps.registerApp({
-      id: appId, name: 'Test App', protocol: 'OIDC',
-      redirectUri: 'https://x/cb', clientId: 'cid', issuer: 'https://x/iss',
-      requiredRoleIds: [r.id], mfaRequired: false, status: 'configured',
+      id: appId,
+      name: 'Test App',
+      protocol: 'OIDC',
+      redirectUri: 'https://x/cb',
+      clientId: 'cid',
+      issuer: 'https://x/iss',
+      requiredRoleIds: [r.id],
+      mfaRequired: false,
+      status: 'configured',
     });
   });
 

@@ -46,7 +46,11 @@ function ticket(over: Partial<Ticket>): Ticket {
 describe('the reviewer decides whether a ticket really closed', () => {
   it('refuses a ticket whose subject does not exist', () => {
     const { dir, audit } = fixture();
-    const review = reviewTicket(ticket({ subject: 'Onboard nobody at all' }), { dir, audit }, SYSTEM);
+    const review = reviewTicket(
+      ticket({ subject: 'Onboard nobody at all' }),
+      { dir, audit },
+      SYSTEM,
+    );
     expect(review.passed).toBe(false);
     expect(review.checks[0]?.label).toBe('Subject identified');
   });

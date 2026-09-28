@@ -58,8 +58,9 @@ function workTicket(t: Ticket, w: ReturnType<typeof world>): string {
   const subjects = t.relatedUserIds
     .map((id) => dir.getUser(id))
     .filter((u): u is NonNullable<typeof u> => Boolean(u));
-  const payloadId = (t.payload as { userId?: UserId; affectedUserId?: UserId }).userId
-    ?? (t.payload as { affectedUserId?: UserId }).affectedUserId;
+  const payloadId =
+    (t.payload as { userId?: UserId; affectedUserId?: UserId }).userId ??
+    (t.payload as { affectedUserId?: UserId }).affectedUserId;
   if (subjects.length === 0 && payloadId) {
     const u = dir.getUser(payloadId);
     if (u) subjects.push(u);
@@ -71,17 +72,30 @@ function workTicket(t: Ticket, w: ReturnType<typeof world>): string {
     let u = subjects[0];
     if (!u && logon) u = dir.getUserByUsername(logon);
     if (!u && logon) {
-      const display = logon.split('.').map((p) => p[0]!.toUpperCase() + p.slice(1)).join(' ');
-      u = dir.createUser({
-        username: logon, displayName: display, email: `${logon}@northwind.example`,
-        department: 'Finance', title: 'New Hire', mfa: 'none',
-      }, ME);
+      const display = logon
+        .split('.')
+        .map((p) => p[0]!.toUpperCase() + p.slice(1))
+        .join(' ');
+      u = dir.createUser(
+        {
+          username: logon,
+          displayName: display,
+          email: `${logon}@northwind.example`,
+          department: 'Finance',
+          title: 'New Hire',
+          mfa: 'none',
+        },
+        ME,
+      );
       notes.push(`created ${logon}`);
     }
     if (!u) return 'NO SUBJECT AND NO LOGON IN TEXT';
     const proposed = (t.payload as { proposedGroupIds?: GroupId[] }).proposedGroupIds ?? [];
     const gid = proposed[0] ?? dir.getGroupByName('grp-finance-payroll')?.id ?? anyGroup();
-    if (gid) { dir.addToGroup(u.id, gid, ME); notes.push('added to group'); }
+    if (gid) {
+      dir.addToGroup(u.id, gid, ME);
+      notes.push('added to group');
+    }
     return notes.join('; ');
   }
 
@@ -94,8 +108,10 @@ function workTicket(t: Ticket, w: ReturnType<typeof world>): string {
         }
         const to = (t.payload as { toDepartment?: string }).toDepartment;
         const target =
-          dir.listGroups().find((g) => to && g.name.toLowerCase().includes(to.toLowerCase().slice(0, 4)))
-          ?? dir.listGroups().find((g) => !g.memberIds.includes(u.id));
+          dir
+            .listGroups()
+            .find((g) => to && g.name.toLowerCase().includes(to.toLowerCase().slice(0, 4))) ??
+          dir.listGroups().find((g) => !g.memberIds.includes(u.id));
         if (target) dir.addToGroup(u.id, target.id, ME);
         if (to) dir.moveUser(u.id, to, ME);
         notes.push('moved groups');

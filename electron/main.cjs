@@ -8,7 +8,7 @@
 //   two copies pointing at the same persisted state
 // - Auto-update via electron-updater + GitHub Releases
 
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, Notification } = require('electron');
 const path = require('path');
 
 // Auto-update via electron-updater
@@ -37,6 +37,29 @@ const INDEX_HTML = path.join(DIST, 'index.html');
 let mainWindow = null;
 
 // --- Auto-update -----------------------------------------------------------
+/** How often a running app looks for a new release (the first check is at start-up). */
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+/** Versions already announced by a desktop notification, so each is announced once. */
+const announced = new Set();
+
+/**
+ * A Windows notification, besides the in-app toast. Learners spend their time
+ * walking the 3D office or inside the VM, where a toast is easy to miss; the
+ * notification reaches them even with the window in the background.
+ */
+function notifyDesktop(key, title, body) {
+  if (announced.has(key) || !Notification.isSupported()) return;
+  announced.add(key);
+  const n = new Notification({ title, body });
+  n.on('click', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+  n.show();
+}
+
 function setupAutoUpdater() {
   if (!autoUpdater) return;
 
@@ -59,6 +82,11 @@ function setupAutoUpdater() {
     updateState = 'available';
     updateInfo = { version: info.version, releaseNotes: info.releaseNotes ?? null };
     broadcastUpdateStatus();
+    notifyDesktop(
+      `available-${info.version}`,
+      `IAM SSO 3D Lab ${info.version} is available`,
+      'Open the app and click the update notice to download it.',
+    );
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -77,6 +105,11 @@ function setupAutoUpdater() {
     updateState = 'downloaded';
     updateInfo = { version: info.version, releaseNotes: info.releaseNotes ?? null };
     broadcastUpdateStatus();
+    notifyDesktop(
+      `downloaded-${info.version}`,
+      `IAM SSO 3D Lab ${info.version} is ready`,
+      'Restart the app to install it, or it installs when you next quit.',
+    );
   });
 
   autoUpdater.on('error', (err) => {
@@ -95,6 +128,16 @@ function setupAutoUpdater() {
       console.warn('[auto-updater] initial check failed:', err.message);
     });
   }, 3000);
+
+  // And again while the app stays open: a lab session can last all day, and
+  // a release published after start-up would otherwise wait for a restart.
+  setInterval(() => {
+    // Nothing to look for while a found update is downloading or waiting.
+    if (updateState === 'downloading' || updateState === 'downloaded') return;
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.warn('[auto-updater] periodic check failed:', err.message);
+    });
+  }, UPDATE_CHECK_INTERVAL_MS);
 }
 
 function broadcastUpdateStatus() {
@@ -210,6 +253,9 @@ function createWindow() {
 
 // --- App lifecycle ----------------------------------------------------------
 app.whenReady().then(() => {
+  // Windows attributes toast notifications to this id; it must match the
+  // installer's appId (package.json build.appId) or they are not shown.
+  if (process.platform === 'win32') app.setAppUserModelId('com.mydigitalsolutions.iamsso3dlab');
   createWindow();
   setupAutoUpdater();
 

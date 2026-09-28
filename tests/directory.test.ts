@@ -16,8 +16,11 @@ describe('MockDirectory', () => {
 
   it('creates a user with active status', () => {
     const u = dir.createUser({
-      username: 'test.user', displayName: 'Test', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 'test.user',
+      displayName: 'Test',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     expect(u.status).toBe('active');
     expect(dir.listUsers()).toHaveLength(1);
@@ -25,8 +28,11 @@ describe('MockDirectory', () => {
 
   it('disables a user and records audit', () => {
     const u = dir.createUser({
-      username: 't', displayName: 'T', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 't',
+      displayName: 'T',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     dir.disableUser(u.id, u.id, 'leaving');
     expect(dir.getUser(u.id)!.status).toBe('disabled');
@@ -35,8 +41,11 @@ describe('MockDirectory', () => {
 
   it('enableUser is a no-op if user is not disabled', () => {
     const u = dir.createUser({
-      username: 't', displayName: 'T', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 't',
+      displayName: 'T',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     dir.enableUser(u.id, u.id); // should not throw
     expect(dir.getUser(u.id)!.status).toBe('active');
@@ -44,8 +53,11 @@ describe('MockDirectory', () => {
 
   it('addToGroup / removeFromGroup keep both sides in sync', () => {
     const u = dir.createUser({
-      username: 't', displayName: 'T', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 't',
+      displayName: 'T',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     const g = dir.createGroup('grp-test', 'test');
     dir.addToGroup(u.id, g.id, u.id);
@@ -58,8 +70,11 @@ describe('MockDirectory', () => {
 
   it('effectiveRoleIds returns the role owned by each group', () => {
     const u = dir.createUser({
-      username: 't', displayName: 'T', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 't',
+      displayName: 'T',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     const g = dir.createGroup('grp-x', 'x');
     const r = dir.createRole('role-x', 'role x', ['x:read']);
@@ -70,8 +85,11 @@ describe('MockDirectory', () => {
 
   it('isDormant: true if lastSignInAt > days ago, false otherwise', () => {
     const u = dir.createUser({
-      username: 't', displayName: 'T', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 't',
+      displayName: 'T',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     u.lastSignInAt = Date.now() - 100 * 24 * 60 * 60 * 1000; // 100 days ago
     expect(dir.isDormant(u.id, 30)).toBe(true);
@@ -80,16 +98,22 @@ describe('MockDirectory', () => {
 
   it('getUserByUsername finds the user', () => {
     dir.createUser({
-      username: 'alice', displayName: 'Alice', email: 'a@e.com',
-      department: 'IT', title: 'Tester',
+      username: 'alice',
+      displayName: 'Alice',
+      email: 'a@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     expect(dir.getUserByUsername('alice')!.displayName).toBe('Alice');
   });
 
   it('moveUser updates department', () => {
     const u = dir.createUser({
-      username: 't', displayName: 'T', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 't',
+      displayName: 'T',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     dir.moveUser(u.id, 'HR', u.id);
     expect(dir.getUser(u.id)!.department).toBe('HR');
@@ -97,8 +121,11 @@ describe('MockDirectory', () => {
 
   it('reset clears everything', () => {
     const u = dir.createUser({
-      username: 't', displayName: 'T', email: 't@e.com',
-      department: 'IT', title: 'Tester',
+      username: 't',
+      displayName: 'T',
+      email: 't@e.com',
+      department: 'IT',
+      title: 'Tester',
     });
     dir.createGroup('grp', 'desc');
     dir.reset();

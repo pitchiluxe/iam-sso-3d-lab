@@ -40,4 +40,3 @@ describe('updateManager', () => {
     expect(typeof updateManager.installUpdate).toBe('function');
   });
 });
-

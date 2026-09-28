@@ -85,10 +85,9 @@ describe('every lab step can be completed by following its brief', () => {
     for (const lab of LAB_REGISTRY) {
       for (const step of lab.steps) {
         if (!/terminat|offboard/i.test(step.title)) continue;
-        expect(
-          step.validator.kind,
-          `${lab.id}/${step.id} "${step.title}"`,
-        ).not.toBe('signin-succeeded');
+        expect(step.validator.kind, `${lab.id}/${step.id} "${step.title}"`).not.toBe(
+          'signin-succeeded',
+        );
       }
     }
   });

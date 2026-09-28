@@ -43,7 +43,16 @@ describe('lab14 revoke/block capabilities are scoped correctly', () => {
     const conductor = new Conductor();
     conductor.start(mkLabId('lab14'));
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     const res = CAPABILITY_BY_ID['oauth.grant.revoke']!.run(ctx, {
       Identity: 'dan.rivera',
@@ -68,7 +77,16 @@ describe('lab14 revoke/block capabilities are scoped correctly', () => {
     const conductor = new Conductor();
     conductor.start(mkLabId('lab14'));
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     CAPABILITY_BY_ID['oauth.app.block']!.run(ctx, { ClientId: 'oauth-quicksign-docs' });
     expect(oauthGrants.isBlocked('oauth-quicksign-docs')).toBe(true);
@@ -85,7 +103,16 @@ describe('lab14 revoke/block capabilities are scoped correctly', () => {
     conductor.forceAdvance(); // s1 -> s2
     expect(labStore.getState().stepIndex).toBe(1);
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     // Revoking Erin's (wrong-user) grant must not complete s2, which is
     // scoped to Dan.

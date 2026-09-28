@@ -33,7 +33,6 @@ afterEach(() => {
   delete (globalThis as { localStorage?: unknown }).localStorage;
 });
 
-
 /** Lab states built twice differ only in wall-clock stamps (event times, the clock). */
 const timeless = (x: unknown): unknown =>
   JSON.parse(JSON.stringify(x, (k, v) => (k === 'clock' || k === 'time' ? undefined : v)));

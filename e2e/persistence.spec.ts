@@ -26,10 +26,17 @@ test('progress persists across page reload via localStorage', async ({ page, con
   // Wait for HUD to reflect Lab 3 (click handler has 300ms fade-out).
   await expect(page.locator('#hud-lab')).toContainText(/3:/, { timeout: 5000 });
   // Wait until the conductor's current lab is actually set.
-  await expect.poll(async () =>
-    page.evaluate(() => !!(window as unknown as { __lab?: { conductor?: { currentLab?: unknown } } }).__lab?.conductor?.currentLab),
-    { timeout: 5000 },
-  ).toBe(true);
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(
+          () =>
+            !!(window as unknown as { __lab?: { conductor?: { currentLab?: unknown } } }).__lab
+              ?.conductor?.currentLab,
+        ),
+      { timeout: 5000 },
+    )
+    .toBe(true);
   // Start screen must be gone after the lab starts.
   await expect(page.locator('#start-screen')).toHaveCount(0);
 
@@ -52,5 +59,7 @@ test('progress persists across page reload via localStorage', async ({ page, con
   expect(JSON.parse(storedAfter!).version).toBe(3);
 
   // Stop the render loop so the browser can tear down without GPU timeout.
-  await page.evaluate(() => (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.());
+  await page.evaluate(() =>
+    (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.(),
+  );
 });

@@ -149,7 +149,10 @@ describe('shipped script templates are runnable as-is', () => {
       // An unknown cmdlet is a template bug — it would greet the learner with
       // "is not recognized" the first time they click it.
       const unknown = res.results.filter((r) => /is not recognized/.test(r.result.output));
-      expect(unknown.map((u) => u.command), `${t.id} has unknown cmdlets`).toEqual([]);
+      expect(
+        unknown.map((u) => u.command),
+        `${t.id} has unknown cmdlets`,
+      ).toEqual([]);
     }
   });
 });

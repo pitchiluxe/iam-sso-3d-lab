@@ -29,6 +29,15 @@ import type { MockCloudRoles } from './mockCloudRoles';
 // Types
 // ---------------------------------------------------------------------------
 
+/** The fields of an audit event the audit-log cmdlet reads. */
+type AuditEventLike = {
+  at: number;
+  action: string;
+  actorId: string;
+  targetId?: string;
+  subjectId?: string;
+};
+
 export interface CapabilityContext {
   dir: MockDirectory;
   idp: MockIdP;
@@ -141,11 +150,31 @@ export const CAPABILITIES: readonly IamCapability[] = [
     cmdlet: 'Get-ADUser',
     readOnly: true,
     params: [
+      { ...P.identity, required: false },
       { name: 'Department', label: 'Department', kind: 'text', required: false },
       { name: 'Filter', label: 'Filter', kind: 'text', required: false },
     ],
     resolvesTicketKinds: [],
     run(ctx, a) {
+      // -Identity used to be ignored, so looking up one account printed the
+      // whole directory and the answer had to be found by eye.
+      if (a.Identity?.trim()) {
+        const u = findUser(ctx, a.Identity);
+        if (!u) return err(`Cannot find an object with identity '${a.Identity}'.`);
+        const groups = ctx.dir.listGroups().filter((g) => g.memberIds.includes(u.id));
+        return ok(`${u.displayName} (${u.username})`, [
+          {
+            Name: u.displayName,
+            SamAccountName: u.username,
+            Department: u.department,
+            Title: u.title,
+            Enabled: u.status !== 'disabled',
+            LockedOut: u.status === 'locked',
+            MFA: u.mfa,
+            MemberOf: groups.map((g) => g.name).join(', ') || '(none)',
+          },
+        ]);
+      }
       const dept = a.Department?.trim();
       const users = ctx.dir.listUsers(dept ? { department: dept } : undefined);
       return ok(
@@ -554,18 +583,40 @@ export const CAPABILITIES: readonly IamCapability[] = [
     consoleSection: 'audit',
     cmdlet: 'Get-IamAuditLog',
     readOnly: true,
-    params: [{ name: 'Last', label: 'Entries', kind: 'text', required: false }],
+    params: [
+      { name: 'Last', label: 'Entries', kind: 'text', required: false },
+      { ...P.identity, required: false },
+    ],
     resolvesTicketKinds: [],
     run(ctx, a) {
       const n = Number(a.Last ?? 20);
-      const events = ctx.audit.tail(Number.isFinite(n) && n > 0 ? n : 20);
+      const last = Number.isFinite(n) && n > 0 ? n : 20;
+      // Names, not ids, and who a change was made to: "group.add → grp-domain-admins"
+      // does not say who was added, which is the question an audit asks.
+      const name = (id: string | undefined): string =>
+        !id
+          ? '—'
+          : (ctx.dir.getUser(id as never)?.username ??
+            ctx.dir.getGroup(id as never)?.name ??
+            ctx.dir.getRole(id as never)?.name ??
+            id);
+      let events = ctx.audit.events as AuditEventLike[];
+      if (a.Identity?.trim()) {
+        const u = findUser(ctx, a.Identity);
+        if (!u) return err(`Cannot find an object with identity '${a.Identity}'.`);
+        events = events.filter(
+          (e) => e.targetId === u.id || e.subjectId === u.id || e.actorId === u.id,
+        );
+      }
+      events = [...events].sort((x, y) => x.at - y.at).slice(-last);
       return ok(
         `${events.length} event(s).`,
         events.map((e) => ({
           Time: new Date(e.at).toLocaleTimeString(),
           Action: e.action,
-          Actor: ctx.dir.getUser(e.actorId)?.username ?? e.actorId,
-          Target: e.targetId ?? '—',
+          Actor: name(e.actorId),
+          Target: name(e.targetId),
+          Member: e.subjectId ? name(e.subjectId) : '',
         })),
       );
     },

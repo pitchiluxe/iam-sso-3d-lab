@@ -8,7 +8,9 @@
  */
 import { test, expect } from '@playwright/test';
 
-test('app boots, start screen renders 17 lab cards, starting a lab updates the HUD', async ({ page }) => {
+test('app boots, start screen renders 17 lab cards, starting a lab updates the HUD', async ({
+  page,
+}) => {
   const consoleErrors: string[] = [];
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -36,10 +38,17 @@ test('app boots, start screen renders 17 lab cards, starting a lab updates the H
   await expect(page.locator('#hud-lab')).toContainText(/1:/, { timeout: 5000 });
   // Wait for the conductor to actually finish starting (the click handler
   // has a 300ms fade-out before it fires onStart).
-  await expect.poll(async () =>
-    page.evaluate(() => !!(window as unknown as { __lab?: { conductor?: { currentLab?: unknown } } }).__lab?.conductor?.currentLab),
-    { timeout: 5000 },
-  ).toBe(true);
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(
+          () =>
+            !!(window as unknown as { __lab?: { conductor?: { currentLab?: unknown } } }).__lab
+              ?.conductor?.currentLab,
+        ),
+      { timeout: 5000 },
+    )
+    .toBe(true);
   // Start screen must be gone after the lab starts.
   await expect(page.locator('#start-screen')).toHaveCount(0);
   // Zone pill should show IAM Operations
@@ -51,5 +60,7 @@ test('app boots, start screen renders 17 lab cards, starting a lab updates the H
   expect(consoleErrors.filter((e) => !e.includes('favicon'))).toHaveLength(0);
 
   // Stop the render loop so the browser can tear down without GPU timeout.
-  await page.evaluate(() => (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.());
+  await page.evaluate(() =>
+    (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.(),
+  );
 });

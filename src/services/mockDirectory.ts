@@ -207,6 +207,12 @@ export class MockDirectory {
 
   createGroup(name: string, description: string, actor: UserId = SYSTEM_ACTOR): Group {
     const id = mkGroupId(name);
+    // A second create of the same group used to replace it with an empty one,
+    // while every member kept the group in its own groupIds: memberships then
+    // existed on one side only. Seeds that apply the baseline twice (the
+    // multi-ticket queues did) started with groups that listed nobody.
+    const existing = this.groups.get(id);
+    if (existing) return existing;
     const g: Group = { id, name, description, memberIds: [] };
     this.groups.set(id, g);
     this.audit.record({ actorId: actor, action: 'group.created', targetId: id });
@@ -287,6 +293,9 @@ export class MockDirectory {
     actor: UserId = SYSTEM_ACTOR,
   ): RoleRecord {
     const id = mkRoleId(name);
+    // Same as createGroup: re-creating must not replace what exists.
+    const existing = this.roles.get(id);
+    if (existing) return existing;
     const r: RoleRecord = appId
       ? { id, name, description, permissions, appId }
       : { id, name, description, permissions };

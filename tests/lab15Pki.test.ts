@@ -23,7 +23,7 @@ describe('lab15 fault design', () => {
     expect(LAB_15.faults[0]!.kind).toBe('expired-cert');
   });
 
-  it("s4 (proactive rotation) does not depend on any fault having been applied to Help Desk Portal", () => {
+  it('s4 (proactive rotation) does not depend on any fault having been applied to Help Desk Portal', () => {
     const s4 = LAB_15.steps.find((s) => s.id === 's4')!;
     expect(s4.validator.kind).toBe('app-config-fixed');
     expect(LAB_15.faults.some((f) => f.targetAppId === 'app-helpdesk-portal')).toBe(false);
@@ -52,7 +52,16 @@ describe('lab15 end-to-end mechanics', () => {
     conductor.start(mkLabId('lab15'));
     conductor.forceAdvance(); // s1 -> s2 (clean skip, nothing pending yet)
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     const diff = apps.getApp('app-finance' as never)!.configDiffFromBaseline!;
     for (const [field, { expected }] of Object.entries(diff)) {

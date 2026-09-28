@@ -18,7 +18,10 @@ type LabWindow = Window & {
     conductor?: { currentLab?: unknown };
     engine?: {
       player: {
-        teleport: (pos: { x: number; y: number; z: number }, lookAt: { x: number; y: number; z: number }) => void;
+        teleport: (
+          pos: { x: number; y: number; z: number },
+          lookAt: { x: number; y: number; z: number },
+        ) => void;
         setKey: (k: string, d: boolean) => void;
       };
     };
@@ -48,7 +51,9 @@ async function dismissTutorialIfPresent(page: import('@playwright/test').Page): 
   }
 }
 
-test('pressing E near a desk monitor opens VM desktop with Active Directory + Objectives', async ({ page }) => {
+test('pressing E near a desk monitor opens VM desktop with Active Directory + Objectives', async ({
+  page,
+}) => {
   const consoleErrors: string[] = [];
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -79,8 +84,12 @@ test('pressing E near a desk monitor opens VM desktop with Active Directory + Ob
   expect(await page.locator('#desktop-overlay').isVisible()).toBe(true);
 
   // Active Directory + Objectives windows auto-open inside the VM
-  await expect(page.locator('.apex-window-titlebar:has-text("Active Directory Users and Computers")')).toBeVisible({ timeout: 5000 });
-  await expect(page.locator('.apex-window-titlebar:has-text("Objectives")')).toBeVisible({ timeout: 5000 });
+  await expect(
+    page.locator('.apex-window-titlebar:has-text("Active Directory Users and Computers")'),
+  ).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.apex-window-titlebar:has-text("Objectives")')).toBeVisible({
+    timeout: 5000,
+  });
 
   // No console errors (excluding favicon)
   expect(consoleErrors.filter((e) => !e.includes('favicon'))).toHaveLength(0);
@@ -88,7 +97,9 @@ test('pressing E near a desk monitor opens VM desktop with Active Directory + Ob
   await page.evaluate(() => (window as unknown as LabWindow).__lab?.stopRenderLoop?.());
 });
 
-test('walking forward and right eventually reaches the right desk monitor and E opens VM', async ({ page }) => {
+test('walking forward and right eventually reaches the right desk monitor and E opens VM', async ({
+  page,
+}) => {
   const consoleErrors: string[] = [];
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());

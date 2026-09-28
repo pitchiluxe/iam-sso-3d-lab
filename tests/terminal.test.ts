@@ -119,6 +119,28 @@ describe('dispatch', () => {
     ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: admin.id };
   });
 
+  it('Get-ADUser -Identity returns that account, with its groups', () => {
+    const g = ctx.dir.createGroup('grp-finance-analysts', 'x');
+    ctx.dir.addToGroup(ctx.dir.getUserByUsername('jane.doe')!.id, g.id, ctx.actor);
+    const r = dispatch('Get-ADUser -Identity jane.doe', ctx);
+    expect(r.ok).toBe(true);
+    expect(r.output).toContain('grp-finance-analysts');
+    expect(r.output).not.toContain('admin');
+    expect(dispatch('Get-ADUser -Identity nobody.here', ctx).ok).toBe(false);
+  });
+
+  it('Get-IamAuditLog names who a group change was made to, and filters by account', () => {
+    const jane = ctx.dir.getUserByUsername('jane.doe')!;
+    const g = ctx.dir.createGroup('grp-domain-admins', 'x');
+    ctx.dir.addToGroup(jane.id, g.id, ctx.actor);
+    const all = dispatch('Get-IamAuditLog -Last 5', ctx).output;
+    expect(all).toContain('grp-domain-admins');
+    expect(all).toMatch(/group\.add.*grp-domain-admins.*jane\.doe/);
+    const mine = dispatch('Get-IamAuditLog -Identity jane.doe', ctx).output;
+    expect(mine).toContain('group.add');
+    expect(mine).not.toContain('group.created');
+  });
+
   it('runs a query and returns a table', () => {
     const r = dispatch('Get-ADUser', ctx);
     expect(r.ok).toBe(true);

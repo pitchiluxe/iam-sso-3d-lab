@@ -18,7 +18,8 @@ describe('MockTicketQueue', () => {
     const t = q.create({
       kind: 'password-reset',
       requesterId: alice,
-      subject: 'help', body: 'forgot pwd',
+      subject: 'help',
+      body: 'forgot pwd',
       payload: { userId: alice, method: 'helpdesk' },
     });
     expect(t.status).toBe('open');
@@ -27,7 +28,10 @@ describe('MockTicketQueue', () => {
 
   it('assign sets assignee and status=in-progress', () => {
     const t = q.create({
-      kind: 'password-reset', requesterId: alice, subject: 's', body: 'b',
+      kind: 'password-reset',
+      requesterId: alice,
+      subject: 's',
+      body: 'b',
       payload: { userId: alice, method: 'helpdesk' },
     });
     q.assign(t.id, alice);
@@ -37,7 +41,10 @@ describe('MockTicketQueue', () => {
 
   it('comment appends to comments and updates updatedAt', () => {
     const t = q.create({
-      kind: 'password-reset', requesterId: alice, subject: 's', body: 'b',
+      kind: 'password-reset',
+      requesterId: alice,
+      subject: 's',
+      body: 'b',
       payload: { userId: alice, method: 'helpdesk' },
     });
     q.comment(t.id, alice, 'note');
@@ -46,7 +53,10 @@ describe('MockTicketQueue', () => {
 
   it('resolve sets status=resolved and audits', () => {
     const t = q.create({
-      kind: 'password-reset', requesterId: alice, subject: 's', body: 'b',
+      kind: 'password-reset',
+      requesterId: alice,
+      subject: 's',
+      body: 'b',
       payload: { userId: alice, method: 'helpdesk' },
     });
     q.resolve(t.id, alice);
@@ -56,7 +66,10 @@ describe('MockTicketQueue', () => {
 
   it('escalate raises priority to urgent', () => {
     const t = q.create({
-      kind: 'password-reset', requesterId: alice, subject: 's', body: 'b',
+      kind: 'password-reset',
+      requesterId: alice,
+      subject: 's',
+      body: 'b',
       payload: { userId: alice, method: 'helpdesk' },
     });
     q.escalate(t.id, alice);
@@ -64,8 +77,20 @@ describe('MockTicketQueue', () => {
   });
 
   it('list filters by kind and status', () => {
-    q.create({ kind: 'password-reset', requesterId: alice, subject: 's', body: 'b', payload: { userId: alice, method: 'helpdesk' } });
-    q.create({ kind: 'mfa-issue', requesterId: alice, subject: 's', body: 'b', payload: { userId: alice, symptom: 'lost-device' } });
+    q.create({
+      kind: 'password-reset',
+      requesterId: alice,
+      subject: 's',
+      body: 'b',
+      payload: { userId: alice, method: 'helpdesk' },
+    });
+    q.create({
+      kind: 'mfa-issue',
+      requesterId: alice,
+      subject: 's',
+      body: 'b',
+      payload: { userId: alice, symptom: 'lost-device' },
+    });
     expect(q.list({ kind: 'mfa-issue' })).toHaveLength(1);
   });
 });

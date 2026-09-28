@@ -108,7 +108,9 @@ describe('a ticket names only things the learner can find', () => {
       for (const name of text.match(GROUP_RE) ?? []) {
         if (known.has(name)) continue;
         if (asksToCreate(ticket.body, name)) continue; // the ticket asks for it
-        missing.push(`${label} :: "${ticket.subject}" names ${name}, which is not in the directory`);
+        missing.push(
+          `${label} :: "${ticket.subject}" names ${name}, which is not in the directory`,
+        );
       }
     }
     expect(missing, missing.join('\n')).toEqual([]);
@@ -122,7 +124,9 @@ describe('a ticket names only things the learner can find', () => {
       for (const name of text.match(ROLE_RE) ?? []) {
         if (known.has(name)) continue;
         if (asksToCreate(ticket.body, name)) continue;
-        missing.push(`${label} :: "${ticket.subject}" names ${name}, which is not in the directory`);
+        missing.push(
+          `${label} :: "${ticket.subject}" names ${name}, which is not in the directory`,
+        );
       }
     }
     expect(missing, missing.join('\n')).toEqual([]);
@@ -250,17 +254,32 @@ function actionsAskedFor(body: string): Set<string> {
   const say = (re: RegExp, action: string) => {
     if (re.test(b)) found.add(action);
   };
-  say(/reset (the |her |his |their )?password|rotate the password|password reset|reset it|force password reset|setting a compliant password|reset her password|reset his password/, 'password.reset');
+  say(
+    /reset (the |her |his |their )?password|rotate the password|password reset|reset it|force password reset|setting a compliant password|reset her password|reset his password/,
+    'password.reset',
+  );
   say(/unlock/, 'account.unlock');
-  say(/reset (her |his |their |the )?(totp |vpn |push )?(mfa|enrollment)|re-?enrol|mfa reset|disable push mfa/, 'mfa.reset');
-  say(/disable (the |her |his |their )?account|disable account|disable her|disable his/, 'user.disabled');
+  say(
+    /reset (her |his |their |the )?(totp |vpn |push )?(mfa|enrollment)|re-?enrol|mfa reset|disable push mfa/,
+    'mfa.reset',
+  );
+  say(
+    /disable (the |her |his |their )?account|disable account|disable her|disable his/,
+    'user.disabled',
+  );
   say(/revoke .{0,30}sessions?\b|revoke .{0,20}tokens\b/, 'session.revoked');
   say(/remove .{0,45}\b(groups?|grp-|membership)/, 'group.remove');
   say(/add .{0,45}\b(to grp-|grp-|as members?|membership)|grant .{0,45}membership/, 'group.add');
   say(/grant (her|him|them)? ?the role|grant .{0,20}role-/, 'role.grant');
   say(/remove the unauthorized role|revoke .{0,20}role|remove .{0,20}role-/, 'role.revoke');
-  say(/create (an |his |her |their )?account|provision|create accounts|create the group/, 'user.created');
-  say(/block the ip|enable account lockout policy|conditional access|check the certificate|saml|nameid|claim configuration/, 'policy.updated');
+  say(
+    /create (an |his |her |their )?account|provision|create accounts|create the group/,
+    'user.created',
+  );
+  say(
+    /block the ip|enable account lockout policy|conditional access|check the certificate|saml|nameid|claim configuration/,
+    'policy.updated',
+  );
   return found;
 }
 

@@ -30,7 +30,16 @@ describe('lab17 permissions and trust are independently scoped', () => {
     const conductor = new Conductor();
     conductor.start(mkLabId('lab17'));
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
     const before = cloudRoles.getByName('prod-data-readonly')!.trustedUserIds.length;
 
     CAPABILITY_BY_ID['cloud.role.scope-permissions']!.run(ctx, {
@@ -47,7 +56,16 @@ describe('lab17 permissions and trust are independently scoped', () => {
     const conductor = new Conductor();
     conductor.start(mkLabId('lab17'));
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
     const beforePerms = [...cloudRoles.getByName('prod-data-readonly')!.permissions];
 
     CAPABILITY_BY_ID['cloud.role.scope-trust']!.run(ctx, {
@@ -64,7 +82,16 @@ describe('lab17 permissions and trust are independently scoped', () => {
     const conductor = new Conductor();
     conductor.start(mkLabId('lab17'));
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     CAPABILITY_BY_ID['cloud.role.scope-trust']!.run(ctx, {
       RoleName: 'prod-data-readonly',
@@ -87,7 +114,16 @@ describe('lab17 s4/s5 gate on the specific user named, not either outcome', () =
     conductor.start(mkLabId('lab17'));
     conductor.forceAdvance(); // s1 -> s2
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     CAPABILITY_BY_ID['cloud.role.scope-permissions']!.run(ctx, {
       RoleName: 'prod-data-readonly',

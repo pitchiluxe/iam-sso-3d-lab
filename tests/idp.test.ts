@@ -10,11 +10,15 @@ describe('MockIdP', () => {
 
   beforeEach(() => {
     audit = new MockAuditLog();
-    dir  = new MockDirectory(audit);
-    idp  = new MockIdP(audit, dir);
+    dir = new MockDirectory(audit);
+    idp = new MockIdP(audit, dir);
     const u = dir.createUser({
-      username: 'alice', displayName: 'Alice', email: 'a@e.com',
-      department: 'IT', title: 'Tester', mfa: 'none',
+      username: 'alice',
+      displayName: 'Alice',
+      email: 'a@e.com',
+      department: 'IT',
+      title: 'Tester',
+      mfa: 'none',
     });
     userId = u.id;
     idp.seedPasswords({ alice: 'secret' });

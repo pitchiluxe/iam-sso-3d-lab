@@ -44,7 +44,10 @@ describe('in-app Portfolio DC01', () => {
     expect(findGroup(s, 'GS-HR-Onboarding-RO')).toBeTruthy();
     expect(s.ad.passwordPolicy.minPasswordLength).toBe(14);
     expect(s.hosts.DC01.folders).toContain('c:\\iam');
-    expect(s.ntfs['c:\\iam']!.map((a) => a.identity)).toEqual(['BUILTIN\\Administrators', 'NT AUTHORITY\\SYSTEM']);
+    expect(s.ntfs['c:\\iam']!.map((a) => a.identity)).toEqual([
+      'BUILTIN\\Administrators',
+      'NT AUTHORITY\\SYSTEM',
+    ]);
     expect(s.history).toEqual([]);
   });
 
@@ -85,7 +88,8 @@ describe('in-app Portfolio DC01', () => {
   it('p02 RBAC: role groups nested to resources, read-only analyst, matrix', () => {
     const s = portfolioBase();
     seedScenario(s, 'p02');
-    const g = (n: string): string => `New-ADGroup -Name ${n} -GroupScope Global -Path "OU=Security_Groups,OU=Groups,${ROOT}"`;
+    const g = (n: string): string =>
+      `New-ADGroup -Name ${n} -GroupScope Global -Path "OU=Security_Groups,OU=Groups,${ROOT}"`;
     sh(
       s,
       g('Role-Finance-Lead'),
@@ -103,14 +107,22 @@ describe('in-app Portfolio DC01', () => {
       'icacls C:\\Shares\\Finance /grant "CORP\\Res-Finance-RW:(OI)(CI)M"',
       'icacls C:\\Shares\\Finance /grant "CORP\\Res-Finance-RO:(OI)(CI)RX"',
     );
-    file(s, 'C:\\IAM\\RBAC\\access-matrix.md', '| Role | Group | Permission |\n|---|---|---|\n| Finance Lead | Res-Finance-RW | Modify |\n| Engineering Developer | … | … |\n| HR Specialist | … | … |');
+    file(
+      s,
+      'C:\\IAM\\RBAC\\access-matrix.md',
+      '| Role | Group | Permission |\n|---|---|---|\n| Finance Lead | Res-Finance-RW | Modify |\n| Engineering Developer | … | … |\n| HR Specialist | … | … |',
+    );
     expect(failing(s, 'p02')).toEqual([]);
   });
 
   it('p03 access review: remove the flaw only, record the evidence', () => {
     const s = portfolioBase();
     seedScenario(s, 'p03');
-    file(s, 'C:\\IAM\\UAR\\requests\\mgr.engineering.txt', 'Review for mgr.engineering: rlopez in GG-Engineering-Restricted');
+    file(
+      s,
+      'C:\\IAM\\UAR\\requests\\mgr.engineering.txt',
+      'Review for mgr.engineering: rlopez in GG-Engineering-Restricted',
+    );
     file(s, 'C:\\IAM\\UAR\\decision.txt', 'Reviewer mgr.engineering: DENY rlopez');
     sh(
       s,
@@ -125,9 +137,14 @@ describe('in-app Portfolio DC01', () => {
   it('p04 stale accounts: remediate the dormant three, spare the exclusions', () => {
     const s = portfolioBase();
     seedScenario(s, 'p04');
-    sh(s, 'Search-ADAccount -AccountInactive -TimeSpan 90 -UsersOnly | Export-Csv C:\\IAM\\Stale\\stale.csv');
+    sh(
+      s,
+      'Search-ADAccount -AccountInactive -TimeSpan 90 -UsersOnly | Export-Csv C:\\IAM\\Stale\\stale.csv',
+    );
     for (const u of ['old.contractor1', 'old.contractor2', 'legacy.intern']) {
-      const groups = s.ad.groups.filter((g) => g.members.includes(u) && g.name !== 'Domain Users').map((g) => g.name);
+      const groups = s.ad.groups
+        .filter((g) => g.members.includes(u) && g.name !== 'Domain Users')
+        .map((g) => g.name);
       sh(
         s,
         `Disable-ADAccount ${u}`,
@@ -157,10 +174,26 @@ describe('in-app Portfolio DC01', () => {
     seedScenario(s, 'p10');
     const facts = factsFromLabState(s);
     expect(facts.events.filter((e) => e.id === 4625)).toHaveLength(4);
-    file(s, 'C:\\IAM\\SIEM\\queries\\bruteforce.txt', "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4625,4624}");
-    file(s, 'C:\\IAM\\SIEM\\queries\\groups.txt', "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4728}");
-    file(s, 'C:\\IAM\\SIEM\\queries\\mfa.kql', 'AuditLogs | where OperationName has "security info"');
-    file(s, 'C:\\IAM\\SIEM\\alerts.csv', 'siem.victim brute force then success\nsiem.temp added to Domain Admins\n1102 audit log cleared');
+    file(
+      s,
+      'C:\\IAM\\SIEM\\queries\\bruteforce.txt',
+      "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4625,4624}",
+    );
+    file(
+      s,
+      'C:\\IAM\\SIEM\\queries\\groups.txt',
+      "Get-WinEvent -FilterHashtable @{LogName='Security';Id=4728}",
+    );
+    file(
+      s,
+      'C:\\IAM\\SIEM\\queries\\mfa.kql',
+      'AuditLogs | where OperationName has "security info"',
+    );
+    file(
+      s,
+      'C:\\IAM\\SIEM\\alerts.csv',
+      'siem.victim brute force then success\nsiem.temp added to Domain Admins\n1102 audit log cleared',
+    );
     expect(failing(s, 'p10')).toEqual([]);
   });
 });

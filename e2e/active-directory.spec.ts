@@ -23,10 +23,17 @@ test('Active Directory overlay opens via dev hook and renders the directory', as
   // Dismiss the start screen by starting a lab through it.
   await page.locator('.lab-card[data-id="lab01"]').click();
   // Wait for the fade-out + start to actually complete.
-  await expect.poll(async () =>
-    page.evaluate(() => !!(window as unknown as { __lab?: { conductor?: { dir?: unknown } } }).__lab?.conductor?.dir),
-    { timeout: 5000 },
-  ).toBe(true);
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(
+          () =>
+            !!(window as unknown as { __lab?: { conductor?: { dir?: unknown } } }).__lab?.conductor
+              ?.dir,
+        ),
+      { timeout: 5000 },
+    )
+    .toBe(true);
   // Make sure the start screen is gone before opening the console.
   await expect(page.locator('#start-screen')).toHaveCount(0);
 
@@ -50,7 +57,9 @@ test('Active Directory overlay opens via dev hook and renders the directory', as
   await expect(page.locator('#console-overlay')).toBeVisible();
 
   // Header should show the title
-  await expect(page.locator('#console-overlay-title')).toContainText('Active Directory Users and Computers');
+  await expect(page.locator('#console-overlay-title')).toContainText(
+    'Active Directory Users and Computers',
+  );
   // The console tree (root, domain, Users container) and the object count.
   // Lab 01 builds the directory from scratch, so no particular account is assumed.
   const tree = page.locator('#console-overlay .aduc-tree');
@@ -66,5 +75,7 @@ test('Active Directory overlay opens via dev hook and renders the directory', as
   expect(consoleErrors.filter((e) => !e.includes('favicon'))).toHaveLength(0);
 
   // Stop the render loop so the browser can tear down without GPU timeout.
-  await page.evaluate(() => (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.());
+  await page.evaluate(() =>
+    (window as unknown as { __lab?: { stopRenderLoop?: () => void } }).__lab?.stopRenderLoop?.(),
+  );
 });

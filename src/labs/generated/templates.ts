@@ -1255,6 +1255,13 @@ function buildBatchSeed(
        * whose whole subject is access the account should not have.
        */
       inGroups?: string[];
+      /**
+       * Disable the account first — for tickets about an account already
+       * terminated (a session that outlived it). Done after openSession.
+       */
+      disableAccount?: boolean;
+      /** Third-party OAuth grants the subject has consented to — for token-theft tickets. */
+      oauthGrants?: { appName: string; publisher: string; clientId: string; scopes: string[] }[];
     };
     priority?: 'low' | 'normal' | 'high' | 'urgent';
   }>,
@@ -1362,6 +1369,18 @@ function buildBatchSeed(
         // a locked account, and then there would be no session to revoke.
         ctx.idp.seedPasswords({ [subject.username]: 'Passw0rd!' });
         ctx.idp.signIn(subject.username, 'Passw0rd!');
+      }
+      for (const g of ev.oauthGrants ?? []) {
+        ctx.oauthGrants?.seedGrant({
+          ...g,
+          grantedByUserId: subject.id,
+          grantedAt: SCENE_START - 14 * 24 * 60 * 60 * 1000,
+        });
+      }
+      if (ev.disableAccount) {
+        ctx.dir.disableUser(subject.id, SYSTEM_ACTOR, 'terminated');
+        const d = ctx.audit.events[ctx.audit.events.length - 1];
+        if (d && d.action === 'user.disabled') d.at = SCENE_START - 3 * 24 * 60 * 60 * 1000;
       }
       if (ev.lockAccount) {
         // 'locked', not 'disabled': they are different states with different
@@ -1547,6 +1566,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Terminate Alex Morgan (departing employee)',
           body: 'Alex Morgan (alex.morgan, alex.morgan@northwind.example) is leaving the company today. Disable their account immediately, revoke all active sessions, and remove them from all groups.',
           username: 'alex.morgan',
+          evidence: { openSession: true },
           priority: 'urgent' as const,
         },
         {
@@ -1646,6 +1666,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           body: 'Contractor Sam Nguyen (sam.nguyen) project ended. Disable their account (sam.nguyen), revoke all sessions, and remove from grp-engineering-dev within 24 hours.',
           username: 'bob.sato',
           subjectUsername: 'sam.nguyen',
+          evidence: { inGroups: ['grp-engineering-dev'], openSession: true },
           seedSubject: {
             displayName: 'Sam Nguyen',
             department: 'Engineering',
@@ -1740,7 +1761,13 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subjectUsername: 'greta.olsen',
           body: 'Fifty failed sign-ins in five minutes from 185.220.101.x, against Finance accounts. The edge team is blocking the address. Your part: for the targeted account greta.olsen, revoke the active sessions and reset the password, so a guessed credential is worth nothing.',
           username: 'alex.morgan',
-          evidence: { failedSignIns: 12, fromIp: '185.220.101.44', thenSuccess: true },
+          // The stuffed credential worked once: there is a session to revoke.
+          evidence: {
+            failedSignIns: 12,
+            fromIp: '185.220.101.44',
+            thenSuccess: true,
+            openSession: true,
+          },
           priority: 'urgent' as const,
         },
         {
@@ -1750,6 +1777,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subjectUsername: 'cara.patel',
           body: 'Cara Patel (cara.patel) reports a ransom note on her workstation. Desktop support has the machine. Your part: disable her account (cara.patel) and revoke all active sessions, so the credential is worthless while the machine is quarantined.',
           username: 'bob.sato',
+          evidence: { openSession: true },
           priority: 'urgent' as const,
         },
         {
@@ -1767,6 +1795,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Immediate offboard: Dan Rivera — HR flagged',
           body: 'HR has flagged Dan Rivera (dan.rivera) for immediate termination per management request. Disable account, revoke all sessions, remove from all groups, and revoke any application tokens NOW.',
           username: 'dan.rivera',
+          evidence: { openSession: true },
           priority: 'urgent' as const,
         },
         {
@@ -1777,6 +1806,8 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           username: 'erin.cho',
           subjectUsername: 'svc-deploy',
           seedSubject: { displayName: 'svc-deploy', department: 'IT', title: 'Service Account' },
+          // The finding itself: without it there was nothing to remove.
+          evidence: { inGroups: ['grp-domain-admins'] },
           priority: 'high' as const,
         },
         {
@@ -1785,6 +1816,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Phishing: Finn Müller clicked link',
           body: 'Finn Müller (finn.muller) reported clicking a phishing link in an email. His credentials may be compromised. Reset his password immediately, revoke all active sessions, and confirm MFA is enforced.',
           username: 'finn.muller',
+          evidence: { openSession: true },
           priority: 'high' as const,
         },
         {
@@ -1794,6 +1826,8 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           body: "Ivy Park's (ivy.park) account was terminated three days ago, but a session against the HR Portal is still valid. Revoke all her active sessions and confirm the account is disabled.",
           username: 'greta.olsen',
           subjectUsername: 'ivy.park',
+          // Terminated three days ago, with a session that outlived it.
+          evidence: { openSession: true, disableAccount: true },
           priority: 'high' as const,
         },
         {
@@ -1802,6 +1836,7 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'Dormant account used after 90 days idle: hank.oneill',
           body: "Hank O'Neill's account (hank.oneill) had no sign-in activity for 90 days, then signed in at 14:22 today from an address nobody recognises. Hank is on leave and unreachable. Disable the account and revoke its sessions until he confirms it was him.",
           username: 'hank.oneill',
+          evidence: { thenSuccess: true, fromIp: '45.83.64.12', openSession: true },
           priority: 'high' as const,
         },
         {
@@ -1828,7 +1863,17 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           subject: 'OAuth token theft: third-party app "QuickReports" using stolen tokens',
           // A session to revoke. Without one the instruction is a no-op that
           // records nothing, and the ticket cannot be closed.
-          evidence: { openSession: true },
+          evidence: {
+            openSession: true,
+            oauthGrants: [
+              {
+                appName: 'QuickReports',
+                publisher: 'QuickReports Inc. (unverified)',
+                clientId: 'quickreports-app',
+                scopes: ['Mail.Read', 'Files.Read.All', 'offline_access'],
+              },
+            ],
+          },
           body: 'Security team detected the third-party app "QuickReports" using OAuth tokens belonging to alex.morgan. Tokens were likely stolen via a phishing campaign. Revoke all OAuth tokens for alex.morgan, contact QuickReports support, and audit other compromised accounts.',
           username: 'alex.morgan',
           priority: 'high' as const,
@@ -1870,6 +1915,8 @@ export const BATCH_TEMPLATES: BatchTemplate[] = [
           body: 'Contractor Sam Nguyen (sam.nguyen) project ended today. Remove sam.nguyen from grp-engineering-dev, grp-build-servers, and any other groups. Disable the account and confirm all access is revoked within 24 hours.',
           username: 'erin.cho',
           subjectUsername: 'sam.nguyen',
+          // What the ticket asks to take away.
+          evidence: { inGroups: ['grp-engineering-dev', 'grp-build-servers'] },
           seedSubject: {
             displayName: 'Sam Nguyen',
             department: 'Engineering',
@@ -2007,7 +2054,8 @@ for (const t of LAB_TEMPLATES) {
 // so the IDs match what buildLab() used when creating the lab.
 for (const bt of BATCH_TEMPLATES) {
   registerLabSeed(bt.id, (ctx) => {
-    applyBaseline(ctx.dir, ctx.idp, ctx.apps);
+    // No applyBaseline here: bt.seed applies it, and applying it twice is
+    // what left the queues' group memberships one-sided.
     // Retrieve ticket IDs that were stored on the Lab object during generation.
     const ticketIds: string[] =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

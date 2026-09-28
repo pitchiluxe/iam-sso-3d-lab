@@ -73,15 +73,15 @@ describe('parseScript', () => {
   });
 
   it('accepts double-quoted and unquoted array entries', () => {
-    expect(parseScript(`$a = @("x", y , 'z')\nforeach ($i in $a) {\n Get-ADUser -Filter $i\n}`)).toEqual(
-      ['Get-ADUser -Filter x', 'Get-ADUser -Filter y', 'Get-ADUser -Filter z'],
-    );
+    expect(
+      parseScript(`$a = @("x", y , 'z')\nforeach ($i in $a) {\n Get-ADUser -Filter $i\n}`),
+    ).toEqual(['Get-ADUser -Filter x', 'Get-ADUser -Filter y', 'Get-ADUser -Filter z']);
   });
 
   it('substitutes a variable used outside a loop', () => {
-    expect(parseScript(`$dept = @('Finance')\nforeach ($d in $dept) {\nGet-ADUser -Department $d\n}`)).toEqual(
-      ['Get-ADUser -Department Finance'],
-    );
+    expect(
+      parseScript(`$dept = @('Finance')\nforeach ($d in $dept) {\nGet-ADUser -Department $d\n}`),
+    ).toEqual(['Get-ADUser -Department Finance']);
   });
 
   it('leaves an unknown variable alone rather than silently emptying it', () => {

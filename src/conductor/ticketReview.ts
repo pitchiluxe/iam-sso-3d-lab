@@ -163,6 +163,8 @@ const REMEDIATION = new Set([
   'session.revoked',
   'policy.updated',
   'app.config.changed',
+  // Revoking a stolen OAuth grant is the containment a token-theft ticket asks for.
+  'oauth.grant.revoked',
 ]);
 
 function runChecks(

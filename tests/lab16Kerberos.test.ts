@@ -34,7 +34,16 @@ describe('lab16 sign-in depends on both fixes', () => {
     const conductor = new Conductor();
     conductor.start(mkLabId('lab16'));
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     // Unlock only — account is active, but the clock is still skewed.
     CAPABILITY_BY_ID['account.unlock']!.run(ctx, { Identity: 'greta.olsen' });
@@ -50,7 +59,16 @@ describe('lab16 sign-in depends on both fixes', () => {
     const conductor = new Conductor();
     conductor.start(mkLabId('lab16'));
     const { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit } = conductor.getServices();
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
 
     CAPABILITY_BY_ID['idp.clock.sync']!.run(ctx, {});
     CAPABILITY_BY_ID['account.unlock']!.run(ctx, { Identity: 'greta.olsen' });

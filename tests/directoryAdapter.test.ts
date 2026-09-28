@@ -22,7 +22,12 @@ describe('main VM directory', () => {
 
   it('shows the domain with its standard containers, users and groups in Users', () => {
     const a = conductorAdapter(c);
-    expect(a.tree().children.map((x) => x.name)).toEqual(['Builtin', 'Computers', 'Domain Controllers', 'Users']);
+    expect(a.tree().children.map((x) => x.name)).toEqual([
+      'Builtin',
+      'Computers',
+      'Domain Controllers',
+      'Users',
+    ]);
     const rows = a.rows('users');
     expect(rows.some((r) => r.kind === 'user')).toBe(true);
     expect(rows.some((r) => r.kind === 'group')).toBe(true);
@@ -32,7 +37,16 @@ describe('main VM directory', () => {
     const a = conductorAdapter(c);
     let notified = 0;
     a.subscribe(() => notified++);
-    const r = a.createUser({ first: 'Ada', last: 'Test', logon: 'ada.test', department: 'IT', title: 'Analyst', password: '', mustChange: false, containerId: 'users' });
+    const r = a.createUser({
+      first: 'Ada',
+      last: 'Test',
+      logon: 'ada.test',
+      department: 'IT',
+      title: 'Analyst',
+      password: '',
+      mustChange: false,
+      containerId: 'users',
+    });
     expect(r.ok, JSON.stringify(r)).toBe(true);
     expect(c.dir.getUserByUsername('ada.test')).toBeTruthy();
     expect(a.setEnabled('ada.test', false).ok).toBe(true);
@@ -68,13 +82,32 @@ describe('DC01 directory', () => {
     expect(a.unavailable()).toBeNull();
     const before = world.state.history.length;
 
-    expect(a.createOu({ name: 'Demo', description: 'Demo OU', containerId: DOMAIN_DN }).ok).toBe(true);
+    expect(a.createOu({ name: 'Demo', description: 'Demo OU', containerId: DOMAIN_DN }).ok).toBe(
+      true,
+    );
     const ouDn = `OU=Demo,${DOMAIN_DN}`;
     expect(a.tree().children.some((x) => x.id === ouDn)).toBe(true);
 
-    const u = a.createUser({ first: 'Priya', last: 'Nair', logon: 'pnair', department: 'Finance', title: 'Analyst', password: 'Correct-Horse-Battery-9!', mustChange: true, containerId: ouDn });
+    const u = a.createUser({
+      first: 'Priya',
+      last: 'Nair',
+      logon: 'pnair',
+      department: 'Finance',
+      title: 'Analyst',
+      password: 'Correct-Horse-Battery-9!',
+      mustChange: true,
+      containerId: ouDn,
+    });
     expect(u.ok, JSON.stringify(u)).toBe(true);
-    expect(a.createGroup({ name: 'grp-demo', description: '', scope: 'Global', category: 'Security', containerId: ouDn }).ok).toBe(true);
+    expect(
+      a.createGroup({
+        name: 'grp-demo',
+        description: '',
+        scope: 'Global',
+        category: 'Security',
+        containerId: ouDn,
+      }).ok,
+    ).toBe(true);
     expect(a.addMember('pnair', 'grp-demo').ok).toBe(true);
 
     const rows = a.rows(ouDn);
@@ -85,7 +118,9 @@ describe('DC01 directory', () => {
     expect(world.state.history.some((h) => /New-ADUser/.test(h.command))).toBe(true);
 
     expect(a.move('user', 'pnair', `CN=Users,${DOMAIN_DN}`).ok).toBe(true);
-    expect(a.rows(`CN=Users,${DOMAIN_DN}`).some((r) => r.kind === 'user' && r.user.sam === 'pnair')).toBe(true);
+    expect(
+      a.rows(`CN=Users,${DOMAIN_DN}`).some((r) => r.kind === 'user' && r.user.sam === 'pnair'),
+    ).toBe(true);
     expect(a.deleteOu(ouDn).ok).toBe(false); // the group is still inside
     expect(a.deleteGroup('grp-demo').ok).toBe(true);
     expect(a.deleteOu(ouDn).ok).toBe(true);
@@ -94,7 +129,16 @@ describe('DC01 directory', () => {
 
   it('refuses a password the domain policy rejects, with the policy error', () => {
     const a = labStateAdapter(() => world);
-    const r = a.createUser({ first: 'Weak', last: 'Pass', logon: 'weak', department: '', title: '', password: 'short', mustChange: false, containerId: `CN=Users,${DOMAIN_DN}` });
+    const r = a.createUser({
+      first: 'Weak',
+      last: 'Pass',
+      logon: 'weak',
+      department: '',
+      title: '',
+      password: 'short',
+      mustChange: false,
+      containerId: `CN=Users,${DOMAIN_DN}`,
+    });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/password/i);
   });
@@ -124,8 +168,27 @@ describe('Active Directory replaces the IAM Console', () => {
 
   it('files the same evidence the IAM Console filed, against the current step', () => {
     const a = conductorAdapter(c);
-    expect(a.createUser({ first: 'Ada', last: 'Test', logon: 'ada.test', department: 'IT', title: '', password: '', mustChange: false, containerId: 'users' }).ok).toBe(true);
-    expect(a.createGroup({ name: 'grp-demo', description: 'x', scope: 'Global', category: 'Security', containerId: 'users' }).ok).toBe(true);
+    expect(
+      a.createUser({
+        first: 'Ada',
+        last: 'Test',
+        logon: 'ada.test',
+        department: 'IT',
+        title: '',
+        password: '',
+        mustChange: false,
+        containerId: 'users',
+      }).ok,
+    ).toBe(true);
+    expect(
+      a.createGroup({
+        name: 'grp-demo',
+        description: 'x',
+        scope: 'Global',
+        category: 'Security',
+        containerId: 'users',
+      }).ok,
+    ).toBe(true);
     expect(a.addMember('ada.test', 'grp-demo').ok).toBe(true);
     expect(a.setEnabled('ada.test', false).ok).toBe(true);
     const labels = evidenceStore.getState().items.map((e) => `${e.stepId}|${e.label}`);
@@ -139,7 +202,16 @@ describe('Active Directory replaces the IAM Console', () => {
 
   it('a created account signs in with the lab default password (Test Sign-In)', () => {
     const a = conductorAdapter(c);
-    a.createUser({ first: 'Ada', last: 'Test', logon: 'ada.test', department: 'IT', title: '', password: '', mustChange: false, containerId: 'users' });
+    a.createUser({
+      first: 'Ada',
+      last: 'Test',
+      logon: 'ada.test',
+      department: 'IT',
+      title: '',
+      password: '',
+      mustChange: false,
+      containerId: 'users',
+    });
     const r = a.testSignIn!('ada.test');
     expect(r.ok, JSON.stringify(r)).toBe(true);
     a.setEnabled('ada.test', false);
@@ -149,7 +221,14 @@ describe('Active Directory replaces the IAM Console', () => {
   it('edits accounts and groups in place (Properties)', () => {
     const a = conductorAdapter(c);
     const sam = c.dir.listUsers()[0]!.username;
-    expect(a.updateUser!(sam, { displayName: 'Renamed Person', email: '', department: '', title: 'Lead' }).ok).toBe(true);
+    expect(
+      a.updateUser!(sam, {
+        displayName: 'Renamed Person',
+        email: '',
+        department: '',
+        title: 'Lead',
+      }).ok,
+    ).toBe(true);
     expect(c.dir.getUserByUsername(sam)!.displayName).toBe('Renamed Person');
     const g = c.dir.listGroups()[0]!.name;
     expect(a.updateGroup!(g, 'New description').ok).toBe(true);

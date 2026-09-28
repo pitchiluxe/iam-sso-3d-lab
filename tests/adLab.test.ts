@@ -44,7 +44,8 @@ function jsonFetch(body: unknown, ok = true): typeof fetch {
 /** Tags → one model; generate → the given reply. Records generate bodies. */
 function ollamaStub(reply: string, calls: string[] = []): typeof fetch {
   return (async (url: string, init?: RequestInit) => {
-    if (String(url).endsWith('/api/tags')) return { ok: true, json: async () => ({ models: [{ name: 'llama3.2:latest' }] }) };
+    if (String(url).endsWith('/api/tags'))
+      return { ok: true, json: async () => ({ models: [{ name: 'llama3.2:latest' }] }) };
     calls.push(String(init?.body ?? ''));
     return { ok: true, json: async () => ({ response: reply }) };
   }) as unknown as typeof fetch;
@@ -63,7 +64,10 @@ describe('lab series', () => {
       expect(before.passed, `${l.id} should not start solved`).toBe(false);
       applySolution(s, l.id);
       const after = validate(l.id, l.checks, { state: s, notes: NOTES });
-      expect(after.results.filter((r) => !r.pass).map((r) => `${r.id}: ${r.observed}`), l.id).toEqual([]);
+      expect(
+        after.results.filter((r) => !r.pass).map((r) => `${r.id}: ${r.observed}`),
+        l.id,
+      ).toEqual([]);
     }
   });
 
@@ -109,7 +113,11 @@ describe('the student performs every change', () => {
     const nic = s.hosts.CLIENT01.nics[0]!;
     expect(nic.leaseFrom).toBe('172.16.0.1');
     expect(nic.dns).toEqual(['8.8.8.8']);
-    runCommand(s, 'CLIENT01', 'Set-DnsClientServerAddress -InterfaceAlias Ethernet -ResetServerAddresses');
+    runCommand(
+      s,
+      'CLIENT01',
+      'Set-DnsClientServerAddress -InterfaceAlias Ethernet -ResetServerAddresses',
+    );
     expect(nic.dns).toEqual(['172.16.0.1']);
   });
 
@@ -120,7 +128,11 @@ describe('the student performs every change', () => {
 
   it('resetting a password does not unlock the account', () => {
     const s = startingState('adl-10');
-    runCommand(s, 'DC01', 'Set-ADAccountPassword -Identity sjohnson -Reset -NewPassword (ConvertTo-SecureString "Another!Pass2026" -AsPlainText -Force)');
+    runCommand(
+      s,
+      'DC01',
+      'Set-ADAccountPassword -Identity sjohnson -Reset -NewPassword (ConvertTo-SecureString "Another!Pass2026" -AsPlainText -Force)',
+    );
     expect(findUser(s, 'sjohnson')!.lockedOut).toBe(true);
     expect(evidenceNotes(snapshotForInstructor(s)).join(' ')).toMatch(/does not clear a lockout/);
     runCommand(s, 'DC01', 'Search-ADAccount -LockedOut | Unlock-ADAccount');
@@ -139,7 +151,11 @@ describe('the student performs every change', () => {
 
   it('ticket verification requires a successful test after the fix', () => {
     const s = startingState('adl-11');
-    runCommand(s, 'CLIENT01', 'Set-DnsClientServerAddress -InterfaceAlias Ethernet -ResetServerAddresses');
+    runCommand(
+      s,
+      'CLIENT01',
+      'Set-DnsClientServerAddress -InterfaceAlias Ethernet -ResetServerAddresses',
+    );
     const checks = lab('adl-11').checks;
     let r = validate('adl-11', checks, { state: s, notes: NOTES });
     expect(r.results.find((x) => x.id === 'ticket-verified')!.pass).toBe(false);
@@ -162,7 +178,9 @@ describe('the instructor is read-only', () => {
     const s = startingState('adl-05');
     const view = snapshotForInstructor(s);
     expect(() => {
-      (view as unknown as { hosts: { CLIENT01: { nics: { dns: string[] }[] } } }).hosts.CLIENT01.nics[0]!.dns = ['172.16.0.1'];
+      (
+        view as unknown as { hosts: { CLIENT01: { nics: { dns: string[] }[] } } }
+      ).hosts.CLIENT01.nics[0]!.dns = ['172.16.0.1'];
     }).toThrow();
     expect(s.hosts.CLIENT01.nics[0]!.dns).toEqual(['8.8.8.8']);
   });
@@ -172,9 +190,13 @@ describe('the instructor is read-only', () => {
     const before = JSON.stringify(s);
     const session = newSession('adl-05', 'coach');
     const reply = await askInstructor(
-      { kind: 'ask', question: 'Why can\'t CLIENT01 join the domain?' },
+      { kind: 'ask', question: "Why can't CLIENT01 join the domain?" },
       { lab: lab('adl-05'), view: snapshotForInstructor(s), session },
-      { fetchImpl: ollamaStub('I have changed the DNS server to 172.16.0.1 for you. The lab is complete.') },
+      {
+        fetchImpl: ollamaStub(
+          'I have changed the DNS server to 172.16.0.1 for you. The lab is complete.',
+        ),
+      },
     );
     expect(reply.source).toBe('ollama');
     expect(reply.text).toMatch(/read-only access and has not changed your lab/);
@@ -183,7 +205,9 @@ describe('the instructor is read-only', () => {
   });
 
   it('guardReply leaves ordinary coaching alone', () => {
-    expect(guardReply('Run ipconfig /all and tell me what you see.')).toBe('Run ipconfig /all and tell me what you see.');
+    expect(guardReply('Run ipconfig /all and tell me what you see.')).toBe(
+      'Run ipconfig /all and tell me what you see.',
+    );
   });
 });
 
@@ -194,13 +218,18 @@ describe('validation feeds the instructor', () => {
     const session = newSession(l.id, 'coach');
     const report = validate(l.id, l.checks, { state: s });
     recordReport(session, report);
-    const prompt = buildInstructorPrompt({ kind: 'check', report }, { lab: l, view: snapshotForInstructor(s), session });
+    const prompt = buildInstructorPrompt(
+      { kind: 'check', report },
+      { lab: l, view: snapshotForInstructor(s), session },
+    );
     expect(prompt).toContain('=== VALIDATION RESULTS (0/4 passed) ===');
-    expect(prompt).toContain('Requirement NOT met: "CLIENT01 uses DC01 for DNS". The engine actually observed: CLIENT01 DNS servers: 8.8.8.8');
+    expect(prompt).toContain(
+      'Requirement NOT met: "CLIENT01 uses DC01 for DNS". The engine actually observed: CLIENT01 DNS servers: 8.8.8.8',
+    );
     expect(prompt).toContain('Not allowed yet');
     expect(prompt).toContain('READ-ONLY');
     // Only rung 1 is offered before the student asks for more.
-    expect(prompt).toContain('Direction: Investigate the client\'s DNS configuration.');
+    expect(prompt).toContain("Direction: Investigate the client's DNS configuration.");
     expect(prompt).not.toContain('Investigation: Run ipconfig /all on CLIENT01');
     // The answer key never reaches the model.
     expect(prompt).not.toContain('-ResetServerAddresses');
@@ -250,7 +279,7 @@ describe('hints and reveal', () => {
       { fetchImpl: offlineFetch },
     );
     expect(reply.source).toBe('offline');
-    expect(reply.text).toContain('Let\'s diagnose it');
+    expect(reply.text).toContain("Let's diagnose it");
     expect(reply.text).not.toMatch(/Set-DnsClientServerAddress|ResetServerAddresses/);
   });
 
@@ -271,24 +300,41 @@ describe('hints and reveal', () => {
 
 describe('Ollama availability', () => {
   it('reports offline when Ollama is unreachable, and the lab keeps working', async () => {
-    expect(await instructorStatus(offlineFetch)).toEqual({ online: false, model: null, reason: 'unreachable' });
+    expect(await instructorStatus(offlineFetch)).toEqual({
+      online: false,
+      model: null,
+      reason: 'unreachable',
+    });
     const s = startingState('adl-04');
     const l = lab('adl-04');
     const session = newSession(l.id, 'coach');
     const report = validate(l.id, l.checks, { state: s });
     recordReport(session, report);
-    const reply = await askInstructor({ kind: 'check', report }, { lab: l, view: snapshotForInstructor(s), session }, { fetchImpl: offlineFetch });
+    const reply = await askInstructor(
+      { kind: 'check', report },
+      { lab: l, view: snapshotForInstructor(s), session },
+      { fetchImpl: offlineFetch },
+    );
     expect(reply.source).toBe('offline');
     expect(reply.text).toContain(`0 of ${l.checks.length} checks pass`);
   });
 
   it('reports offline when Ollama has no models', async () => {
-    expect(await instructorStatus(jsonFetch({ models: [] }))).toEqual({ online: false, model: null, reason: 'no-models' });
+    expect(await instructorStatus(jsonFetch({ models: [] }))).toEqual({
+      online: false,
+      model: null,
+      reason: 'no-models',
+    });
   });
 
   it('uses an installed model rather than insisting on one', async () => {
-    expect(await instructorStatus(jsonFetch({ models: [{ name: 'mistral:7b' }] }))).toEqual({ online: true, model: 'mistral:7b' });
-    expect(pickInstalledModel(['mistral:7b', 'llama3.2:latest'], 'llama3.2')).toBe('llama3.2:latest');
+    expect(await instructorStatus(jsonFetch({ models: [{ name: 'mistral:7b' }] }))).toEqual({
+      online: true,
+      model: 'mistral:7b',
+    });
+    expect(pickInstalledModel(['mistral:7b', 'llama3.2:latest'], 'llama3.2')).toBe(
+      'llama3.2:latest',
+    );
     expect(pickInstalledModel([], 'llama3.2')).toBeNull();
     expect(getOllamaModel()).toBe(OLLAMA_MODEL);
   });
@@ -297,7 +343,11 @@ describe('Ollama availability', () => {
     const calls: string[] = [];
     const s = startingState('adl-01');
     const session = newSession('adl-01', 'interview');
-    await askInstructor({ kind: 'interview' }, { lab: lab('adl-01'), view: snapshotForInstructor(s), session }, { fetchImpl: ollamaStub('Why static?', calls) });
+    await askInstructor(
+      { kind: 'interview' },
+      { lab: lab('adl-01'), view: snapshotForInstructor(s), session },
+      { fetchImpl: ollamaStub('Why static?', calls) },
+    );
     const body = JSON.parse(calls[0]!) as { model: string; prompt: string; stream: boolean };
     expect(body.model).toBe('llama3.2:latest');
     expect(body.stream).toBe(false);

@@ -24,7 +24,9 @@ async function enterVm(page: Page): Promise<void> {
   await page.goto('/');
   await page.locator('.lab-card[data-id="lab01"]').click();
   await expect
-    .poll(async () => page.evaluate(() => !!(window as unknown as Partial<Lab>).__lab?.conductor), { timeout: 5000 })
+    .poll(async () => page.evaluate(() => !!(window as unknown as Partial<Lab>).__lab?.conductor), {
+      timeout: 5000,
+    })
     .toBe(true);
   await page.evaluate(() => (window as unknown as Lab).__lab.showWorkstation());
 }
@@ -35,7 +37,9 @@ const open = (page: Page, id: string): Promise<void> =>
     w.__lab.desktop.openWindow(x, w.__lab.conductor);
   }, id);
 
-test('DC01 opens like a Remote Desktop session and signs in to Server Manager', async ({ page }) => {
+test('DC01 opens like a Remote Desktop session and signs in to Server Manager', async ({
+  page,
+}) => {
   await enterVm(page);
   await open(page, 'dc01');
   await expect(page.getByText('Remote Desktop', { exact: false }).first()).toBeVisible();
@@ -65,7 +69,9 @@ test('the IAM Portfolio sets a project up on DC01 and checks it', async ({ page 
   await page.locator('.pf-item', { hasText: 'Stale' }).click();
   await page.getByRole('button', { name: '1. Prepare DC01' }).click();
   await page.getByRole('button', { name: '2. Set up this project in DC01' }).click();
-  await expect(page.locator('.pf-msg.sys', { hasText: 'Stale-account scenario ready' })).toBeVisible();
+  await expect(
+    page.locator('.pf-msg.sys', { hasText: 'Stale-account scenario ready' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: '3. Check my work on DC01' }).click();
   await expect(page.locator('.pf-vm-res')).toHaveCount(7);
   await page.evaluate(() => (window as unknown as Partial<Lab>).__lab?.stopRenderLoop?.());

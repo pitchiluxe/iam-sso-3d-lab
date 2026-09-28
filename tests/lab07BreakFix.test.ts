@@ -44,13 +44,22 @@ describe('lab07 fault pool and fix mechanism', () => {
     conductor.forceAdvance();
     expect(labStore.getState().stepIndex).toBe(2);
 
-    const ctx = { dir, idp, apps, oauthGrants, cloudRoles, tickets, audit, actor: 'system' as never };
+    const ctx = {
+      dir,
+      idp,
+      apps,
+      oauthGrants,
+      cloudRoles,
+      tickets,
+      audit,
+      actor: 'system' as never,
+    };
     if (LAB_07_FAULT === 'clock-skew') {
       expect(CAPABILITY_BY_ID['idp.clock.sync']!.run(ctx, {}).ok).toBe(true);
     } else if (LAB_07_FAULT === 'dns-resolution') {
-      expect(
-        CAPABILITY_BY_ID['app.service.restart']!.run(ctx, { App: 'app-finance' }).ok,
-      ).toBe(true);
+      expect(CAPABILITY_BY_ID['app.service.restart']!.run(ctx, { App: 'app-finance' }).ok).toBe(
+        true,
+      );
     } else {
       const diff = apps.getApp('app-finance' as never)!.configDiffFromBaseline!;
       for (const [field, { expected }] of Object.entries(diff)) {

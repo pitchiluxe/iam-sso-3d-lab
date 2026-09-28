@@ -64,6 +64,14 @@ export interface DesktopOverlay {
   onExit: (() => void) | null;
 }
 
+/** Height of the VM taskbar; windows keep clear of it. */
+const TASKBAR_HEIGHT = 48;
+/** How much of a title bar must stay visible above the taskbar to be grabbed. */
+const TITLEBAR_GRAB = 36;
+/** Windows stack between these; the taskbar sits at 5000. */
+const WINDOW_Z_BASE = 200;
+const WINDOW_Z_CEILING = 4000;
+
 const DESKTOP_APPS: WindowDef[] = [
   {
     // IAM Range's Active Directory Users and Computers, over this lab's directory.
@@ -310,7 +318,7 @@ class WindowManager {
   readonly conductor: Conductor;
   readonly desktop: HTMLElement;
   readonly windows: Map<string, WinState> = new Map();
-  zIndex = 200;
+  zIndex = WINDOW_Z_BASE;
 
   constructor(conductor: Conductor, desktop: HTMLElement) {
     this.conductor = conductor;
@@ -375,7 +383,7 @@ class WindowManager {
       w.el.style.left = '0';
       w.el.style.top = '0';
       w.el.style.width = '100%';
-      w.el.style.height = 'calc(100% - 48px)';
+      w.el.style.height = `calc(100% - ${TASKBAR_HEIGHT}px)`;
       w.maximized = true;
     } else {
       if (w.preMax) {
@@ -391,6 +399,16 @@ class WindowManager {
   focus(id: string): void {
     const w = this.windows.get(id);
     if (!w) return;
+    // Windows stack below the taskbar's band (5000). Focusing kept counting
+    // up without limit, so after enough clicks a window painted over the
+    // taskbar; renumber them, in their current order, before that happens.
+    if (this.zIndex >= WINDOW_Z_CEILING) {
+      const order = [...this.windows.values()].sort(
+        (a, b) => Number(a.el.style.zIndex || 0) - Number(b.el.style.zIndex || 0),
+      );
+      this.zIndex = WINDOW_Z_BASE;
+      for (const other of order) other.el.style.zIndex = String(++this.zIndex);
+    }
     w.el.style.zIndex = String(++this.zIndex);
     this.updateTaskbar();
   }
@@ -442,14 +460,20 @@ class WindowManager {
   private createWindowElement(def: WindowDef): WinState {
     const el = document.createElement('div');
     el.className = 'apex-window';
+    // Open fully above the taskbar. A tall window at a random offset used to
+    // land with its bottom edge and resize grip underneath it.
+    const width = Math.min(def.width, Math.max(320, window.innerWidth - 16));
+    const height = Math.min(def.height, Math.max(240, window.innerHeight - TASKBAR_HEIGHT - 16));
+    const maxLeft = Math.max(0, window.innerWidth - width - 8);
+    const maxTop = Math.max(0, window.innerHeight - TASKBAR_HEIGHT - height - 8);
     el.style.cssText = `
       position: fixed;
       display: flex;
       flex-direction: column;
-      width: ${def.width}px;
-      height: ${def.height}px;
-      left: ${80 + Math.random() * 200}px;
-      top: ${60 + Math.random() * 120}px;
+      width: ${width}px;
+      height: ${height}px;
+      left: ${Math.min(80 + Math.random() * 200, maxLeft)}px;
+      top: ${Math.min(60 + Math.random() * 120, maxTop)}px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 8px 8px 4px 4px;
@@ -526,7 +550,9 @@ class WindowManager {
       const w = this.windows.get(def.id);
       if (!w || w.maximized) return;
       const maxX = window.innerWidth - 60;
-      const maxY = window.innerHeight - 60;
+      // The title bar stays above the taskbar, so the window can always be
+      // grabbed again: dragged lower, it slid underneath and was lost.
+      const maxY = window.innerHeight - TASKBAR_HEIGHT - TITLEBAR_GRAB;
       const x = Math.max(0, Math.min(maxX, e.clientX - dx));
       const y = Math.max(0, Math.min(maxY, e.clientY - dy));
       el.style.left = `${x}px`;
@@ -757,6 +783,9 @@ export function createDesktopOverlay(): DesktopOverlay {
       #taskbar-apps { display: flex; align-items: center; gap: 4px; overflow: hidden; }
       #taskbar-apps.crowded .taskbar-app { width: 46px; flex: 0 0 46px; padding: 0; justify-content: center; }
       #taskbar-apps.crowded .taskbar-app-label { display: none; }
+      /* The taskbar owns its strip: windows pass behind it, as in Windows. */
+      #apex-taskbar { z-index: 5000 !important; }
+      #start-menu, #calendar-widget { z-index: 5001 !important; }
     `;
     document.head.appendChild(style);
   }

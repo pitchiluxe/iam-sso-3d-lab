@@ -62,7 +62,11 @@ function world(lab: Lab): SeedContext {
 const build = (t: LabTemplate): Lab => t.buildLab(fallbackFlavor({ ...t }), []);
 
 /** Step kinds done through the UI's evidence capture or automation, proven elsewhere. */
-const PROVEN_ELSEWHERE = new Set(['evidence-collected', 'users-provisioned', 'mfa-policy-enforced']);
+const PROVEN_ELSEWHERE = new Set([
+  'evidence-collected',
+  'users-provisioned',
+  'mfa-policy-enforced',
+]);
 
 /**
  * Do one step the way the ADUC view and its snap-ins do it. Returns why it
@@ -140,7 +144,9 @@ function doStep(w: SeedContext, lab: Lab, step: Lab['steps'][number]): string | 
       return null;
     }
     case 'signin-succeeded':
-      return u && w.idp.signIn(u.username, `${u.username}123`).ok ? null : `${p.userId} cannot sign in`;
+      return u && w.idp.signIn(u.username, `${u.username}123`).ok
+        ? null
+        : `${p.userId} cannot sign in`;
     case 'ticket-resolved': {
       // The step is "resolve the ticket": do what the ticket asks, then it is
       // closed below, through the review.
@@ -165,20 +171,36 @@ function matched(w: SeedContext, step: Lab['steps'][number], since: number): boo
   const on = (action: string, key: 'targetId' | 'subjectId', id: string | undefined) =>
     evs.some((e) => e.action === action && e[key] === id);
   switch (step.validator.kind) {
-    case 'user-created': return on('user.created', 'targetId', uid);
-    case 'user-disabled': return on('user.disabled', 'targetId', uid);
-    case 'user-enabled': return on('user.unlocked', 'targetId', uid);
-    case 'user-deleted': return evs.some((e) => e.action === 'user.deleted');
-    case 'account-unlocked': return on('account.unlock', 'targetId', uid);
-    case 'group-added': return evs.some((e) => e.action === 'group.add' && e.subjectId === uid && e.targetId === gid);
-    case 'group-removed': return evs.some((e) => e.action === 'group.remove' && e.subjectId === uid && e.targetId === gid);
-    case 'session-revoked': return on('session.revoked', 'subjectId', uid);
-    case 'password-reset': return on('password.reset', 'targetId', uid);
-    case 'mfa-reset': return on('mfa.reset', 'targetId', uid);
-    case 'mfa-challenge-completed': return on('mfa.challenge', 'targetId', uid);
-    case 'role-revoked': return on('role.revoke', 'subjectId', uid);
-    case 'signin-succeeded': return on('signin.success', 'targetId', uid);
-    default: return true;
+    case 'user-created':
+      return on('user.created', 'targetId', uid);
+    case 'user-disabled':
+      return on('user.disabled', 'targetId', uid);
+    case 'user-enabled':
+      return on('user.unlocked', 'targetId', uid);
+    case 'user-deleted':
+      return evs.some((e) => e.action === 'user.deleted');
+    case 'account-unlocked':
+      return on('account.unlock', 'targetId', uid);
+    case 'group-added':
+      return evs.some((e) => e.action === 'group.add' && e.subjectId === uid && e.targetId === gid);
+    case 'group-removed':
+      return evs.some(
+        (e) => e.action === 'group.remove' && e.subjectId === uid && e.targetId === gid,
+      );
+    case 'session-revoked':
+      return on('session.revoked', 'subjectId', uid);
+    case 'password-reset':
+      return on('password.reset', 'targetId', uid);
+    case 'mfa-reset':
+      return on('mfa.reset', 'targetId', uid);
+    case 'mfa-challenge-completed':
+      return on('mfa.challenge', 'targetId', uid);
+    case 'role-revoked':
+      return on('role.revoke', 'subjectId', uid);
+    case 'signin-succeeded':
+      return on('signin.success', 'targetId', uid);
+    default:
+      return true;
   }
 }
 
@@ -216,19 +238,26 @@ describe('each daily ticket, worked as the app works it', () => {
         expect(ticket!.kind).toBe(filed.kind);
         if (filed.about) {
           const about = w.dir.getUserByUsername(filed.about)!;
-          expect(ticket!.relatedUserIds, 'filed against the account it is about').toContain(about.id);
+          expect(ticket!.relatedUserIds, 'filed against the account it is about').toContain(
+            about.id,
+          );
         }
         // What it asks for is what the lab grades.
-        for (const s of lab.steps) expect(ticket!.body).toContain(s.brief.replace(lab.brief, '').trim().slice(0, 40));
+        for (const s of lab.steps)
+          expect(ticket!.body).toContain(s.brief.replace(lab.brief, '').trim().slice(0, 40));
       }
-      if (ticket) expect(reviewTicket(ticket, deps(), ME).passed, 'closes before any work').toBe(false);
+      if (ticket)
+        expect(reviewTicket(ticket, deps(), ME).passed, 'closes before any work').toBe(false);
 
       for (const s of lab.steps) {
         if (PROVEN_ELSEWHERE.has(s.validator.kind)) continue;
         const before = w.audit.events.length;
         const why = doStep(w, lab, s);
         expect(why, `${s.id} "${s.title}" could not be done`).toBeNull();
-        expect(matched(w, s, before), `${s.id} "${s.title}" was done but its validator did not see it`).toBe(true);
+        expect(
+          matched(w, s, before),
+          `${s.id} "${s.title}" was done but its validator did not see it`,
+        ).toBe(true);
       }
 
       if (ticket) {
@@ -247,10 +276,14 @@ describe('the AI narrative names only what the lab grades', () => {
 
   it('refuses an invented group, account or address and accepts the real ones', () => {
     const facts = ['Add Alex Morgan to grp-vpn-users for the VPN Portal.', 'alex.morgan'];
-    expect(groundedNarrative('Alex needs grp-vpn-users approved by her manager.', facts)).toBe(true);
+    expect(groundedNarrative('Alex needs grp-vpn-users approved by her manager.', facts)).toBe(
+      true,
+    );
     expect(groundedNarrative('Please add Alex to grp-remote-workers.', facts)).toBe(false);
     expect(groundedNarrative('Also give role-jira-admin.', facts)).toBe(false);
-    expect(groundedNarrative('Signed in as alex.morgan@northwind.example from home.', facts)).toBe(true);
+    expect(groundedNarrative('Signed in as alex.morgan@northwind.example from home.', facts)).toBe(
+      true,
+    );
     expect(groundedNarrative('Seen from 203.0.113.9.', facts)).toBe(false);
     // An app the ticket is not about is extra work nobody grades.
     expect(groundedNarrative('She also needs the Admin Console.', facts)).toBe(false);
@@ -291,12 +324,18 @@ describe('the AI narrative names only what the lab grades', () => {
       targetDept: 'Finance',
       facts: ['Add Alex Morgan to grp-vpn-users.'],
     };
-    vi.stubGlobal('fetch', reply('Alex Morgan needs grp-finance-admins for quarter close, urgently.'));
+    vi.stubGlobal(
+      'fetch',
+      reply('Alex Morgan needs grp-finance-admins for quarter close, urgently.'),
+    );
     const invented = await generateFlavor(req);
     expect(invented.narrative).not.toContain('grp-finance-admins');
     expect(invented.coachingQuestion).toBe('Who approved it?');
 
-    vi.stubGlobal('fetch', reply('Alex Morgan works from home during quarter close and needs grp-vpn-users.'));
+    vi.stubGlobal(
+      'fetch',
+      reply('Alex Morgan works from home during quarter close and needs grp-vpn-users.'),
+    );
     expect((await generateFlavor(req)).narrative).toContain('grp-vpn-users');
   });
 });

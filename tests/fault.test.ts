@@ -17,15 +17,24 @@ describe('FaultService', () => {
     fs = new FaultService({ dir, idp, apps, audit });
 
     alice = dir.createUser({
-      username: 'alice', displayName: 'A', email: 'a@e.com',
-      department: 'Finance', title: 'T',
+      username: 'alice',
+      displayName: 'A',
+      email: 'a@e.com',
+      department: 'Finance',
+      title: 'T',
     }).id;
 
     appId = mkAppId('app-finance');
     apps.registerApp({
-      id: appId, name: 'Finance', protocol: 'SAML',
-      redirectUri: 'https://finance.northwind.example/cb', clientId: 'cid',
-      entityId: 'urn:finance', requiredRoleIds: [], mfaRequired: false, status: 'configured',
+      id: appId,
+      name: 'Finance',
+      protocol: 'SAML',
+      redirectUri: 'https://finance.northwind.example/cb',
+      clientId: 'cid',
+      entityId: 'urn:finance',
+      requiredRoleIds: [],
+      mfaRequired: false,
+      status: 'configured',
     });
   });
 

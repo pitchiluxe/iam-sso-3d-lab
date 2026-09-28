@@ -49,7 +49,8 @@ function seedTemplate(template: (typeof BATCH_TEMPLATES)[number]) {
 const text = (t: Ticket): string => `${t.subject} ${t.body}`;
 
 /** Ticket prose that promises failed sign-in attempts in the log. */
-const DESCRIBES_FAILURES = /failed (login|logon|sign-?in|attempt)|brute[- ]force|credential stuffing/i;
+const DESCRIBES_FAILURES =
+  /failed (login|logon|sign-?in|attempt)|brute[- ]force|credential stuffing/i;
 
 /** Ticket prose that says the account is currently locked out. */
 const DESCRIBES_LOCKOUT = /\block(ed|out)\b/i;
